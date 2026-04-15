@@ -1,0 +1,18 @@
+# Node
+**/node_modules
+**/dist
+**/coverage
+
+# Environment
+**/.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
