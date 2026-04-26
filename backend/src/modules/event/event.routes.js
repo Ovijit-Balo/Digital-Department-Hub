@@ -8,7 +8,24 @@ const { ROLES } = require('../../config/roles');
 
 const router = express.Router();
 
-router.get('/', validate(eventValidation.listEvents), eventController.listEvents);
+router.get('/', validate(eventValidation.listPublicEvents), eventController.listEvents);
+router.get('/calendar', validate(eventValidation.listPublicCalendar), eventController.listCalendar);
+
+router.get(
+  '/manage',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.MANAGER, ROLES.EDITOR),
+  validate(eventValidation.listManageEvents),
+  eventController.listManageEvents
+);
+
+router.get(
+  '/manage/calendar',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.MANAGER, ROLES.EDITOR),
+  validate(eventValidation.listManageCalendar),
+  eventController.listManageCalendar
+);
 
 router.post(
   '/',

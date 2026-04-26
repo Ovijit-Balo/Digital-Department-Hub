@@ -1,5 +1,3 @@
-/* eslint-disable no-console */
-
 const baseUrl = process.env.BASE_URL || 'http://127.0.0.1:5000/api/v1';
 
 const args = process.argv.slice(2);
@@ -137,6 +135,7 @@ const run = async () => {
     try {
       const notices = await callApi('/scholarships/notices?status=open&limit=5');
       context.noticeId = notices?.items?.[0]?._id || null;
+      context.noticeCategoryCode = notices?.items?.[0]?.categories?.[0]?.code || '';
       addResult(
         'scholarship_notices',
         notices.total > 0 && Boolean(context.noticeId),
@@ -207,6 +206,7 @@ const run = async () => {
             'I am applying for this scholarship because of strong academic performance and active participation in department activities.',
           gpa: 3.8,
           department: 'CSE',
+          selectedCategoryCode: context.noticeCategoryCode || undefined,
           documents: [{ name: 'Transcript', url: 'https://example.com/transcript.pdf' }]
         })
       });

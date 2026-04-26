@@ -20,8 +20,18 @@ const listPages = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(data);
 });
 
+const listPublicPages = asyncHandler(async (req, res) => {
+  const data = await cmsService.listPages({ ...req.query, status: 'published' });
+  res.status(StatusCodes.OK).json(data);
+});
+
 const getPage = asyncHandler(async (req, res) => {
   const page = await cmsService.getPageById(req.params.id);
+  res.status(StatusCodes.OK).json({ page });
+});
+
+const getPageBySlug = asyncHandler(async (req, res) => {
+  const page = await cmsService.getPageBySlug(req.params.slug);
   res.status(StatusCodes.OK).json({ page });
 });
 
@@ -65,6 +75,11 @@ const createNewsPost = asyncHandler(async (req, res) => {
 
 const listNewsPosts = asyncHandler(async (req, res) => {
   const data = await cmsService.listNewsPosts(req.query);
+  res.status(StatusCodes.OK).json(data);
+});
+
+const listPublicNewsPosts = asyncHandler(async (req, res) => {
+  const data = await cmsService.listNewsPosts({ ...req.query, status: 'published' });
   res.status(StatusCodes.OK).json(data);
 });
 
@@ -116,8 +131,18 @@ const listBlogPosts = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(data);
 });
 
+const listPublicBlogPosts = asyncHandler(async (req, res) => {
+  const data = await cmsService.listBlogPosts({ ...req.query, status: 'published' });
+  res.status(StatusCodes.OK).json(data);
+});
+
 const getBlogPost = asyncHandler(async (req, res) => {
   const post = await cmsService.getBlogPostById(req.params.id);
+  res.status(StatusCodes.OK).json({ post });
+});
+
+const getBlogPostBySlug = asyncHandler(async (req, res) => {
+  const post = await cmsService.getBlogPostBySlug(req.params.slug);
   res.status(StatusCodes.OK).json({ post });
 });
 
@@ -164,6 +189,11 @@ const listGalleries = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(data);
 });
 
+const listPublicGalleries = asyncHandler(async (req, res) => {
+  const data = await cmsService.listGalleries({ ...req.query, status: 'published' });
+  res.status(StatusCodes.OK).json(data);
+});
+
 const getGallery = asyncHandler(async (req, res) => {
   const gallery = await cmsService.getGalleryById(req.params.id);
   res.status(StatusCodes.OK).json({ gallery });
@@ -201,21 +231,27 @@ const createUploadSignature = asyncHandler(async (req, res) => {
 
 module.exports = {
   createPage,
+  listPublicPages,
   listPages,
   getPage,
+  getPageBySlug,
   updatePage,
   deletePage,
   createNewsPost,
+  listPublicNewsPosts,
   listNewsPosts,
   getNewsPost,
   updateNewsPost,
   deleteNewsPost,
   createBlogPost,
+  listPublicBlogPosts,
   listBlogPosts,
   getBlogPost,
+  getBlogPostBySlug,
   updateBlogPost,
   deleteBlogPost,
   createGallery,
+  listPublicGalleries,
   listGalleries,
   getGallery,
   updateGallery,

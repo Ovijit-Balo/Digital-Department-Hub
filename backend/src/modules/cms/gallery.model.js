@@ -2,8 +2,8 @@ const mongoose = require('mongoose');
 
 const localizedTextSchema = new mongoose.Schema(
   {
-    en: { type: String, required: true, trim: true },
-    bn: { type: String, required: true, trim: true }
+    en: { type: String, default: '', trim: true },
+    bn: { type: String, default: '', trim: true }
   },
   { _id: false }
 );
@@ -18,10 +18,20 @@ const localizedTextOptionalSchema = new mongoose.Schema(
 
 const galleryItemSchema = new mongoose.Schema(
   {
-    imageUrl: {
+    mediaType: {
+      type: String,
+      enum: ['image', 'video'],
+      default: 'image'
+    },
+    mediaUrl: {
       type: String,
       required: true,
       trim: true
+    },
+    thumbnailUrl: {
+      type: String,
+      trim: true,
+      default: ''
     },
     caption: {
       type: localizedTextOptionalSchema,
@@ -35,6 +45,31 @@ const galleryItemSchema = new mongoose.Schema(
   {
     _id: false
   }
+);
+
+const translationWorkflowSchema = new mongoose.Schema(
+  {
+    sourceLanguage: {
+      type: String,
+      enum: ['en', 'bn'],
+      default: 'en'
+    },
+    enStatus: {
+      type: String,
+      enum: ['source', 'pending', 'translated', 'reviewed'],
+      default: 'source'
+    },
+    bnStatus: {
+      type: String,
+      enum: ['source', 'pending', 'translated', 'reviewed'],
+      default: 'pending'
+    },
+    lastUpdatedAt: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  { _id: false }
 );
 
 const gallerySchema = new mongoose.Schema(
@@ -52,6 +87,10 @@ const gallerySchema = new mongoose.Schema(
     },
     description: {
       type: localizedTextOptionalSchema,
+      default: () => ({})
+    },
+    translationWorkflow: {
+      type: translationWorkflowSchema,
       default: () => ({})
     },
     items: {

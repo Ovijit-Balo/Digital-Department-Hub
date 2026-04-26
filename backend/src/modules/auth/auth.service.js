@@ -13,9 +13,21 @@ const sanitizeUser = (user) => ({
   department: user.department,
   languagePreference: user.languagePreference,
   isActive: user.isActive,
+  lastLoginAt: user.lastLoginAt,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt
 });
+
+const buildPagination = ({ page, limit }) => {
+  const parsedPage = Number(page || 1);
+  const parsedLimit = Number(limit || 20);
+
+  return {
+    page: parsedPage,
+    limit: parsedLimit,
+    skip: (parsedPage - 1) * parsedLimit
+  };
+};
 
 const registerUser = async (payload) => {
   const exists = await User.findOne({ email: payload.email.toLowerCase() });
@@ -31,7 +43,7 @@ const registerUser = async (payload) => {
     passwordHash,
     department: payload.department,
     languagePreference: payload.languagePreference || 'en',
-    roles: payload.roles && payload.roles.length ? payload.roles : [ROLES.STUDENT]
+    roles: [ROLES.STUDENT]
   });
 
   const token = signAccessToken({ sub: user._id.toString(), roles: user.roles });
@@ -94,9 +106,68 @@ const getProfile = async (userId) => {
   return sanitizeUser(user);
 };
 
+const listUsers = async (query) => {
+  const filter = {};
+
+  if (query.search) {
+    filter.$or = [
+      { fullName: { $regex: query.search, $options: 'i' } },
+      { email: { $regex: query.search, $options: 'i' } },
+      { department: { $regex: query.search, $options: 'i' } }
+    ];
+  }
+
+  if (query.role) {
+    filter.roles = query.role;
+  }
+
+  if (query.isActive !== undefined) {
+    filter.isActive = query.isActive;
+  }
+
+  const { page, limit, skip } = buildPagination(query);
+
+  const [items, total] = await Promise.all([
+    User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    User.countDocuments(filter)
+  ]);
+
+  return {
+    items: items.map((item) => sanitizeUser(item)),
+    page,
+    limit,
+    total
+  };
+};
+
+const updateUserRoles = async ({ actorId, targetUserId, roles }) => {
+  const target = await User.findById(targetUserId);
+
+  if (!target) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
+  }
+
+  const normalizedRoles = Array.from(new Set(roles));
+
+  if (!normalizedRoles.length) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'At least one role is required');
+  }
+
+  if (actorId.toString() === targetUserId.toString() && !normalizedRoles.includes(ROLES.ADMIN)) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'You cannot remove your own admin role');
+  }
+
+  target.roles = normalizedRoles;
+  await target.save();
+
+  return sanitizeUser(target);
+};
+
 module.exports = {
   registerUser,
   loginUser,
   resetPassword,
-  getProfile
+  getProfile,
+  listUsers,
+  updateUserRoles
 };

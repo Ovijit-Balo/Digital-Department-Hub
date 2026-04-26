@@ -16,6 +16,19 @@ const buildPagination = ({ page, limit }) => {
   };
 };
 
+const buildCalendarWindow = ({ startDate, endDate }) => {
+  const start = startDate ? new Date(startDate) : new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = endDate ? new Date(endDate) : new Date(start);
+  if (!endDate) {
+    end.setDate(end.getDate() + 31);
+  }
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
+};
+
 const createEvent = async (payload, userId) => {
   return Event.create({
     ...payload,
@@ -23,10 +36,14 @@ const createEvent = async (payload, userId) => {
   });
 };
 
-const listEvents = async (query) => {
+const listEvents = async (query, options = {}) => {
   const filter = {};
 
-  if (query.status) {
+  if (options.publicOnly) {
+    filter.status = 'published';
+  }
+
+  if (query.status && !options.publicOnly) {
     filter.status = query.status;
   }
 
@@ -42,6 +59,68 @@ const listEvents = async (query) => {
     page,
     limit,
     total
+  };
+};
+
+const listEventCalendar = async (query, options = {}) => {
+  const { start, end } = buildCalendarWindow(query);
+  const limit = Number(query.limit || 200);
+
+  const filter = {
+    startTime: { $lt: end },
+    endTime: { $gt: start }
+  };
+
+  if (options.publicOnly) {
+    filter.status = 'published';
+  } else if (query.status) {
+    filter.status = query.status;
+  }
+
+  const items = await Event.find(filter).sort({ startTime: 1 }).limit(limit);
+  const eventIds = items.map((item) => item._id);
+
+  const registrationSummary = await EventRegistration.aggregate([
+    {
+      $match: {
+        event: { $in: eventIds },
+        status: { $in: ['registered', 'checked_in'] }
+      }
+    },
+    {
+      $group: {
+        _id: '$event',
+        registrationCount: { $sum: 1 },
+        checkedInCount: {
+          $sum: {
+            $cond: [{ $eq: ['$status', 'checked_in'] }, 1, 0]
+          }
+        }
+      }
+    }
+  ]);
+
+  const summaryMap = new Map(
+    registrationSummary.map((item) => [item._id.toString(), item])
+  );
+
+  return {
+    startDate: start,
+    endDate: end,
+    total: items.length,
+    items: items.map((item) => {
+      const summary = summaryMap.get(item._id.toString()) || {
+        registrationCount: 0,
+        checkedInCount: 0
+      };
+
+      return {
+        ...item.toObject(),
+        registrationCount: summary.registrationCount,
+        checkedInCount: summary.checkedInCount,
+        availableSeats: Math.max(item.capacity - summary.registrationCount, 0)
+      };
+    })
   };
 };
 
@@ -155,6 +234,7 @@ const listRegistrations = async ({ eventId, query }) => {
 module.exports = {
   createEvent,
   listEvents,
+  listEventCalendar,
   registerForEvent,
   checkIn,
   submitFeedback,

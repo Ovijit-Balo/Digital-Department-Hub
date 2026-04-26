@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getDefaultWorkspaceForUser } from '../../constants/roles';
 
 function RegisterPage() {
   const navigate = useNavigate();
@@ -39,10 +40,7 @@ function RegisterPage() {
       };
 
       const user = await register(payload);
-      const fallback = user.roles.some((role) => ['admin', 'editor', 'manager'].includes(role))
-        ? '/admin'
-        : '/';
-      navigate(location.state?.from || fallback, { replace: true });
+      navigate(location.state?.from || getDefaultWorkspaceForUser(user), { replace: true });
     } catch (apiError) {
       setError(apiError?.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
@@ -54,7 +52,8 @@ function RegisterPage() {
     <section className="auth-screen">
       <form className="auth-card" onSubmit={onSubmit}>
         <h1>Create Account</h1>
-        <p>Register your account to use the Digital Department Hub.</p>
+        <p>Student self-service account registration for the Digital Department Hub.</p>
+        <p className="meta">New registrations are assigned the Student role by default.</p>
 
         <label htmlFor="fullName">Full Name</label>
         <input
@@ -120,7 +119,11 @@ function RegisterPage() {
         </button>
 
         <p>
-          Already have an account? <Link to="/login">Sign In</Link>
+          Already have an account? <Link to="/login/student">Sign In</Link>
+        </p>
+
+        <p>
+          Admin, Teacher, or Staff account? <Link to="/portals">Open Portal Guide</Link>
         </p>
       </form>
     </section>

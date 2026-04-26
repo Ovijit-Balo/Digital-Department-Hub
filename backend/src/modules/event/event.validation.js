@@ -15,11 +15,37 @@ const createEvent = {
   })
 };
 
-const listEvents = {
+const listPublicEvents = {
+  query: Joi.object({
+    status: Joi.string().valid('published').optional(),
+    page: Joi.number().min(1).default(1),
+    limit: Joi.number().min(1).max(100).default(20)
+  })
+};
+
+const listManageEvents = {
   query: Joi.object({
     status: Joi.string().valid('draft', 'published', 'cancelled').optional(),
     page: Joi.number().min(1).default(1),
     limit: Joi.number().min(1).max(100).default(20)
+  })
+};
+
+const listPublicCalendar = {
+  query: Joi.object({
+    status: Joi.string().valid('published').optional(),
+    startDate: Joi.date().iso().optional(),
+    endDate: Joi.date().iso().optional(),
+    limit: Joi.number().min(1).max(500).default(200)
+  })
+};
+
+const listManageCalendar = {
+  query: Joi.object({
+    status: Joi.string().valid('draft', 'published', 'cancelled').optional(),
+    startDate: Joi.date().iso().optional(),
+    endDate: Joi.date().iso().optional(),
+    limit: Joi.number().min(1).max(500).default(200)
   })
 };
 
@@ -53,7 +79,10 @@ const listRegistrations = {
 
 module.exports = {
   createEvent,
-  listEvents,
+  listPublicEvents,
+  listManageEvents,
+  listPublicCalendar,
+  listManageCalendar,
   registerForEvent,
   checkIn,
   submitFeedback,

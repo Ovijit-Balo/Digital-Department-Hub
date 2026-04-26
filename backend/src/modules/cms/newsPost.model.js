@@ -2,8 +2,33 @@ const mongoose = require('mongoose');
 
 const localizedTextSchema = new mongoose.Schema(
   {
-    en: { type: String, required: true, trim: true },
-    bn: { type: String, required: true, trim: true }
+    en: { type: String, default: '', trim: true },
+    bn: { type: String, default: '', trim: true }
+  },
+  { _id: false }
+);
+
+const translationWorkflowSchema = new mongoose.Schema(
+  {
+    sourceLanguage: {
+      type: String,
+      enum: ['en', 'bn'],
+      default: 'en'
+    },
+    enStatus: {
+      type: String,
+      enum: ['source', 'pending', 'translated', 'reviewed'],
+      default: 'source'
+    },
+    bnStatus: {
+      type: String,
+      enum: ['source', 'pending', 'translated', 'reviewed'],
+      default: 'pending'
+    },
+    lastUpdatedAt: {
+      type: Date,
+      default: Date.now
+    }
   },
   { _id: false }
 );
@@ -22,9 +47,18 @@ const newsPostSchema = new mongoose.Schema(
       type: localizedTextSchema,
       required: true
     },
+    category: {
+      type: String,
+      enum: ['news', 'announcement'],
+      default: 'news'
+    },
     coverImageUrl: {
       type: String,
       trim: true
+    },
+    translationWorkflow: {
+      type: translationWorkflowSchema,
+      default: () => ({})
     },
     status: {
       type: String,
@@ -54,6 +88,7 @@ const newsPostSchema = new mongoose.Schema(
 );
 
 newsPostSchema.index({ status: 1, publishedAt: -1 });
+newsPostSchema.index({ category: 1, status: 1, publishedAt: -1 });
 newsPostSchema.index({ tags: 1 });
 newsPostSchema.index({ 'title.en': 'text', 'title.bn': 'text', 'body.en': 'text', 'body.bn': 'text' });
 

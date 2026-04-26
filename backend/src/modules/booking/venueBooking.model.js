@@ -28,6 +28,16 @@ const venueBookingSchema = new mongoose.Schema(
       minlength: 20,
       maxlength: 3000
     },
+    bookingType: {
+      type: String,
+      enum: ['class', 'event', 'lab', 'other'],
+      default: 'event'
+    },
+    classCode: {
+      type: String,
+      trim: true,
+      maxlength: 40
+    },
     startTime: {
       type: Date,
       required: true
@@ -68,10 +78,15 @@ venueBookingSchema.pre('validate', function validateTime(next) {
     return next(new Error('endTime must be greater than startTime'));
   }
 
+  if (this.bookingType === 'class' && !this.classCode) {
+    return next(new Error('classCode is required when bookingType is class'));
+  }
+
   return next();
 });
 
 venueBookingSchema.index({ venue: 1, startTime: 1, endTime: 1 });
 venueBookingSchema.index({ status: 1, startTime: 1 });
+venueBookingSchema.index({ bookingType: 1, startTime: 1 });
 
 module.exports = mongoose.model('VenueBooking', venueBookingSchema);

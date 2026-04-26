@@ -41,6 +41,12 @@ const scholarshipApplicationSchema = new mongoose.Schema(
       trim: true,
       maxlength: 120
     },
+    selectedCategoryCode: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      maxlength: 40
+    },
     documents: {
       type: [documentSchema],
       default: []
@@ -59,6 +65,16 @@ const scholarshipApplicationSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 1000
+    },
+    awardedCategoryCode: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      maxlength: 40
+    },
+    awardedAmount: {
+      type: Number,
+      min: 0
     }
   },
   {
@@ -69,5 +85,6 @@ const scholarshipApplicationSchema = new mongoose.Schema(
 
 scholarshipApplicationSchema.index({ notice: 1, student: 1 }, { unique: true });
 scholarshipApplicationSchema.index({ status: 1, createdAt: -1 });
+scholarshipApplicationSchema.index({ notice: 1, status: 1, awardedCategoryCode: 1 });
 
 module.exports = mongoose.model('ScholarshipApplication', scholarshipApplicationSchema);

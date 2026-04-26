@@ -57,9 +57,14 @@ export function AuthProvider({ children }) {
   };
 
   const hasRole = (...roles) => {
-    if (!auth.user) {
+    if (!auth.user || !Array.isArray(auth.user.roles)) {
       return false;
     }
+
+    if (!roles.length) {
+      return auth.user.roles.length > 0;
+    }
+
     return auth.user.roles.some((role) => roles.includes(role));
   };
 

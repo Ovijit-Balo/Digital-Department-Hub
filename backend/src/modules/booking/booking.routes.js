@@ -9,6 +9,7 @@ const { ROLES } = require('../../config/roles');
 const router = express.Router();
 
 router.get('/venues', validate(bookingValidation.listVenues), bookingController.listVenues);
+router.get('/calendar', validate(bookingValidation.listCalendar), bookingController.listCalendar);
 router.post(
   '/venues',
   authenticate,
@@ -31,6 +32,13 @@ router.get(
   authorize(ROLES.ADMIN, ROLES.MANAGER),
   validate(bookingValidation.listBookings),
   bookingController.listBookings
+);
+
+router.get(
+  '/my-requests',
+  authenticate,
+  validate(bookingValidation.listMyBookings),
+  bookingController.listMyBookings
 );
 
 router.patch(

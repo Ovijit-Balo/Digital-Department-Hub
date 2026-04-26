@@ -48,9 +48,33 @@ const me = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ user });
 });
 
+const listUsers = asyncHandler(async (req, res) => {
+  const data = await authService.listUsers(req.query);
+  res.status(StatusCodes.OK).json(data);
+});
+
+const updateUserRoles = asyncHandler(async (req, res) => {
+  const user = await authService.updateUserRoles({
+    actorId: req.user._id,
+    targetUserId: req.params.userId,
+    roles: req.body.roles
+  });
+
+  res.locals.auditMeta = {
+    action: 'UPDATE_USER_ROLES',
+    entityType: 'User',
+    entityId: user.id,
+    after: { roles: user.roles }
+  };
+
+  res.status(StatusCodes.OK).json({ user });
+});
+
 module.exports = {
   register,
   login,
   resetPassword,
-  me
+  me,
+  listUsers,
+  updateUserRoles
 };

@@ -1,18 +1,35 @@
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import useLanguage from '../../hooks/useLanguage';
+import { getPrimaryPortalForUser } from '../../constants/roles';
 
 const navLinks = [
   { to: '/', label: 'Home' },
+  { to: '/portals', label: 'Portals' },
+  { to: '/pages', label: 'Pages' },
   { to: '/news', label: 'News' },
+  { to: '/announcements', label: 'Announcements' },
+  { to: '/blogs', label: 'Blog' },
+  { to: '/gallery', label: 'Gallery' },
   { to: '/scholarship', label: 'Scholarship' },
   { to: '/events', label: 'Events' },
-  { to: '/booking', label: 'Booking' }
+  { to: '/booking', label: 'Booking' },
+  { to: '/contact', label: 'Contact' }
 ];
 
 function PublicLayout() {
-  const { user, hasRole, logout } = useAuth();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const { language, setLanguage } = useLanguage();
+  const primaryPortal = getPrimaryPortalForUser(user);
+
+  const workspaceLabel = primaryPortal ? `${primaryPortal.label} Workspace` : '';
+
+  const handleSignOut = () => {
+    const redirectPath = primaryPortal?.loginPath || '/portals';
+    logout();
+    navigate(redirectPath, { replace: true });
+  };
 
   return (
     <div className="app-shell">
@@ -30,9 +47,9 @@ function PublicLayout() {
               {link.label}
             </Link>
           ))}
-          {hasRole('admin', 'editor', 'manager') && (
-            <Link to="/admin" className="nav-link nav-admin-link">
-              Admin Panel
+          {primaryPortal && (
+            <Link to={primaryPortal.workspacePath} className="nav-link nav-admin-link">
+              {workspaceLabel}
             </Link>
           )}
         </nav>
@@ -52,8 +69,11 @@ function PublicLayout() {
 
           {user ? (
             <>
-              <span className="user-chip">{user.fullName}</span>
-              <button type="button" className="btn btn-ghost" onClick={logout}>
+              <span className="user-chip">
+                {user.fullName}
+                {primaryPortal ? ` • ${primaryPortal.label}` : ''}
+              </span>
+              <button type="button" className="btn btn-ghost" onClick={handleSignOut}>
                 Sign Out
               </button>
             </>
@@ -62,7 +82,7 @@ function PublicLayout() {
               <Link to="/register" className="btn btn-ghost">
                 Register
               </Link>
-              <Link to="/login" className="btn btn-primary">
+              <Link to="/portals" className="btn btn-primary">
                 Sign In
               </Link>
             </div>

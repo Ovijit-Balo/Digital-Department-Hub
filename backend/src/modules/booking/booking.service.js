@@ -15,6 +15,24 @@ const buildPagination = ({ page, limit }) => {
   };
 };
 
+const buildDateRangeFilter = ({ startDate, endDate }) => {
+  if (!startDate && !endDate) {
+    return null;
+  }
+
+  const range = {};
+
+  if (startDate) {
+    range.$gte = new Date(startDate);
+  }
+
+  if (endDate) {
+    range.$lte = new Date(endDate);
+  }
+
+  return range;
+};
+
 const runInTransaction = async (operation) => {
   const session = await mongoose.startSession();
 
@@ -86,6 +104,21 @@ const listVenues = async (query) => {
 
 const requestBooking = async ({ payload, userId }) => {
   return runInTransaction(async (session) => {
+    const startTime = new Date(payload.startTime);
+    const endTime = new Date(payload.endTime);
+
+    if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid booking time range');
+    }
+
+    if (endTime <= startTime) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'End time must be later than start time');
+    }
+
+    if (payload.bookingType === 'class' && !String(payload.classCode || '').trim()) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Class code is required for class bookings');
+    }
+
     const venue = await Venue.findById(payload.venue).session(session);
 
     if (!venue || !venue.isActive) {
@@ -98,8 +131,8 @@ const requestBooking = async ({ payload, userId }) => {
 
     const conflicts = await detectConflicts({
       venueId: payload.venue,
-      startTime: new Date(payload.startTime),
-      endTime: new Date(payload.endTime),
+      startTime,
+      endTime,
       session
     });
 
@@ -119,6 +152,9 @@ const requestBooking = async ({ payload, userId }) => {
       [
         {
           ...payload,
+          startTime,
+          endTime,
+          classCode: payload.bookingType === 'class' ? payload.classCode : undefined,
           requester: userId
         }
       ],
@@ -142,6 +178,15 @@ const listBookings = async (query) => {
     filter.status = query.status;
   }
 
+  if (query.bookingType) {
+    filter.bookingType = query.bookingType;
+  }
+
+  const startRange = buildDateRangeFilter({ startDate: query.startDate, endDate: query.endDate });
+  if (startRange) {
+    filter.startTime = startRange;
+  }
+
   const { page, limit, skip } = buildPagination(query);
 
   const [items, total] = await Promise.all([
@@ -160,6 +205,89 @@ const listBookings = async (query) => {
     page,
     limit,
     total
+  };
+};
+
+const listMyBookings = async ({ requesterId, query }) => {
+  const filter = {
+    requester: requesterId
+  };
+
+  if (query.status) {
+    filter.status = query.status;
+  }
+
+  if (query.bookingType) {
+    filter.bookingType = query.bookingType;
+  }
+
+  const startRange = buildDateRangeFilter({ startDate: query.startDate, endDate: query.endDate });
+  if (startRange) {
+    filter.startTime = startRange;
+  }
+
+  const { page, limit, skip } = buildPagination(query);
+
+  const [items, total] = await Promise.all([
+    VenueBooking.find(filter)
+      .populate('venue', 'name location')
+      .populate('approver', 'fullName email')
+      .sort({ startTime: -1 })
+      .skip(skip)
+      .limit(limit),
+    VenueBooking.countDocuments(filter)
+  ]);
+
+  return {
+    items,
+    page,
+    limit,
+    total
+  };
+};
+
+const listCalendar = async (query) => {
+  const start = query.startDate ? new Date(query.startDate) : new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = query.endDate ? new Date(query.endDate) : new Date(start);
+  if (!query.endDate) {
+    end.setDate(end.getDate() + 14);
+  }
+  end.setHours(23, 59, 59, 999);
+
+  const filter = {
+    startTime: { $lt: end },
+    endTime: { $gt: start }
+  };
+
+  if (query.status) {
+    filter.status = query.status;
+  } else {
+    filter.status = 'approved';
+  }
+
+  if (query.venue) {
+    filter.venue = query.venue;
+  }
+
+  if (query.bookingType) {
+    filter.bookingType = query.bookingType;
+  }
+
+  const limit = Number(query.limit || 300);
+
+  const items = await VenueBooking.find(filter)
+    .populate('venue', 'name location')
+    .populate('requester', 'fullName department')
+    .sort({ startTime: 1 })
+    .limit(limit);
+
+  return {
+    startDate: start,
+    endDate: end,
+    total: items.length,
+    items
   };
 };
 
@@ -215,6 +343,8 @@ module.exports = {
   listVenues,
   requestBooking,
   listBookings,
+  listMyBookings,
+  listCalendar,
   reviewBooking,
   detectConflicts
 };

@@ -7,6 +7,116 @@ const env = require('../../config/env');
 const { createCloudinaryUploadSignature } = require('../../config/storage');
 const ApiError = require('../../utils/ApiError');
 
+const TRANSLATION_STATUSES = new Set(['source', 'pending', 'translated', 'reviewed']);
+
+const LOCALIZED_FIELD_RULES = new Map([
+  [
+    Page,
+    [
+      { path: 'title', required: true },
+      { path: 'content', required: true }
+    ]
+  ],
+  [
+    NewsPost,
+    [
+      { path: 'title', required: true },
+      { path: 'summary', required: true },
+      { path: 'body', required: true }
+    ]
+  ],
+  [
+    BlogPost,
+    [
+      { path: 'title', required: true },
+      { path: 'excerpt', required: true },
+      { path: 'body', required: true }
+    ]
+  ],
+  [
+    Gallery,
+    [
+      { path: 'title', required: true },
+      { path: 'description', required: false }
+    ]
+  ]
+]);
+
+const getLocaleStatusKey = (locale) => `${locale}Status`;
+
+const getLocalizedTextValue = (entity, path, locale) => {
+  const localizedObject = entity?.[path];
+
+  if (!localizedObject || typeof localizedObject !== 'object') {
+    return '';
+  }
+
+  const raw = localizedObject[locale];
+  return typeof raw === 'string' ? raw.trim() : '';
+};
+
+const shouldRecomputeWorkflow = (payload, localizedRules) => {
+  if (!localizedRules?.length) {
+    return false;
+  }
+
+  if (payload.translationWorkflow) {
+    return true;
+  }
+
+  return localizedRules.some((rule) => Object.prototype.hasOwnProperty.call(payload, rule.path));
+};
+
+const applyTranslationWorkflow = ({ entity, payload, localizedRules, label }) => {
+  const existingWorkflow = entity.translationWorkflow || {};
+  const payloadWorkflow = payload.translationWorkflow || {};
+
+  const sourceLanguage = payloadWorkflow.sourceLanguage || existingWorkflow.sourceLanguage || 'en';
+  const targetLanguage = sourceLanguage === 'en' ? 'bn' : 'en';
+  const sourceStatusKey = getLocaleStatusKey(sourceLanguage);
+  const targetStatusKey = getLocaleStatusKey(targetLanguage);
+
+  const missingRequiredFields = localizedRules
+    .filter((rule) => rule.required)
+    .filter((rule) => !getLocalizedTextValue(entity, rule.path, sourceLanguage))
+    .map((rule) => rule.path);
+
+  if (missingRequiredFields.length) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `${label} requires ${sourceLanguage.toUpperCase()} content for: ${missingRequiredFields.join(', ')}`
+    );
+  }
+
+  const hasTargetLanguageContent = localizedRules.some((rule) =>
+    Boolean(getLocalizedTextValue(entity, rule.path, targetLanguage))
+  );
+
+  const requestedTargetStatus = payloadWorkflow[targetStatusKey];
+  const isRequestedTargetStatusValid = TRANSLATION_STATUSES.has(requestedTargetStatus);
+
+  let resolvedTargetStatus = 'pending';
+
+  if (hasTargetLanguageContent) {
+    if (isRequestedTargetStatusValid) {
+      resolvedTargetStatus = requestedTargetStatus === 'source' ? 'translated' : requestedTargetStatus;
+    } else if (existingWorkflow[targetStatusKey] === 'reviewed') {
+      resolvedTargetStatus = 'reviewed';
+    } else {
+      resolvedTargetStatus = 'translated';
+    }
+  }
+
+  entity.translationWorkflow = {
+    ...existingWorkflow,
+    ...payloadWorkflow,
+    sourceLanguage,
+    [sourceStatusKey]: 'source',
+    [targetStatusKey]: resolvedTargetStatus,
+    lastUpdatedAt: new Date()
+  };
+};
+
 const buildPagination = ({ page, limit }) => {
   const parsedPage = Number(page || 1);
   const parsedLimit = Number(limit || 20);
@@ -31,13 +141,27 @@ const buildContentFilter = (query) => {
   return filter;
 };
 
-const createEntity = async (Model, payload, userId) =>
-  Model.create({
+const createEntity = async (Model, payload, userId, label) => {
+  const entityPayload = {
     ...payload,
     createdBy: userId,
     updatedBy: userId,
     publishedAt: payload.status === 'published' ? new Date() : null
-  });
+  };
+
+  const localizedRules = LOCALIZED_FIELD_RULES.get(Model);
+
+  if (localizedRules?.length) {
+    applyTranslationWorkflow({
+      entity: entityPayload,
+      payload,
+      localizedRules,
+      label
+    });
+  }
+
+  return Model.create(entityPayload);
+};
 
 const listEntities = async (Model, query, sort) => {
   const filter = buildContentFilter(query);
@@ -79,6 +203,17 @@ const updateEntity = async (Model, id, payload, userId, label) => {
       payload.status === 'published' && !existing.publishedAt ? new Date() : existing.publishedAt
   });
 
+  const localizedRules = LOCALIZED_FIELD_RULES.get(Model);
+
+  if (shouldRecomputeWorkflow(payload, localizedRules)) {
+    applyTranslationWorkflow({
+      entity: existing,
+      payload,
+      localizedRules,
+      label
+    });
+  }
+
   await existing.save();
   return existing;
 };
@@ -94,7 +229,7 @@ const deleteEntity = async (Model, id, label) => {
 };
 
 const createPage = async (payload, userId) => {
-  return createEntity(Page, payload, userId);
+  return createEntity(Page, payload, userId, 'Page');
 };
 
 const listPages = async (query) => {
@@ -103,6 +238,21 @@ const listPages = async (query) => {
 
 const getPageById = async (id) => {
   return getEntityById(Page, id, 'Page');
+};
+
+const getPageBySlug = async (slug, options = {}) => {
+  const filter = {
+    slug,
+    ...(options.includeDraft ? {} : { status: 'published' })
+  };
+
+  const page = await Page.findOne(filter);
+
+  if (!page) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Page not found');
+  }
+
+  return page;
 };
 
 const updatePage = async (id, payload, userId) => {
@@ -114,11 +264,29 @@ const deletePage = async (id) => {
 };
 
 const createNewsPost = async (payload, userId) => {
-  return createEntity(NewsPost, payload, userId);
+  return createEntity(NewsPost, payload, userId, 'News post');
 };
 
 const listNewsPosts = async (query) => {
-  return listEntities(NewsPost, query, { publishedAt: -1, createdAt: -1 });
+  const filter = buildContentFilter(query);
+
+  if (query.category) {
+    filter.category = query.category;
+  }
+
+  const { page, limit, skip } = buildPagination(query);
+
+  const [items, total] = await Promise.all([
+    NewsPost.find(filter).sort({ publishedAt: -1, createdAt: -1 }).skip(skip).limit(limit),
+    NewsPost.countDocuments(filter)
+  ]);
+
+  return {
+    items,
+    page,
+    limit,
+    total
+  };
 };
 
 const getNewsPostById = async (id) => {
@@ -134,7 +302,7 @@ const deleteNewsPost = async (id) => {
 };
 
 const createBlogPost = async (payload, userId) => {
-  return createEntity(BlogPost, payload, userId);
+  return createEntity(BlogPost, payload, userId, 'Blog post');
 };
 
 const listBlogPosts = async (query) => {
@@ -143,6 +311,21 @@ const listBlogPosts = async (query) => {
 
 const getBlogPostById = async (id) => {
   return getEntityById(BlogPost, id, 'Blog post');
+};
+
+const getBlogPostBySlug = async (slug, options = {}) => {
+  const filter = {
+    slug,
+    ...(options.includeDraft ? {} : { status: 'published' })
+  };
+
+  const post = await BlogPost.findOne(filter);
+
+  if (!post) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Blog post not found');
+  }
+
+  return post;
 };
 
 const updateBlogPost = async (id, payload, userId) => {
@@ -154,7 +337,7 @@ const deleteBlogPost = async (id) => {
 };
 
 const createGallery = async (payload, userId) => {
-  return createEntity(Gallery, payload, userId);
+  return createEntity(Gallery, payload, userId, 'Gallery');
 };
 
 const listGalleries = async (query) => {
@@ -189,6 +372,7 @@ module.exports = {
   createPage,
   listPages,
   getPageById,
+  getPageBySlug,
   updatePage,
   deletePage,
   createNewsPost,
@@ -199,6 +383,7 @@ module.exports = {
   createBlogPost,
   listBlogPosts,
   getBlogPostById,
+  getBlogPostBySlug,
   updateBlogPost,
   deleteBlogPost,
   createGallery,

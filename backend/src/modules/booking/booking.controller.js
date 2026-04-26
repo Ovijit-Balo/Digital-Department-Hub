@@ -41,6 +41,20 @@ const listBookings = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(data);
 });
 
+const listMyBookings = asyncHandler(async (req, res) => {
+  const data = await bookingService.listMyBookings({
+    requesterId: req.user._id,
+    query: req.query
+  });
+
+  res.status(StatusCodes.OK).json(data);
+});
+
+const listCalendar = asyncHandler(async (req, res) => {
+  const data = await bookingService.listCalendar(req.query);
+  res.status(StatusCodes.OK).json(data);
+});
+
 const decision = asyncHandler(async (req, res) => {
   const booking = await bookingService.reviewBooking({
     bookingId: req.params.bookingId,
@@ -77,6 +91,8 @@ module.exports = {
   listVenues,
   requestBooking,
   listBookings,
+  listMyBookings,
+  listCalendar,
   decision,
   checkConflicts
 };

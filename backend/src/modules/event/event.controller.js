@@ -16,7 +16,22 @@ const createEvent = asyncHandler(async (req, res) => {
 });
 
 const listEvents = asyncHandler(async (req, res) => {
-  const data = await eventService.listEvents(req.query);
+  const data = await eventService.listEvents(req.query, { publicOnly: true });
+  res.status(StatusCodes.OK).json(data);
+});
+
+const listManageEvents = asyncHandler(async (req, res) => {
+  const data = await eventService.listEvents(req.query, { publicOnly: false });
+  res.status(StatusCodes.OK).json(data);
+});
+
+const listCalendar = asyncHandler(async (req, res) => {
+  const data = await eventService.listEventCalendar(req.query, { publicOnly: true });
+  res.status(StatusCodes.OK).json(data);
+});
+
+const listManageCalendar = asyncHandler(async (req, res) => {
+  const data = await eventService.listEventCalendar(req.query, { publicOnly: false });
   res.status(StatusCodes.OK).json(data);
 });
 
@@ -81,6 +96,9 @@ const listRegistrations = asyncHandler(async (req, res) => {
 module.exports = {
   createEvent,
   listEvents,
+  listManageEvents,
+  listCalendar,
+  listManageCalendar,
   registerForEvent,
   checkIn,
   submitFeedback,

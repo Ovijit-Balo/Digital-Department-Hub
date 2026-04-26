@@ -1,16 +1,17 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getDefaultWorkspaceForUser } from '../../constants/roles';
 
-function RoleGuard({ children, roles = [] }) {
+function RoleGuard({ children, roles = [], loginPath = '/login' }) {
   const location = useLocation();
-  const { isAuthenticated, hasRole } = useAuth();
+  const { user, isAuthenticated, hasRole } = useAuth();
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to={loginPath} replace state={{ from: location.pathname }} />;
   }
 
   if (roles.length && !hasRole(...roles)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={getDefaultWorkspaceForUser(user)} replace />;
   }
 
   return children;

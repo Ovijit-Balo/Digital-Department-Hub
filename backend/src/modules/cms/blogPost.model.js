@@ -2,8 +2,33 @@ const mongoose = require('mongoose');
 
 const localizedTextSchema = new mongoose.Schema(
   {
-    en: { type: String, required: true, trim: true },
-    bn: { type: String, required: true, trim: true }
+    en: { type: String, default: '', trim: true },
+    bn: { type: String, default: '', trim: true }
+  },
+  { _id: false }
+);
+
+const translationWorkflowSchema = new mongoose.Schema(
+  {
+    sourceLanguage: {
+      type: String,
+      enum: ['en', 'bn'],
+      default: 'en'
+    },
+    enStatus: {
+      type: String,
+      enum: ['source', 'pending', 'translated', 'reviewed'],
+      default: 'source'
+    },
+    bnStatus: {
+      type: String,
+      enum: ['source', 'pending', 'translated', 'reviewed'],
+      default: 'pending'
+    },
+    lastUpdatedAt: {
+      type: Date,
+      default: Date.now
+    }
   },
   { _id: false }
 );
@@ -28,6 +53,10 @@ const blogPostSchema = new mongoose.Schema(
     body: {
       type: localizedTextSchema,
       required: true
+    },
+    translationWorkflow: {
+      type: translationWorkflowSchema,
+      default: () => ({})
     },
     coverImageUrl: {
       type: String,

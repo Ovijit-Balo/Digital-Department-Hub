@@ -25,6 +25,13 @@ const dispatchNotification = async ({ payload }) => {
     metadata: payload.metadata || {}
   });
 
+  if (payload.channel === 'in_app') {
+    log.status = 'sent';
+    log.sentAt = new Date();
+    await log.save();
+    return log;
+  }
+
   const notificationQueue = getNotificationQueue();
 
   if (!notificationQueue) {
