@@ -1,32 +1,13 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "backend/api.js",
-      "use": "@vercel/node"
+  "experimentalServices": {
+    "frontend": {
+      "entrypoint": "frontend",
+      "routePrefix": "/",
+      "framework": "vite"
     },
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/backend/api.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/frontend/$1"
-    }
-  ],
-  "functions": {
-    "backend/api.js": {
-      "maxDuration": 30,
-      "runtime": "nodejs20.x"
+    "backend": {
+      "entrypoint": "backend",
+      "routePrefix": "/api"
     }
   }
 }

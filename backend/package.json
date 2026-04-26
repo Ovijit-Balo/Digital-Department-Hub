@@ -2,7 +2,7 @@
   "name": "digital-department-hub-backend",
   "version": "1.0.0",
   "description": "Backend API for Digital Department Hub",
-  "main": "src/server.js",
+  "main": "api.js",
   "type": "commonjs",
   "engines": {
     "node": ">=20.0.0"
