@@ -40,6 +40,22 @@ if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
       process.on('SIGINT', shutdown);
     } catch (error) {
       logger.error(`Failed to start server: ${error.message}`);
+
+      const isMongoConnectionIssue =
+        typeof error?.message === 'string' &&
+        (error.message.includes('ECONNREFUSED') ||
+          error.message.toLowerCase().includes('failed to connect') ||
+          error.message.toLowerCase().includes('mongodb'));
+
+      if (isMongoConnectionIssue) {
+        logger.error('MongoDB is not reachable. Check that the service is running and MONGODB_URI matches it.');
+        logger.info(`Effective MONGODB_URI (from env): ${env.MONGODB_URI}`);
+        logger.info('Tip: copy backend/.env.example to backend/.env, or run npm scripts from the backend folder.');
+        if (process.platform === 'win32') {
+          logger.info('Windows: install MongoDB Server (winget install -e --id MongoDB.Server), then start the MongoDB Windows service.');
+        }
+      }
+
       process.exit(1);
     }
   };

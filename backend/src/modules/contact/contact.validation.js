@@ -20,6 +20,14 @@ const listInquiries = {
   })
 };
 
+const listMyInquiries = {
+  query: Joi.object({
+    status: Joi.string().valid('new', 'in_progress', 'resolved').optional(),
+    page: Joi.number().min(1).default(1),
+    limit: Joi.number().min(1).max(100).default(20)
+  })
+};
+
 const updateStatus = {
   params: Joi.object({ inquiryId: objectId.required() }),
   body: Joi.object({
@@ -31,5 +39,6 @@ const updateStatus = {
 module.exports = {
   submitInquiry,
   listInquiries,
+  listMyInquiries,
   updateStatus
 };

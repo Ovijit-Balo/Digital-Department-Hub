@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { scholarshipApi } from '../../api/modules';
 import { useAuth } from '../../context/AuthContext';
 import useLanguage from '../../hooks/useLanguage';
 import useRole from '../../hooks/useRole';
+import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalizedText } from '../../utils/localized';
 
@@ -67,6 +69,15 @@ function ScholarshipPage() {
     title: { en: '', bn: '' },
     body: { en: '', bn: '' }
   });
+
+  useEffect(() => {
+    setApplicationForm((prev) => ({
+      ...prev,
+      statement: '',
+      gpa: '',
+      selectedCategoryCode: ''
+    }));
+  }, [selectedNoticeId]);
 
   const selectedNotice = useMemo(
     () => notices.find((notice) => notice._id === selectedNoticeId) || null,
@@ -521,16 +532,25 @@ function ScholarshipPage() {
 
   return (
     <section className="page-wrap">
+      <nav className="breadcrumb" aria-label="Breadcrumb">
+        <Link to="/" className="breadcrumb-link">
+          {ui('scholarship', 'breadcrumbHome', language)}
+        </Link>
+        <span className="breadcrumb-sep" aria-hidden="true">
+          /
+        </span>
+        <span className="breadcrumb-current">{ui('scholarship', 'breadcrumbScholarship', language)}</span>
+      </nav>
+
       <header className="page-title-bar">
         <div>
-          <p className="eyebrow">Scholarship Operations</p>
-          <h1>Scholarship Desk</h1>
-          <p className="page-title-subtitle">
-            Manage notices, applications, recipient publication, and scholarship update timelines in one place.
-          </p>
+          <p className="eyebrow">{ui('scholarship', 'eyebrow', language)}</p>
+          <h1>{ui('scholarship', 'title', language)}</h1>
+          <p className="page-title-subtitle">{ui('scholarship', 'subtitle', language)}</p>
+          <p className="meta">{ui('scholarship', 'stepNotice', language)}</p>
         </div>
         <button type="button" className="btn btn-ghost" onClick={loadData}>
-          Refresh
+          {ui('scholarship', 'refresh', language)}
         </button>
       </header>
 
@@ -561,7 +581,7 @@ function ScholarshipPage() {
 
       {error && <p className="error-text">{error}</p>}
       {message && <p className="meta">{message}</p>}
-      {loading && <p>Loading scholarship data...</p>}
+      {loading && <p>{ui('scholarship', 'loading', language)}</p>}
 
       <div className="workflow-grid workflow-grid-2">
         {!!globalUpdates.length && (
@@ -586,9 +606,13 @@ function ScholarshipPage() {
 
         <article className="surface-card">
         <div className="section-head section-head-tight">
-          <h3>Available Notices</h3>
-          <select value={selectedNoticeId} onChange={(event) => setSelectedNoticeId(event.target.value)}>
-            <option value="">Select notice</option>
+          <h3>{ui('scholarship', 'availableNotices', language)}</h3>
+          <select
+            aria-label={ui('scholarship', 'availableNotices', language)}
+            value={selectedNoticeId}
+            onChange={(event) => setSelectedNoticeId(event.target.value)}
+          >
+            <option value="">{ui('scholarship', 'selectNoticePlaceholder', language)}</option>
             {notices.map((notice) => (
               <option key={notice._id} value={notice._id}>
                 {toLocalizedText(notice.title, language)}
@@ -597,7 +621,7 @@ function ScholarshipPage() {
           </select>
         </div>
 
-        {!notices.length && <p>No scholarship notices yet.</p>}
+        {!notices.length && <p>{ui('scholarship', 'noNotices', language)}</p>}
 
         {selectedNotice && (
           <article className="surface-card inner-card">
@@ -676,11 +700,12 @@ function ScholarshipPage() {
         <div className="workflow-grid workflow-grid-2">
           {canApply && isAuthenticated && (
           <article className="surface-card">
-            <h3>Apply for Scholarship</h3>
-            <form className="form-grid" onSubmit={submitApplication}>
+            <p className="meta">{ui('scholarship', 'stepApply', language)}</p>
+            <h3>{ui('scholarship', 'applyTitle', language)}</h3>
+            <form key={selectedNoticeId || 'no-notice'} className="form-grid" onSubmit={submitApplication}>
               {!!selectedNoticeCategories.length && (
                 <label>
-                  Scholarship Category
+                  {ui('scholarship', 'categoryLabel', language)}
                   <select
                     value={applicationForm.selectedCategoryCode}
                     onChange={(event) =>
@@ -688,7 +713,7 @@ function ScholarshipPage() {
                     }
                     required
                   >
-                    <option value="">Select category</option>
+                    <option value="">{ui('scholarship', 'selectCategory', language)}</option>
                     {selectedNoticeCategories.map((category) => (
                       <option key={category.code} value={category.code}>
                         {toLocalizedText(category.name, language)} ({category.code})
@@ -699,7 +724,7 @@ function ScholarshipPage() {
               )}
 
               <label>
-                Statement of Purpose
+                {ui('scholarship', 'statement', language)}
                 <textarea
                   minLength={30}
                   value={applicationForm.statement}
@@ -711,7 +736,7 @@ function ScholarshipPage() {
               </label>
 
               <label>
-                GPA
+                {ui('scholarship', 'gpa', language)}
                 <input
                   type="number"
                   step="0.01"
@@ -726,7 +751,7 @@ function ScholarshipPage() {
               </label>
 
               <label>
-                Department
+                {ui('scholarship', 'department', language)}
                 <input
                   value={applicationForm.department}
                   onChange={(event) =>
@@ -737,7 +762,7 @@ function ScholarshipPage() {
               </label>
 
               <button type="submit" className="btn btn-primary">
-                Submit Application
+                {ui('scholarship', 'submitApp', language)}
               </button>
             </form>
           </article>

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'ddh_ui_language';
 
@@ -30,6 +30,10 @@ export function LanguageProvider({ children }) {
     }),
     [language, setLanguage, toggleLanguage]
   );
+
+  useEffect(() => {
+    document.documentElement.lang = language === 'bn' ? 'bn' : 'en';
+  }, [language]);
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }

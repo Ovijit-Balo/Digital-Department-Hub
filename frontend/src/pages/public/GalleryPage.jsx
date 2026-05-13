@@ -1,8 +1,49 @@
 import { useCallback, useEffect, useState } from 'react';
 import { cmsApi } from '../../api/modules';
 import useLanguage from '../../hooks/useLanguage';
+import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import { toLocalizedText } from '../../utils/localized';
+
+function GalleryMediaItem({ item, language }) {
+  const [failed, setFailed] = useState(false);
+  const src = resolveMediaUrl(item.mediaUrl);
+  const caption = toLocalizedText(item.caption, language) || ui('gallery', 'untitled', language);
+
+  if (!src || failed) {
+    return (
+      <article className="gallery-item-card">
+        <div className="gallery-media gallery-media-placeholder" role="img" aria-label={caption} />
+        <p className="meta">{ui('gallery', 'mediaMissing', language)}</p>
+        <p className="meta">{caption}</p>
+      </article>
+    );
+  }
+
+  if (item.mediaType === 'video') {
+    return (
+      <article className="gallery-item-card">
+        <video controls src={src} className="gallery-media" />
+        <p className="meta">{caption}</p>
+      </article>
+    );
+  }
+
+  return (
+    <article className="gallery-item-card">
+      <img
+        src={src}
+        alt={caption}
+        className="gallery-media"
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
+      <p className="meta">{caption}</p>
+    </article>
+  );
+}
 
 function GalleryPage() {
   const { language } = useLanguage();
@@ -31,15 +72,15 @@ function GalleryPage() {
   return (
     <section className="page-wrap">
       <div className="section-head">
-        <h1>Gallery</h1>
+        <h1>{ui('gallery', 'title', language)}</h1>
         <button type="button" className="btn btn-ghost" onClick={loadCollections}>
-          Refresh
+          {ui('home', 'refresh', language)}
         </button>
       </div>
 
       {error && <p className="error-text">{error}</p>}
-      {loading && <p>Loading gallery...</p>}
-      {!loading && !collections.length && <p>No gallery collections published yet.</p>}
+      {loading && <p>{ui('gallery', 'loading', language)}</p>}
+      {!loading && !collections.length && <p>{ui('gallery', 'empty', language)}</p>}
 
       <div className="stack-list">
         {collections.map((collection) => (
@@ -52,14 +93,7 @@ function GalleryPage() {
                 .slice()
                 .sort((left, right) => (left.order || 0) - (right.order || 0))
                 .map((item) => (
-                  <article key={`${item.mediaUrl}-${item.order}`} className="gallery-item-card">
-                    {item.mediaType === 'video' ? (
-                      <video controls src={item.mediaUrl} className="gallery-media" />
-                    ) : (
-                      <img src={item.mediaUrl} alt={toLocalizedText(item.caption, language)} className="gallery-media" />
-                    )}
-                    <p className="meta">{toLocalizedText(item.caption, language) || 'Untitled media'}</p>
-                  </article>
+                  <GalleryMediaItem key={`${item.mediaUrl}-${item.order}`} item={item} language={language} />
                 ))}
             </div>
           </article>

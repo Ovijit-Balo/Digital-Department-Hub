@@ -17,6 +17,46 @@ const buildPagination = ({ page, limit }) => {
   };
 };
 
+const notifySubmitterOnInquiryUpdate = async ({ inquiry, previousStatus, previousResolutionNote }) => {
+  const hasChanged =
+    previousStatus !== inquiry.status || previousResolutionNote !== inquiry.resolutionNote;
+
+  if (!hasChanged) {
+    return;
+  }
+
+  const recipient = await User.findOne({
+    isActive: true,
+    email: inquiry.email
+  }).select('_id');
+
+  if (!recipient) {
+    return;
+  }
+
+  const statusLabel = inquiry.status.replace(/_/g, ' ');
+  const noteSnippet = inquiry.resolutionNote ? ` Note: ${inquiry.resolutionNote}` : '';
+
+  try {
+    await dispatchNotification({
+      payload: {
+        recipient: recipient._id,
+        channel: 'in_app',
+        subject: `Inquiry update: ${inquiry.subject}`,
+        message: `Your inquiry status is now ${statusLabel}.${noteSnippet}`,
+        metadata: {
+          inquiryId: inquiry._id.toString(),
+          previousStatus,
+          status: inquiry.status,
+          source: 'contact-desk'
+        }
+      }
+    });
+  } catch (error) {
+    logger.warn(`Failed to dispatch inquiry status notification: ${error.message}`);
+  }
+};
+
 const notifyAdminsOnInquiry = async (inquiry) => {
   const recipients = await User.find({
     isActive: true,
@@ -81,12 +121,47 @@ const listInquiries = async (query) => {
   };
 };
 
+const listMyInquiries = async ({ email, query }) => {
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+  if (!normalizedEmail) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'User email is required');
+  }
+
+  const filter = { email: normalizedEmail };
+
+  if (query.status) {
+    filter.status = query.status;
+  }
+
+  const { page, limit, skip } = buildPagination(query);
+
+  const [items, total] = await Promise.all([
+    ContactInquiry.find(filter)
+      .populate('handledBy', 'fullName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    ContactInquiry.countDocuments(filter)
+  ]);
+
+  return {
+    items,
+    page,
+    limit,
+    total
+  };
+};
+
 const updateInquiryStatus = async ({ inquiryId, status, resolutionNote, actorId }) => {
   const inquiry = await ContactInquiry.findById(inquiryId);
 
   if (!inquiry) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Inquiry not found');
   }
+
+  const previousStatus = inquiry.status;
+  const previousResolutionNote = inquiry.resolutionNote;
 
   inquiry.status = status;
   inquiry.resolutionNote = resolutionNote || '';
@@ -99,11 +174,19 @@ const updateInquiryStatus = async ({ inquiryId, status, resolutionNote, actorId 
   }
 
   await inquiry.save();
+
+  await notifySubmitterOnInquiryUpdate({
+    inquiry,
+    previousStatus,
+    previousResolutionNote
+  });
+
   return inquiry;
 };
 
 module.exports = {
   submitInquiry,
   listInquiries,
+  listMyInquiries,
   updateInquiryStatus
 };

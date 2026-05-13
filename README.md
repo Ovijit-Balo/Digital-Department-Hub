@@ -4,6 +4,51 @@ A departmental platform with a dynamic website and CMS to manage news, blogs, sc
 
 ---
 
+## Local Development (Windows)
+
+### Prerequisites
+- Node.js 20+ (Node 22 is OK)
+- MongoDB running on `mongodb://127.0.0.1:27017` (or set `MONGODB_URI` to MongoDB Atlas)
+- (Optional) Redis for background queues. If you do not have Redis, set `ENABLE_QUEUE=false` in `backend/.env`.
+
+### 1) Install & start MongoDB (recommended)
+Using `winget`:
+
+```powershell
+winget install -e --id MongoDB.Server
+```
+
+Then open **Services** (`services.msc`) and start **MongoDB Server**.
+
+### 2) Run the backend API
+Run these from the **`backend`** folder (so `npm` and `.env` line up). The app also loads `backend/.env` when the shell’s current directory is the repo root, but keeping `cd backend` avoids surprises.
+
+```powershell
+cd backend
+copy .env.example .env
+npm install
+npm run dev
+```
+
+If MongoDB still fails to connect, check the log line **“Connecting to MongoDB at …”** — it shows which host the app is using. Update `MONGODB_URI` in `backend/.env` (for example Atlas: `mongodb+srv://user:pass@cluster/...` or local: `mongodb://127.0.0.1:27017/digital_department_hub`).
+
+Optional demo data:
+
+```powershell
+npm run seed:demo
+```
+
+### 3) Run the frontend
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Vite will print a local URL (usually `http://localhost:5173`, or `5174` if `5173` is already in use).
+
+---
+
 ## Project Overview
 
 **Project A:** Core Department Website + CMS + Scholarship + Events/Auditorium/Lab Booking  

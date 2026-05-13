@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { eventApi } from '../../api/modules';
 import { useAuth } from '../../context/AuthContext';
 import useRole from '../../hooks/useRole';
+import useLanguage from '../../hooks/useLanguage';
+import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalDateTime } from '../../utils/localized';
 
 function EventsPage() {
+  const { language } = useLanguage();
   const { isAuthenticated } = useAuth();
   const canCheckIn = useRole('admin', 'manager');
   const canManageEvents = useRole('admin', 'manager', 'editor');
@@ -49,20 +52,19 @@ function EventsPage() {
     [events, selectedEventId]
   );
 
-  const calendarSummaryByEvent = useMemo(
-    () =>
-      new Map(
-        calendarItems.map((item) => [
-          item._id,
-          {
-            registrationCount: item.registrationCount,
-            checkedInCount: item.checkedInCount,
-            availableSeats: item.availableSeats
-          }
-        ])
-      ),
-    [calendarItems]
-  );
+  const calendarSummaryByEvent = useMemo(() => {
+    const map = new Map();
+    for (const item of calendarItems) {
+      const payload = {
+        registrationCount: item.registrationCount,
+        checkedInCount: item.checkedInCount,
+        availableSeats: item.availableSeats
+      };
+      map.set(item._id, payload);
+      map.set(String(item._id), payload);
+    }
+    return map;
+  }, [calendarItems]);
 
   const dashboardStats = useMemo(() => {
     const totalRegistered = calendarItems.reduce(
@@ -156,7 +158,7 @@ function EventsPage() {
       const response = await eventApi.register(eventId);
       setLastRegistration(response.data.registration);
       setMessage('Registration completed. QR code generated for check-in.');
-      await loadRegistrations();
+      await Promise.all([loadRegistrations(), loadCalendar()]);
     } catch (apiError) {
       setMessage(getApiErrorMessage(apiError, 'Failed to register for event.'));
     }
@@ -170,7 +172,7 @@ function EventsPage() {
       await eventApi.checkIn(checkInForm);
       setMessage('Check-in completed successfully.');
       setCheckInForm((prev) => ({ ...prev, qrToken: '' }));
-      await loadRegistrations();
+      await Promise.all([loadRegistrations(), loadCalendar()]);
     } catch (apiError) {
       setMessage(getApiErrorMessage(apiError, 'Check-in failed.'));
     }
@@ -231,14 +233,12 @@ function EventsPage() {
     <section className="page-wrap">
       <header className="page-title-bar">
         <div>
-          <p className="eyebrow">Event Programs</p>
-          <h1>Events</h1>
-          <p className="page-title-subtitle">
-            Publish events, track registrations and check-ins, and collect participant feedback with a public calendar.
-          </p>
+          <p className="eyebrow">{ui('events', 'eyebrow', language)}</p>
+          <h1>{ui('events', 'title', language)}</h1>
+          <p className="page-title-subtitle">{ui('events', 'subtitle', language)}</p>
         </div>
         <button type="button" className="btn btn-ghost" onClick={loadData}>
-          Refresh
+          {ui('events', 'refresh', language)}
         </button>
       </header>
 
@@ -352,6 +352,18 @@ function EventsPage() {
           <div className="stack-list">
             {events.map((item) => {
               const summary = calendarSummaryByEvent.get(item._id);
+              const deadlinePassed =
+                item.registrationDeadline &&
+                new Date(item.registrationDeadline).getTime() < Date.now();
+              const isFull =
+                typeof summary?.availableSeats === 'number' && summary.availableSeats <= 0;
+              const isJustRegistered = lastRegistration?.event === item._id;
+              const canRegister =
+                isAuthenticated &&
+                item.status === 'published' &&
+                !deadlinePassed &&
+                !isFull &&
+                !isJustRegistered;
 
               return (
                 <article key={item._id} className="surface-card inner-card">
@@ -361,24 +373,51 @@ function EventsPage() {
                   </div>
                   <p>{item.description}</p>
                   <p className="meta">
-                    {item.location} • {toLocalDateTime(item.startTime)} • Seats: {item.capacity}
+                    {item.location} • {toLocalDateTime(item.startTime)} • {ui('events', 'seatsTotal', language)}:{' '}
+                    {item.capacity}
                   </p>
-                  {summary && (
+                  {summary ? (
                     <p className="meta">
-                      Registered: {summary.registrationCount} • Checked In: {summary.checkedInCount} •
-                      Remaining: {summary.availableSeats}
+                      Registered: {summary.registrationCount} • Checked in: {summary.checkedInCount} •{' '}
+                      {ui('events', 'seatsRemaining', language)}: {summary.availableSeats}
+                    </p>
+                  ) : (
+                    <p className="meta">
+                      {ui('events', 'seatsTotal', language)}: {item.capacity}. {ui('events', 'liveSeatsHint', language)}
                     </p>
                   )}
                   <p className="meta">Registration deadline: {toIsoDate(item.registrationDeadline)}</p>
 
                   {isAuthenticated && item.status === 'published' && (
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => registerForEvent(item._id)}
-                    >
-                      Register for Event
-                    </button>
+                    <>
+                      {canRegister ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => registerForEvent(item._id)}
+                        >
+                          Register for Event
+                        </button>
+                      ) : (
+                        <button type="button" className="btn btn-ghost" disabled>
+                          {isJustRegistered
+                            ? 'Registered'
+                            : deadlinePassed
+                              ? 'Registration closed'
+                              : isFull
+                                ? 'Event full'
+                                : 'Registration unavailable'}
+                        </button>
+                      )}
+
+                      {(deadlinePassed || isFull) && (
+                        <p className="meta">
+                          {deadlinePassed
+                            ? 'Registration deadline has passed.'
+                            : 'No seats available for registration.'}
+                        </p>
+                      )}
+                    </>
                   )}
                 </article>
               );

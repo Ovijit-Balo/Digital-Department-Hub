@@ -1,13 +1,25 @@
+const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const Joi = require('joi');
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+// Load variables from backend/.env first, then allow the current working directory to override.
+// This fixes `MONGODB_URI` missing when the process is started from the repo root instead of `backend/`.
+const backendEnvPath = path.join(__dirname, '..', '..', '.env');
+const cwdEnvPath = path.resolve(process.cwd(), '.env');
+
+dotenv.config({ path: backendEnvPath });
+dotenv.config({ path: cwdEnvPath, override: true });
+
+if (!fs.existsSync(backendEnvPath) && !fs.existsSync(cwdEnvPath)) {
+  dotenv.config();
+}
 
 const envSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
   PORT: Joi.number().default(5000),
-  MONGODB_URI: Joi.string().default('mongodb://localhost:27017/digital_department_hub'),
+  // Prefer IPv4 localhost by default to avoid Windows IPv6 (::1) binding issues.
+  MONGODB_URI: Joi.string().default('mongodb://127.0.0.1:27017/digital_department_hub'),
   JWT_SECRET: Joi.string().min(16).default('development-secret-key-12345'),
   JWT_EXPIRES_IN: Joi.string().default('1d'),
   REDIS_HOST: Joi.string().default('localhost'),

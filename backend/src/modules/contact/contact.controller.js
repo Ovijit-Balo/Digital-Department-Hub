@@ -24,6 +24,11 @@ const listInquiries = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(data);
 });
 
+const listMyInquiries = asyncHandler(async (req, res) => {
+  const data = await contactService.listMyInquiries({ email: req.user.email, query: req.query });
+  res.status(StatusCodes.OK).json(data);
+});
+
 const updateInquiryStatus = asyncHandler(async (req, res) => {
   const inquiry = await contactService.updateInquiryStatus({
     inquiryId: req.params.inquiryId,
@@ -49,5 +54,6 @@ const updateInquiryStatus = asyncHandler(async (req, res) => {
 module.exports = {
   submitInquiry,
   listInquiries,
+  listMyInquiries,
   updateInquiryStatus
 };

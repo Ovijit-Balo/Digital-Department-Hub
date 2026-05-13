@@ -2,18 +2,25 @@ import { useCallback, useEffect, useState } from 'react';
 import { contactApi } from '../../api/modules';
 import { useAuth } from '../../context/AuthContext';
 import useRole from '../../hooks/useRole';
+import useLanguage from '../../hooks/useLanguage';
+import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
 import { toLocalDateTime } from '../../utils/localized';
 
 function ContactPage() {
-  const { isAuthenticated } = useAuth();
+  const { language } = useLanguage();
+  const { isAuthenticated, user } = useAuth();
   const canManageInquiries = useRole('admin', 'manager', 'editor');
+  const canViewMyInquiries = isAuthenticated && !canManageInquiries;
 
   const [loading, setLoading] = useState(false);
+  const [myLoading, setMyLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [inquiryFilter, setInquiryFilter] = useState('');
   const [inquiries, setInquiries] = useState([]);
+  const [myInquiryFilter, setMyInquiryFilter] = useState('');
+  const [myInquiries, setMyInquiries] = useState([]);
 
   const [inquiryForm, setInquiryForm] = useState({
     name: '',
@@ -21,6 +28,18 @@ function ContactPage() {
     subject: '',
     message: ''
   });
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      return;
+    }
+
+    setInquiryForm((prev) => ({
+      ...prev,
+      name: prev.name || user.fullName || '',
+      email: prev.email || user.email || ''
+    }));
+  }, [isAuthenticated, user]);
 
   const loadInquiries = useCallback(async () => {
     if (!isAuthenticated || !canManageInquiries) {
@@ -48,21 +67,56 @@ function ContactPage() {
     loadInquiries();
   }, [loadInquiries]);
 
+  const loadMyInquiries = useCallback(async () => {
+    if (!canViewMyInquiries) {
+      setMyInquiries([]);
+      return;
+    }
+
+    setMyLoading(true);
+    setError('');
+
+    try {
+      const response = await contactApi.listMyInquiries({
+        status: myInquiryFilter || undefined,
+        limit: 50
+      });
+      setMyInquiries(response.data.items || []);
+    } catch (apiError) {
+      setError(getApiErrorMessage(apiError, 'Failed to load your inquiries.'));
+    } finally {
+      setMyLoading(false);
+    }
+  }, [canViewMyInquiries, myInquiryFilter]);
+
+  useEffect(() => {
+    loadMyInquiries();
+  }, [loadMyInquiries]);
+
   const submitInquiry = async (event) => {
     event.preventDefault();
     setMessage('');
     setError('');
 
     try {
-      await contactApi.submitInquiry(inquiryForm);
-      setMessage('Your inquiry has been submitted. The department team will review it soon.');
+      const response = await contactApi.submitInquiry(inquiryForm);
+      const inquiry = response.data?.inquiry;
+      const ref = inquiry?._id ? String(inquiry._id) : '';
+      const status = inquiry?.status || 'new';
+      const intro = ui('contact', 'successIntro', language);
+      const refLabel = ui('contact', 'refLine', language);
+      const statusLabel = ui('contact', 'statusLine', language);
+      const trackHint = isAuthenticated
+        ? ui('contact', 'signedInTrackHint', language)
+        : ui('contact', 'guestTrackHint', language);
+      setMessage(`${intro} ${refLabel}: ${ref || '—'}. ${statusLabel}: ${status}. ${trackHint}`);
       setInquiryForm({
-        name: '',
-        email: '',
+        name: isAuthenticated ? user?.fullName || '' : '',
+        email: isAuthenticated ? user?.email || '' : '',
         subject: '',
         message: ''
       });
-      await loadInquiries();
+      await Promise.all([loadInquiries(), loadMyInquiries()]);
     } catch (apiError) {
       setError(getApiErrorMessage(apiError, 'Failed to submit inquiry.'));
     }
@@ -86,27 +140,28 @@ function ContactPage() {
   return (
     <section className="page-wrap">
       <div className="section-head">
-        <h1>Contact Desk</h1>
+        <h1>{ui('contact', 'title', language)}</h1>
         {canManageInquiries && (
           <button type="button" className="btn btn-ghost" onClick={loadInquiries}>
-            Refresh Inquiries
+            {ui('contact', 'refreshInquiries', language)}
           </button>
         )}
       </div>
 
       {error && <p className="error-text">{error}</p>}
-      {message && <p className="meta">{message}</p>}
+      {message && (
+        <p className="meta inquiry-feedback" role="status">
+          {message}
+        </p>
+      )}
 
       <article className="surface-card">
-        <h3>Send an Inquiry</h3>
-        <p className="meta">
-          Share your question or request with the department office. Required fields are marked by
-          validation at submission.
-        </p>
+        <h3>{ui('contact', 'sendTitle', language)}</h3>
+        <p className="meta">{ui('contact', 'sendHint', language)}</p>
 
         <form className="form-grid" onSubmit={submitInquiry}>
           <label>
-            Name
+            {ui('contact', 'name', language)}
             <input
               value={inquiryForm.name}
               onChange={(event) =>
@@ -117,7 +172,7 @@ function ContactPage() {
           </label>
 
           <label>
-            Email
+            {ui('contact', 'email', language)}
             <input
               type="email"
               value={inquiryForm.email}
@@ -129,7 +184,7 @@ function ContactPage() {
           </label>
 
           <label>
-            Subject
+            {ui('contact', 'subject', language)}
             <input
               value={inquiryForm.subject}
               onChange={(event) =>
@@ -140,7 +195,7 @@ function ContactPage() {
           </label>
 
           <label>
-            Message
+            {ui('contact', 'message', language)}
             <textarea
               minLength={10}
               value={inquiryForm.message}
@@ -152,7 +207,7 @@ function ContactPage() {
           </label>
 
           <button type="submit" className="btn btn-primary">
-            Submit Inquiry
+            {ui('contact', 'submit', language)}
           </button>
         </form>
       </article>
@@ -160,15 +215,15 @@ function ContactPage() {
       {canManageInquiries && (
         <article className="surface-card">
           <div className="section-head section-head-tight">
-            <h3>Inquiry Management</h3>
+            <h3>{ui('contact', 'inquiryMgmt', language)}</h3>
             <select
               value={inquiryFilter}
               onChange={(event) => setInquiryFilter(event.target.value)}
             >
-              <option value="">All statuses</option>
-              <option value="new">New</option>
-              <option value="in_progress">In Progress</option>
-              <option value="resolved">Resolved</option>
+              <option value="">{ui('contact', 'allStatuses', language)}</option>
+              <option value="new">{ui('contact', 'statusNew', language)}</option>
+              <option value="in_progress">{ui('contact', 'statusProgress', language)}</option>
+              <option value="resolved">{ui('contact', 'statusResolved', language)}</option>
             </select>
           </div>
 
@@ -227,6 +282,59 @@ function ContactPage() {
                           </button>
                         </div>
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
+      )}
+
+      {canViewMyInquiries && (
+        <article className="surface-card">
+          <div className="section-head section-head-tight">
+            <h3>{ui('contact', 'myInquiries', language)}</h3>
+            <button type="button" className="btn btn-ghost" onClick={loadMyInquiries}>
+              {ui('home', 'refresh', language)}
+            </button>
+          </div>
+
+          <div className="action-row">
+            <select
+              value={myInquiryFilter}
+              onChange={(event) => setMyInquiryFilter(event.target.value)}
+            >
+              <option value="">{ui('contact', 'allStatuses', language)}</option>
+              <option value="new">{ui('contact', 'statusNew', language)}</option>
+              <option value="in_progress">{ui('contact', 'statusProgress', language)}</option>
+              <option value="resolved">{ui('contact', 'statusResolved', language)}</option>
+            </select>
+          </div>
+
+          {myLoading && <p>Loading your inquiries...</p>}
+          {!myLoading && !myInquiries.length && <p className="meta">{ui('contact', 'noMine', language)}</p>}
+
+          {!!myInquiries.length && (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                    <th>Resolution Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {myInquiries.map((item) => (
+                    <tr key={item._id}>
+                      <td>{item.subject}</td>
+                      <td>
+                        <span className={`status-badge status-${item.status}`}>{item.status}</span>
+                      </td>
+                      <td>{toLocalDateTime(item.updatedAt)}</td>
+                      <td>{item.resolutionNote || '-'}</td>
                     </tr>
                   ))}
                 </tbody>

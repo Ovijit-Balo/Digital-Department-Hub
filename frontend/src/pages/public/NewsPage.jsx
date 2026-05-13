@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { cmsApi } from '../../api/modules';
+import PaginationBar from '../../components/common/PaginationBar';
 import useRole from '../../hooks/useRole';
 import useLanguage from '../../hooks/useLanguage';
+import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalizedText } from '../../utils/localized';
 
@@ -9,6 +11,8 @@ const initialLocalized = {
   en: '',
   bn: ''
 };
+
+const PAGE_SIZE = 6;
 
 function NewsPage() {
   const { language } = useLanguage();
@@ -19,6 +23,11 @@ function NewsPage() {
   const [newsItems, setNewsItems] = useState([]);
   const [blogItems, setBlogItems] = useState([]);
   const [galleryItems, setGalleryItems] = useState([]);
+  const [newsPage, setNewsPage] = useState(1);
+  const [blogPage, setBlogPage] = useState(1);
+  const [newsTotal, setNewsTotal] = useState(0);
+  const [blogTotal, setBlogTotal] = useState(0);
+  const [listRefresh, setListRefresh] = useState(0);
   const [activeComposer, setActiveComposer] = useState('news');
 
   const [newsForm, setNewsForm] = useState({
@@ -37,30 +46,32 @@ function NewsPage() {
   const [submitMessage, setSubmitMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const loadContent = async () => {
+  const loadContent = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
       const [newsResponse, blogResponse, galleryResponse] = await Promise.all([
-        cmsApi.listNews({ status: 'published', limit: 12 }),
-        cmsApi.listBlogs({ status: 'published', limit: 12 }),
+        cmsApi.listNews({ status: 'published', limit: PAGE_SIZE, page: newsPage }),
+        cmsApi.listBlogs({ status: 'published', limit: PAGE_SIZE, page: blogPage }),
         cmsApi.listGalleries({ status: 'published', limit: 12 })
       ]);
 
       setNewsItems(newsResponse.data.items || []);
       setBlogItems(blogResponse.data.items || []);
       setGalleryItems(galleryResponse.data.items || []);
+      setNewsTotal(Number(newsResponse.data.total ?? 0));
+      setBlogTotal(Number(blogResponse.data.total ?? 0));
     } catch (apiError) {
       setError(getApiErrorMessage(apiError, 'Failed to load newsroom content.'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [blogPage, listRefresh, newsPage]);
 
   useEffect(() => {
     loadContent();
-  }, []);
+  }, [loadContent]);
 
   const onNewsLocalizedChange = (field, locale, value) => {
     setNewsForm((prev) => ({
@@ -96,7 +107,9 @@ function NewsPage() {
         body: { ...initialLocalized },
         status: 'published'
       });
-      await loadContent();
+      setNewsPage(1);
+      setBlogPage(1);
+      setListRefresh((value) => value + 1);
     } catch (apiError) {
       setSubmitMessage(getApiErrorMessage(apiError, 'Failed to publish news post.'));
     } finally {
@@ -119,7 +132,9 @@ function NewsPage() {
         body: { ...initialLocalized },
         status: 'published'
       });
-      await loadContent();
+      setNewsPage(1);
+      setBlogPage(1);
+      setListRefresh((value) => value + 1);
     } catch (apiError) {
       setSubmitMessage(getApiErrorMessage(apiError, 'Failed to publish blog post.'));
     } finally {
@@ -130,9 +145,9 @@ function NewsPage() {
   return (
     <section className="page-wrap">
       <div className="section-head">
-        <h1>Newsroom</h1>
+        <h1>{ui('newsroom', 'title', language)}</h1>
         <button type="button" className="btn btn-ghost" onClick={loadContent}>
-          Refresh
+          {ui('home', 'refresh', language)}
         </button>
       </div>
 
@@ -141,21 +156,21 @@ function NewsPage() {
       {canPublish && (
         <article className="surface-card">
           <div className="section-head section-head-tight">
-            <h3>Content Composer</h3>
+            <h3>{ui('newsroom', 'composer', language)}</h3>
             <div className="action-row">
               <button
                 type="button"
                 className={`btn ${activeComposer === 'news' ? 'btn-primary' : 'btn-ghost'}`}
                 onClick={() => setActiveComposer('news')}
               >
-                News
+                {ui('newsroom', 'news', language)}
               </button>
               <button
                 type="button"
                 className={`btn ${activeComposer === 'blog' ? 'btn-primary' : 'btn-ghost'}`}
                 onClick={() => setActiveComposer('blog')}
               >
-                Blog
+                {ui('newsroom', 'blog', language)}
               </button>
             </div>
           </div>
@@ -292,38 +307,61 @@ function NewsPage() {
 
       <div className="stack-list">
         <article className="surface-card">
-          <h2>Latest News</h2>
-          {loading && <p>Loading...</p>}
-          {!loading && !newsItems.length && <p>No news found.</p>}
+          <h2>{ui('newsroom', 'latestNews', language)}</h2>
+          {loading && <p>{ui('newsroom', 'loadingList', language)}</p>}
+          {!loading && !newsItems.length && <p>{ui('newsroom', 'noNews', language)}</p>}
           {newsItems.map((item) => (
             <article key={item._id} className="surface-card inner-card">
               <h3>{toLocalizedText(item.title, language)}</h3>
               <p>{toLocalizedText(item.summary, language)}</p>
-              <p className="meta">Published: {toIsoDate(item.publishedAt || item.createdAt)}</p>
+              <p className="meta">
+                {ui('newsroom', 'published', language)}: {toIsoDate(item.publishedAt || item.createdAt)}
+              </p>
             </article>
           ))}
+          <PaginationBar
+            language={language}
+            page={newsPage}
+            total={newsTotal}
+            limit={PAGE_SIZE}
+            disabled={loading}
+            onPageChange={setNewsPage}
+          />
         </article>
 
         <article className="surface-card">
-          <h2>Featured Blogs</h2>
-          {!blogItems.length && <p>No blog entries found yet.</p>}
+          <h2>{ui('newsroom', 'featuredBlogs', language)}</h2>
+          {loading && <p>{ui('newsroom', 'loadingList', language)}</p>}
+          {!loading && !blogItems.length && <p>{ui('newsroom', 'noBlogs', language)}</p>}
           {blogItems.map((item) => (
             <article key={item._id} className="surface-card inner-card">
               <h3>{toLocalizedText(item.title, language)}</h3>
               <p>{toLocalizedText(item.excerpt, language)}</p>
-              <p className="meta">Slug: {item.slug}</p>
+              <p className="meta">
+                {ui('newsroom', 'slug', language)}: {item.slug}
+              </p>
             </article>
           ))}
+          <PaginationBar
+            language={language}
+            page={blogPage}
+            total={blogTotal}
+            limit={PAGE_SIZE}
+            disabled={loading}
+            onPageChange={setBlogPage}
+          />
         </article>
 
         <article className="surface-card">
-          <h2>Gallery Highlights</h2>
-          {!galleryItems.length && <p>No gallery collections published yet.</p>}
+          <h2>{ui('newsroom', 'galleryHighlights', language)}</h2>
+          {!galleryItems.length && <p>{ui('newsroom', 'noGallery', language)}</p>}
           {galleryItems.map((gallery) => (
             <article key={gallery._id} className="surface-card inner-card">
               <h3>{toLocalizedText(gallery.title, language)}</h3>
               <p>{toLocalizedText(gallery.description, language)}</p>
-              <p className="meta">Media items: {gallery.items?.length || 0}</p>
+              <p className="meta">
+                {ui('newsroom', 'mediaItems', language)}: {gallery.items?.length || 0}
+              </p>
             </article>
           ))}
         </article>
