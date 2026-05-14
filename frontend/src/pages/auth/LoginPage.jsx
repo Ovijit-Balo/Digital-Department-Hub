@@ -16,7 +16,7 @@ function LoginPage() {
   const { portal } = useParams();
   const { login, logout } = useAuth();
 
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '', rememberMe: true });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -39,7 +39,7 @@ function LoginPage() {
     setLoading(true);
 
     try {
-      const user = await login(form);
+      const user = await login(form, { rememberMe: form.rememberMe });
 
       if (selectedPortal && !userCanAccessPortal(user, selectedPortal.key)) {
         const assignedPortal = getPrimaryPortalForUser(user);
@@ -107,6 +107,23 @@ function LoginPage() {
           onChange={onChange}
           required
         />
+
+        <label className="form-check">
+          <input
+            type="checkbox"
+            name="rememberMe"
+            checked={form.rememberMe}
+            onChange={(event) => setForm((prev) => ({ ...prev, rememberMe: event.target.checked }))}
+          />
+          <span>Keep me signed in on this device</span>
+        </label>
+
+        <div className="auth-inline-actions">
+          <span className="meta">Prefer a temporary session? Uncheck the box above.</span>
+          <Link to="/contact" className="home-inline-link">
+            Forgot password?
+          </Link>
+        </div>
 
         {error && <p className="error-text">{error}</p>}
 

@@ -1,0 +1,74 @@
+{
+  "brand": {
+    "title": "ডিজিটাল ডিপার্টমেন্ট হাব"
+  },
+  "nav": {
+    "home": "হোম",
+    "contentMedia": "কন্টেন্ট ও মিডিয়া",
+    "campusServices": "ক্যাম্পাস সেবা",
+    "contact": "যোগাযোগ",
+    "portals": "পোর্টাল",
+    "connect": "যোগাযোগ ও অ্যাকাউন্ট"
+  },
+  "home": {
+    "refresh": "রিফ্রেশ",
+    "loadingHighlights": "হাইলাইট লোড হচ্ছে...",
+    "viewAll": "সব দেখুন",
+    "applyNow": "আবেদন করুন",
+    "register": "নিবন্ধন",
+    "requestSlot": "স্লট অনুরোধ"
+  },
+  "gallery": {
+    "title": "গ্যালারি",
+    "loading": "গ্যালারি লোড হচ্ছে...",
+    "empty": "এখনও কোনো গ্যালারি প্রকাশিত হয়নি।",
+    "untitled": "শিরোনামহীন মিডিয়া",
+    "mediaMissing": "মিডিয়া লিঙ্ক নেই বা ভুল।"
+  },
+  "scholarship": {
+    "title": "বৃত্তি ডেস্ক",
+    "refresh": "রিফ্রেশ",
+    "availableNotices": "বৃত্তির নোটিস",
+    "selectNoticePlaceholder": "একটি নোটিস বেছে নিন...",
+    "noNotices": "এখনও কোনো বৃত্তির নোটিস নেই।",
+    "submitApp": "আবেদন জমা দিন",
+    "loading": "বৃত্তির ডেটা লোড হচ্ছে..."
+  },
+  "events": {
+    "title": "ইভেন্ট",
+    "refresh": "রিফ্রেশ",
+    "seatsTotal": "মোট আসন",
+    "seatsRemaining": "বাকি আসন",
+    "liveSeatsHint": "লাইভ রেজিস্ট্রেশন সংখ্যার জন্য উপরের ক্যালেন্ডার দেখুন।"
+  },
+  "newsroom": {
+    "title": "নিউজরুম",
+    "latestNews": "সর্বশেষ সংবাদ",
+    "featuredBlogs": "নির্বাচিত ব্লগ",
+    "galleryHighlights": "গ্যালারি হাইলাইট",
+    "published": "প্রকাশিত",
+    "loadingList": "লোড হচ্ছে...",
+    "noNews": "কোনো সংবাদ নেই।",
+    "noBlogs": "এখনও কোনো ব্লগ নেই।",
+    "noGallery": "এখনও কোনো গ্যালারি প্রকাশিত হয়নি।",
+    "mediaItems": "মিডিয়া আইটেম",
+    "pageOf": "পৃষ্ঠা",
+    "of": "এর",
+    "prev": "আগের",
+    "next": "পরের",
+    "slug": "স্লাগ"
+  },
+  "blogs": {
+    "title": "ব্লগ",
+    "loading": "ব্লগ লোড হচ্ছে...",
+    "empty": "এখনও কোনো ব্লগ প্রকাশিত হয়নি।",
+    "read": "ব্লগ পড়ুন"
+  },
+  "contact": {
+    "title": "যোগাযোগ ডেস্ক",
+    "refreshInquiries": "জিজ্ঞাসা রিফ্রেশ",
+    "sendTitle": "জিজ্ঞাসা পাঠান",
+    "submit": "জিজ্ঞাসা জমা দিন",
+    "myInquiries": "আমার জিজ্ঞাসা"
+  }
+}

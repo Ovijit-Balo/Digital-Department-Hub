@@ -1,4 +1,6 @@
 import { toLocalizedText } from '../utils/localized';
+import enLocale from '../locales/en.json';
+import bnLocale from '../locales/bn.json';
 
 /** Bilingual UI copy for public pages (static strings not stored in CMS). */
 export const publicUi = {
@@ -207,6 +209,13 @@ export const publicUi = {
 
 export function ui(section, key, language) {
   const block = publicUi[section];
+  const jsonLocale = language === 'bn' ? bnLocale : enLocale;
+  const jsonValue = jsonLocale?.[section]?.[key];
+
+  if (jsonValue) {
+    return jsonValue;
+  }
+
   if (!block || !block[key]) {
     return '';
   }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { eventApi } from '../../api/modules';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import useRole from '../../hooks/useRole';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
@@ -10,6 +11,7 @@ import { toIsoDate, toLocalDateTime } from '../../utils/localized';
 function EventsPage() {
   const { language } = useLanguage();
   const { isAuthenticated } = useAuth();
+  const { success, error: toastError } = useToast();
   const canCheckIn = useRole('admin', 'manager');
   const canManageEvents = useRole('admin', 'manager', 'editor');
   const canAccessEventOps = canCheckIn || canManageEvents;
@@ -158,9 +160,12 @@ function EventsPage() {
       const response = await eventApi.register(eventId);
       setLastRegistration(response.data.registration);
       setMessage('Registration completed. QR code generated for check-in.');
+      success('Registration completed. QR code generated for check-in.', { title: 'Event registered' });
       await Promise.all([loadRegistrations(), loadCalendar()]);
     } catch (apiError) {
-      setMessage(getApiErrorMessage(apiError, 'Failed to register for event.'));
+      const nextMessage = getApiErrorMessage(apiError, 'Failed to register for event.');
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: 'Registration failed' });
     }
   };
 
@@ -171,10 +176,13 @@ function EventsPage() {
     try {
       await eventApi.checkIn(checkInForm);
       setMessage('Check-in completed successfully.');
+      success('Check-in completed successfully.', { title: 'Attendee checked in' });
       setCheckInForm((prev) => ({ ...prev, qrToken: '' }));
       await Promise.all([loadRegistrations(), loadCalendar()]);
     } catch (apiError) {
-      setMessage(getApiErrorMessage(apiError, 'Check-in failed.'));
+      const nextMessage = getApiErrorMessage(apiError, 'Check-in failed.');
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: 'Check-in failed' });
     }
   };
 
@@ -193,9 +201,12 @@ function EventsPage() {
         comment: feedbackForm.comment
       });
       setMessage('Feedback submitted successfully.');
+      success('Feedback submitted successfully.', { title: 'Feedback saved' });
       setFeedbackForm({ rating: 5, comment: '' });
     } catch (apiError) {
-      setMessage(getApiErrorMessage(apiError, 'Feedback submission failed.'));
+      const nextMessage = getApiErrorMessage(apiError, 'Feedback submission failed.');
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: 'Feedback failed' });
     }
   };
 
@@ -213,6 +224,7 @@ function EventsPage() {
       });
 
       setMessage('Event published successfully.');
+      success('Event published successfully.', { title: 'Event created' });
       setCreateEventForm({
         title: '',
         description: '',
@@ -225,7 +237,9 @@ function EventsPage() {
       });
       await Promise.all([loadEvents(), loadCalendar()]);
     } catch (apiError) {
-      setMessage(getApiErrorMessage(apiError, 'Failed to create event.'));
+      const nextMessage = getApiErrorMessage(apiError, 'Failed to create event.');
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: 'Event creation failed' });
     }
   };
 
@@ -369,7 +383,10 @@ function EventsPage() {
                 <article key={item._id} className="surface-card inner-card">
                   <div className="section-head section-head-tight">
                     <h3>{item.title}</h3>
-                    <span className={`status-badge status-${item.status}`}>{item.status}</span>
+                    <div className="inline-actions">
+                      <span className={`status-badge status-${item.status}`}>{item.status}</span>
+                      {isFull && <span className="status-badge status-rejected">Event Full</span>}
+                    </div>
                   </div>
                   <p>{item.description}</p>
                   <p className="meta">

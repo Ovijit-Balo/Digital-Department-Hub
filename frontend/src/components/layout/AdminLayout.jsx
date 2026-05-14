@@ -1,4 +1,5 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   ACCESS_CONTROL_VIEW_ROLES,
@@ -9,6 +10,7 @@ import {
   TEACHER_DASHBOARD_ROLES,
   getPrimaryPortalForUser
 } from '../../constants/roles';
+import { useThemeContext } from '../../context/ThemeContext';
 
 const navItems = [
   { to: '/admin', label: 'Admin Dashboard', roles: [ROLES.ADMIN] },
@@ -25,10 +27,18 @@ const navItems = [
 
 function AdminLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, hasRole, logout } = useAuth();
+  const { isDark, toggleTheme } = useThemeContext();
   const primaryPortal = getPrimaryPortalForUser(user);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const links = navItems.filter((item) => hasRole(...item.roles));
+  const links = useMemo(() => navItems.filter((item) => hasRole(...item.roles)), [hasRole]);
+
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
 
   const handleSignOut = () => {
     const redirectPath = primaryPortal?.loginPath || '/portals';
@@ -37,23 +47,41 @@ function AdminLayout() {
   };
 
   return (
-    <div className="admin-layout">
-      <aside className="admin-sidebar">
+    <div className={`admin-layout${mobileSidebarOpen ? ' admin-layout--drawer-open' : ''}`}>
+      <aside className={`admin-sidebar${sidebarCollapsed ? ' is-collapsed' : ''}${mobileSidebarOpen ? ' is-open' : ''}`}>
         <div className="admin-sidebar-head">
-          <h2>Control Center</h2>
-          <p className="sidebar-caption">Signed in as {user?.fullName}</p>
-          {primaryPortal && <p className="sidebar-caption">Portal: {primaryPortal.label}</p>}
+          <div>
+            <p className="eyebrow">Enterprise Control Center</p>
+            <h2>Digital Department Hub</h2>
+            <p className="sidebar-caption">Signed in as {user?.fullName}</p>
+            {primaryPortal && <p className="sidebar-caption">Portal: {primaryPortal.label}</p>}
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            aria-label="Toggle sidebar"
+          >
+            {sidebarCollapsed ? '›' : '‹'}
+          </button>
         </div>
 
         <nav className="admin-nav">
           {links.map((link) => (
-            <Link key={link.to} to={link.to} className="admin-nav-link">
+            <NavLink
+              key={link.to}
+              to={link.to}
+              className={({ isActive }) => `admin-nav-link${isActive ? ' is-active' : ''}`}
+            >
               {link.label}
-            </Link>
+            </NavLink>
           ))}
         </nav>
 
         <div className="admin-sidebar-actions">
+          <button type="button" className="btn btn-ghost admin-action-btn" onClick={toggleTheme}>
+            {isDark ? 'Light Mode' : 'Dark Mode'}
+          </button>
           <Link to="/" className="btn btn-ghost admin-action-btn">
             Public Site
           </Link>
@@ -63,9 +91,43 @@ function AdminLayout() {
         </div>
       </aside>
 
-      <section className="admin-content">
-        <Outlet />
-      </section>
+      <div className="admin-main">
+        <header className="admin-topbar">
+          <button
+            type="button"
+            className="icon-button admin-topbar__menu"
+            onClick={() => setMobileSidebarOpen((open) => !open)}
+            aria-label="Open navigation"
+          >
+            ☰
+          </button>
+          <div className="admin-topbar-copy">
+            <p className="meta">Role-aware workspace</p>
+            <h1>University ERP Command Deck</h1>
+          </div>
+          <div className="admin-topbar-actions">
+            <button type="button" className="theme-toggle" onClick={toggleTheme}>
+              {isDark ? 'Light' : 'Dark'}
+            </button>
+            <Link to="/admin/notifications" className="btn btn-ghost">
+              Notifications
+            </Link>
+          </div>
+        </header>
+
+        <section className="admin-content">
+          <Outlet />
+        </section>
+      </div>
+
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          className="admin-backdrop"
+          aria-label="Close sidebar"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
     </div>
   );
 }

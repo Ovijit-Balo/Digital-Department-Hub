@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { scholarshipApi } from '../../api/modules';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import useLanguage from '../../hooks/useLanguage';
 import useRole from '../../hooks/useRole';
 import { ui } from '../../i18n/publicUi';
@@ -19,6 +20,7 @@ const createEmptyCategory = () => ({
 function ScholarshipPage() {
   const { user, isAuthenticated } = useAuth();
   const { language } = useLanguage();
+  const { success, error: toastError, info } = useToast();
 
   const canReview = useRole('admin', 'manager', 'reviewer');
   const canManageNotices = useRole('admin', 'manager', 'editor');
@@ -43,6 +45,7 @@ function ScholarshipPage() {
   });
   const [noticeUpdates, setNoticeUpdates] = useState([]);
   const [globalUpdates, setGlobalUpdates] = useState([]);
+  const [applicationDrafts, setApplicationDrafts] = useState({});
 
   const [applicationForm, setApplicationForm] = useState({
     statement: '',
@@ -69,15 +72,6 @@ function ScholarshipPage() {
     title: { en: '', bn: '' },
     body: { en: '', bn: '' }
   });
-
-  useEffect(() => {
-    setApplicationForm((prev) => ({
-      ...prev,
-      statement: '',
-      gpa: '',
-      selectedCategoryCode: ''
-    }));
-  }, [selectedNoticeId]);
 
   const selectedNotice = useMemo(
     () => notices.find((notice) => notice._id === selectedNoticeId) || null,
@@ -108,6 +102,16 @@ function ScholarshipPage() {
       return;
     }
 
+    const draft = applicationDrafts[selectedNoticeId];
+    if (draft) {
+      setApplicationForm((prev) => ({
+        ...prev,
+        ...draft,
+        department: user?.department || draft.department || prev.department || ''
+      }));
+      return;
+    }
+
     const selectedStillValid = selectedNoticeCategories.some(
       (category) => category.code === applicationForm.selectedCategoryCode
     );
@@ -120,7 +124,18 @@ function ScholarshipPage() {
       ...prev,
       selectedCategoryCode: selectedNoticeCategories[0]?.code || ''
     }));
-  }, [applicationForm.selectedCategoryCode, selectedNotice, selectedNoticeCategories]);
+  }, [applicationDrafts, applicationForm.selectedCategoryCode, selectedNotice, selectedNoticeCategories, selectedNoticeId, user?.department]);
+
+  useEffect(() => {
+    if (!selectedNoticeId) {
+      return;
+    }
+
+    setApplicationDrafts((prev) => ({
+      ...prev,
+      [selectedNoticeId]: applicationForm
+    }));
+  }, [applicationForm, selectedNoticeId]);
 
   const loadNotices = useCallback(async () => {
     const response = canViewManageNotices
@@ -277,17 +292,30 @@ function ScholarshipPage() {
       });
 
       setMessage('Application submitted successfully.');
+      success('Application submitted successfully.', { title: 'Scholarship application sent' });
       setApplicationForm((prev) => ({
         ...prev,
         statement: '',
-        gpa: ''
+        gpa: '',
+        selectedCategoryCode: ''
+      }));
+      setApplicationDrafts((prev) => ({
+        ...prev,
+        [selectedNoticeId]: {
+          statement: '',
+          gpa: '',
+          department: applicationForm.department,
+          selectedCategoryCode: ''
+        }
       }));
 
       await loadApplications();
       await loadMyApplications();
       await loadNoticeDetails();
     } catch (apiError) {
-      setMessage(getApiErrorMessage(apiError, 'Failed to submit application.'));
+      const nextMessage = getApiErrorMessage(apiError, 'Failed to submit application.');
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: 'Application failed' });
     }
   };
 
@@ -346,6 +374,7 @@ function ScholarshipPage() {
       });
 
       setMessage('Scholarship notice created successfully.');
+      success('Scholarship notice created successfully.', { title: 'Notice created' });
       setNoticeForm({
         title: { en: '', bn: '' },
         description: { en: '', bn: '' },
@@ -361,8 +390,11 @@ function ScholarshipPage() {
     } catch (apiError) {
       if (apiError instanceof Error && !apiError.response) {
         setMessage(apiError.message);
+        toastError(apiError.message, { title: 'Notice creation failed' });
       } else {
-        setMessage(getApiErrorMessage(apiError, 'Failed to create scholarship notice.'));
+        const nextMessage = getApiErrorMessage(apiError, 'Failed to create scholarship notice.');
+        setMessage(nextMessage);
+        toastError(nextMessage, { title: 'Notice creation failed' });
       }
     }
   };
@@ -399,11 +431,14 @@ function ScholarshipPage() {
       });
 
       setMessage('Application review updated.');
+      success(`Application ${status}.`, { title: 'Review saved' });
       await loadApplications();
       await loadMyApplications();
       await loadNoticeDetails();
     } catch (apiError) {
-      setMessage(getApiErrorMessage(apiError, 'Failed to update review status.'));
+      const nextMessage = getApiErrorMessage(apiError, 'Failed to update review status.');
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: 'Review failed' });
     }
   };
 
@@ -423,8 +458,11 @@ function ScholarshipPage() {
       anchor.click();
       URL.revokeObjectURL(url);
       setMessage('CSV export downloaded.');
+      info('CSV export downloaded.', { title: 'Export complete' });
     } catch (apiError) {
-      setMessage(getApiErrorMessage(apiError, 'Failed to export applications.'));
+      const nextMessage = getApiErrorMessage(apiError, 'Failed to export applications.');
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: 'Export failed' });
     }
   };
 
@@ -472,10 +510,13 @@ function ScholarshipPage() {
     try {
       await scholarshipApi.updateNotice(selectedNoticeId, { status });
       setMessage(`Notice marked as ${status}.`);
+      success(`Notice marked as ${status}.`, { title: 'Scholarship notice updated' });
       await loadNotices();
       await loadNoticeDetails();
     } catch (apiError) {
-      setMessage(getApiErrorMessage(apiError, 'Failed to update scholarship notice status.'));
+      const nextMessage = getApiErrorMessage(apiError, 'Failed to update scholarship notice status.');
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: 'Notice update failed' });
     }
   };
 
@@ -487,9 +528,17 @@ function ScholarshipPage() {
     try {
       await scholarshipApi.publishRecipients(selectedNoticeId, { publish });
       setMessage(publish ? 'Recipient list published.' : 'Recipient list unpublished.');
+      success(publish ? 'Recipient list published.' : 'Recipient list unpublished.', {
+        title: 'Recipient list updated'
+      });
       await loadNoticeDetails();
     } catch (apiError) {
-      setMessage(getApiErrorMessage(apiError, 'Failed to update recipient publication status.'));
+      const nextMessage = getApiErrorMessage(
+        apiError,
+        'Failed to update recipient publication status.'
+      );
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: 'Recipient publication failed' });
     }
   };
 
@@ -515,6 +564,7 @@ function ScholarshipPage() {
     try {
       await scholarshipApi.createNoticeUpdate(selectedNoticeId, updateForm);
       setMessage('Scholarship update published.');
+      info('Scholarship update published.', { title: 'Update feed' });
       setUpdateForm({
         kind: 'general',
         visibility: 'public',
@@ -526,7 +576,9 @@ function ScholarshipPage() {
       await loadGlobalUpdates();
       await loadNotices();
     } catch (apiError) {
-      setMessage(getApiErrorMessage(apiError, 'Failed to publish scholarship update.'));
+      const nextMessage = getApiErrorMessage(apiError, 'Failed to publish scholarship update.');
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: 'Update publish failed' });
     }
   };
 
@@ -605,21 +657,21 @@ function ScholarshipPage() {
         )}
 
         <article className="surface-card">
-        <div className="section-head section-head-tight">
-          <h3>{ui('scholarship', 'availableNotices', language)}</h3>
-          <select
-            aria-label={ui('scholarship', 'availableNotices', language)}
-            value={selectedNoticeId}
-            onChange={(event) => setSelectedNoticeId(event.target.value)}
-          >
-            <option value="">{ui('scholarship', 'selectNoticePlaceholder', language)}</option>
-            {notices.map((notice) => (
-              <option key={notice._id} value={notice._id}>
-                {toLocalizedText(notice.title, language)}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div className="section-head section-head-tight">
+            <h3>{ui('scholarship', 'availableNotices', language)}</h3>
+            <select
+              aria-label={ui('scholarship', 'availableNotices', language)}
+              value={selectedNoticeId}
+              onChange={(event) => setSelectedNoticeId(event.target.value)}
+            >
+              <option value="">{ui('scholarship', 'selectNoticePlaceholder', language)}</option>
+              {notices.map((notice) => (
+                <option key={notice._id} value={notice._id}>
+                  {toLocalizedText(notice.title, language)}
+                </option>
+              ))}
+            </select>
+          </div>
 
         {!notices.length && <p>{ui('scholarship', 'noNotices', language)}</p>}
 
@@ -699,10 +751,10 @@ function ScholarshipPage() {
       {isAuthenticated && (
         <div className="workflow-grid workflow-grid-2">
           {canApply && isAuthenticated && (
-          <article className="surface-card">
+            <article className="surface-card">
             <p className="meta">{ui('scholarship', 'stepApply', language)}</p>
             <h3>{ui('scholarship', 'applyTitle', language)}</h3>
-            <form key={selectedNoticeId || 'no-notice'} className="form-grid" onSubmit={submitApplication}>
+            <form className="form-grid" onSubmit={submitApplication}>
               {!!selectedNoticeCategories.length && (
                 <label>
                   {ui('scholarship', 'categoryLabel', language)}

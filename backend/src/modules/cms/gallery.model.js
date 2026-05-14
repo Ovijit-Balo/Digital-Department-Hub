@@ -1,5 +1,18 @@
 const mongoose = require('mongoose');
 
+const isAbsoluteMediaUrl = (value) => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  return /^(https?:|data:|blob:)/i.test(trimmed);
+};
+
 const localizedTextSchema = new mongoose.Schema(
   {
     en: { type: String, default: '', trim: true },
@@ -26,12 +39,20 @@ const galleryItemSchema = new mongoose.Schema(
     mediaUrl: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      validate: {
+        validator: isAbsoluteMediaUrl,
+        message: 'mediaUrl must be an absolute media URL'
+      }
     },
     thumbnailUrl: {
       type: String,
       trim: true,
-      default: ''
+      default: '',
+      validate: {
+        validator: (value) => !value || isAbsoluteMediaUrl(value),
+        message: 'thumbnailUrl must be an absolute media URL'
+      }
     },
     caption: {
       type: localizedTextOptionalSchema,

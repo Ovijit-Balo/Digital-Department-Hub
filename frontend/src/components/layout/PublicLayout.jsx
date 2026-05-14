@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import useLanguage from '../../hooks/useLanguage';
+import { useThemeContext } from '../../context/ThemeContext';
 import { getPrimaryPortalForUser } from '../../constants/roles';
 import { PUBLIC_NAV_CONTENT, PUBLIC_NAV_SERVICES } from '../../constants/publicNav';
 import { ui } from '../../i18n/publicUi';
@@ -26,6 +27,7 @@ function PublicLayout() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { language, setLanguage } = useLanguage();
+  const { isDark, toggleTheme } = useThemeContext();
   const primaryPortal = getPrimaryPortalForUser(user);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -151,6 +153,9 @@ function PublicLayout() {
         </nav>
 
         <div className="auth-actions">
+          <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
+            {isDark ? 'Light mode' : 'Dark mode'}
+          </button>
           <label className="lang-switch" htmlFor="ui-language">
             <span>{toLocalizedText({ en: 'Language', bn: 'ভাষা' }, language)}</span>
             <select

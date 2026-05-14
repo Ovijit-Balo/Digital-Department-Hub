@@ -3,13 +3,15 @@ import { jwtDecode } from 'jwt-decode';
 import apiClient from '../api/client';
 
 const TOKEN_KEY = 'ddh_access_token';
+const SESSION_TOKEN_KEY = 'ddh_session_access_token';
 const USER_KEY = 'ddh_user';
+const SESSION_USER_KEY = 'ddh_session_user';
 
 const AuthContext = createContext(null);
 
 const readStoredAuth = () => {
-  const token = localStorage.getItem(TOKEN_KEY);
-  const userRaw = localStorage.getItem(USER_KEY);
+  const token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(SESSION_TOKEN_KEY);
+  const userRaw = localStorage.getItem(USER_KEY) || sessionStorage.getItem(SESSION_USER_KEY);
 
   if (!token || !userRaw) {
     return { token: null, user: null };
@@ -28,27 +30,38 @@ const readStoredAuth = () => {
 export function AuthProvider({ children }) {
   const [auth, setAuth] = useState(readStoredAuth);
 
-  const persistAuth = (token, user) => {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  const persistAuth = (token, user, rememberMe = true) => {
+    if (rememberMe) {
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+      sessionStorage.removeItem(SESSION_USER_KEY);
+    } else {
+      sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+      sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    }
     setAuth({ token, user });
   };
 
   const clearAuth = () => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    sessionStorage.removeItem(SESSION_USER_KEY);
     setAuth({ token: null, user: null });
   };
 
-  const login = async (credentials) => {
+  const login = async (credentials, options = {}) => {
     const { data } = await apiClient.post('/auth/login', credentials);
-    persistAuth(data.token, data.user);
+    persistAuth(data.token, data.user, options.rememberMe !== false);
     return data.user;
   };
 
-  const register = async (payload) => {
+  const register = async (payload, options = {}) => {
     const { data } = await apiClient.post('/auth/register', payload);
-    persistAuth(data.token, data.user);
+    persistAuth(data.token, data.user, options.rememberMe !== false);
     return data.user;
   };
 

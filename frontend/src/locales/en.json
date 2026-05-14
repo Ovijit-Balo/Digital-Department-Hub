@@ -1,0 +1,74 @@
+{
+  "brand": {
+    "title": "Digital Department Hub"
+  },
+  "nav": {
+    "home": "Home",
+    "contentMedia": "Content & media",
+    "campusServices": "Campus services",
+    "contact": "Contact",
+    "portals": "Portals",
+    "connect": "Connect & account"
+  },
+  "home": {
+    "refresh": "Refresh",
+    "loadingHighlights": "Loading platform highlights...",
+    "viewAll": "View all",
+    "applyNow": "Apply now",
+    "register": "Register",
+    "requestSlot": "Request slot"
+  },
+  "gallery": {
+    "title": "Gallery",
+    "loading": "Loading gallery...",
+    "empty": "No gallery collections published yet.",
+    "untitled": "Untitled media",
+    "mediaMissing": "Media link missing or invalid."
+  },
+  "scholarship": {
+    "title": "Scholarship Desk",
+    "refresh": "Refresh",
+    "availableNotices": "Scholarship notice",
+    "selectNoticePlaceholder": "Select a notice...",
+    "noNotices": "No scholarship notices yet.",
+    "submitApp": "Submit Application",
+    "loading": "Loading scholarship data..."
+  },
+  "events": {
+    "title": "Events",
+    "refresh": "Refresh",
+    "seatsTotal": "Total seats",
+    "seatsRemaining": "Seats remaining",
+    "liveSeatsHint": "Open the calendar panel above for live registration counts."
+  },
+  "newsroom": {
+    "title": "Newsroom",
+    "latestNews": "Latest News",
+    "featuredBlogs": "Featured Blogs",
+    "galleryHighlights": "Gallery Highlights",
+    "published": "Published",
+    "loadingList": "Loading...",
+    "noNews": "No news found.",
+    "noBlogs": "No blog entries found yet.",
+    "noGallery": "No gallery collections published yet.",
+    "mediaItems": "Media items",
+    "pageOf": "Page",
+    "of": "of",
+    "prev": "Previous",
+    "next": "Next",
+    "slug": "Slug"
+  },
+  "blogs": {
+    "title": "Blog",
+    "loading": "Loading blogs...",
+    "empty": "No blogs published yet.",
+    "read": "Read Blog"
+  },
+  "contact": {
+    "title": "Contact Desk",
+    "refreshInquiries": "Refresh Inquiries",
+    "sendTitle": "Send an Inquiry",
+    "submit": "Submit Inquiry",
+    "myInquiries": "My Inquiries"
+  }
+}

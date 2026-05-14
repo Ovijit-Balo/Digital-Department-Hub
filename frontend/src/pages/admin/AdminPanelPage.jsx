@@ -9,11 +9,13 @@ import {
   notificationApi,
   scholarshipApi
 } from '../../api/modules';
+import { useToast } from '../../context/ToastContext';
 import useRole from '../../hooks/useRole';
 import { getApiErrorMessage } from '../../utils/http';
 import { toLocalDateTime } from '../../utils/localized';
 
 function AdminPanelPage() {
+  const { success, error: toastError, info } = useToast();
   const canManageBookings = useRole('admin', 'manager');
   const canManageInquiries = useRole('admin', 'manager', 'editor');
   const canReviewScholarships = useRole('admin', 'manager');
@@ -103,6 +105,11 @@ function AdminPanelPage() {
   }, [loadDashboard]);
 
   const reviewBooking = async (bookingId, status) => {
+    const confirmed = window.confirm(`Are you sure you want to ${status} this booking?`);
+    if (!confirmed) {
+      return;
+    }
+
     const decisionNote = window.prompt('Decision note (optional):', '') || '';
 
     try {
@@ -111,13 +118,21 @@ function AdminPanelPage() {
         decisionNote
       });
       setMessage(`Booking ${status} successfully.`);
+      success(`Booking ${status} successfully.`, { title: 'Booking updated' });
       await loadDashboard();
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to update booking request.'));
+      const nextError = getApiErrorMessage(apiError, 'Failed to update booking request.');
+      setError(nextError);
+      toastError(nextError, { title: 'Booking action failed' });
     }
   };
 
   const updateInquiryStatus = async (inquiryId, status) => {
+    const confirmed = window.confirm(`Mark this inquiry as ${status.replace('_', ' ')}?`);
+    if (!confirmed) {
+      return;
+    }
+
     const resolutionNote = window.prompt('Resolution note (optional):', '') || '';
 
     try {
@@ -126,9 +141,12 @@ function AdminPanelPage() {
         resolutionNote
       });
       setMessage('Inquiry status updated successfully.');
+      info('Inquiry status updated successfully.', { title: 'Inquiry updated' });
       await loadDashboard();
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to update inquiry status.'));
+      const nextError = getApiErrorMessage(apiError, 'Failed to update inquiry status.');
+      setError(nextError);
+      toastError(nextError, { title: 'Inquiry action failed' });
     }
   };
 

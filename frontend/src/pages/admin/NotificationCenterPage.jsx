@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { authApi, notificationApi } from '../../api/modules';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import useRole from '../../hooks/useRole';
 import { getApiErrorMessage } from '../../utils/http';
 import { toLocalDateTime } from '../../utils/localized';
@@ -8,9 +9,11 @@ import { toLocalDateTime } from '../../utils/localized';
 function NotificationCenterPage() {
   const { user } = useAuth();
   const canDispatch = useRole('admin', 'manager');
+  const { success, error: toastError, info } = useToast();
+  const latestNotificationIdRef = useRef('');
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [message, setMessage] = useState('');
   const [notifications, setNotifications] = useState([]);
   const [users, setUsers] = useState([]);
@@ -22,280 +25,163 @@ function NotificationCenterPage() {
 
   const [userSearch, setUserSearch] = useState('');
 
-  const [dispatchForm, setDispatchForm] = useState({
-    recipient: '',
-    channel: 'in_app',
-    subject: '',
-    message: ''
-  });
-
-  const loadNotifications = useCallback(async () => {
-    setLoading(true);
-    setError('');
-
+  const fetchUsers = useCallback(async () => {
     try {
-      const response = await notificationApi.listNotifications({
-        status: filters.status || undefined,
-        channel: filters.channel || undefined,
-        limit: 40
-      });
-      setNotifications(response.data.items || []);
-    } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load notifications.'));
+      const resp = await authApi.getUsers();
+      setUsers(resp.data?.users || []);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    }
+  }, []);
+
+  const fetchNotifications = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (filters.status) params.status = filters.status;
+      if (filters.channel) params.channel = filters.channel;
+      const resp = await notificationApi.getNotifications(params);
+      const data = resp.data?.notifications || [];
+      setNotifications(data);
+      if (data.length > 0) {
+        latestNotificationIdRef.current = data[0]._id;
+      }
+    } catch (err) {
+      setErrorMessage(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [filters.channel, filters.status]);
-
-  const loadUsers = useCallback(async (searchTerm = '') => {
-    if (!canDispatch) {
-      setUsers([]);
-      return;
-    }
-
-    try {
-      const response = await authApi.listUsers({
-        isActive: true,
-        search: searchTerm || undefined,
-        limit: 100
-      });
-      const items = response.data.items || [];
-      setUsers(items);
-
-      setDispatchForm((prev) => {
-        if (prev.recipient) {
-          return prev;
-        }
-
-        const preferredRecipient = items.find((item) => item.id !== user?.id)?.id || user?.id;
-
-        return {
-          ...prev,
-          recipient: preferredRecipient || ''
-        };
-      });
-    } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load users for notification dispatch.'));
-    }
-  }, [canDispatch, user?.id]);
+  }, [filters]);
 
   useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
+    fetchUsers();
+    fetchNotifications();
+  }, [fetchUsers, fetchNotifications]);
 
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
-
-  const refreshData = async () => {
-    await Promise.all([loadNotifications(), loadUsers()]);
-  };
-
-  const markRead = async (notificationId) => {
-    setMessage('');
-    setError('');
-
-    try {
-      await notificationApi.markRead(notificationId);
-      setMessage('Notification marked as read.');
-      await loadNotifications();
-    } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to mark notification as read.'));
-    }
-  };
-
-  const submitDispatch = async (event) => {
-    event.preventDefault();
-    setMessage('');
-    setError('');
-
+  const handleDispatch = async (e) => {
+    e.preventDefault();
+    if (!message) return;
     try {
       await notificationApi.dispatch({
-        recipient: dispatchForm.recipient,
-        channel: dispatchForm.channel,
-        subject: dispatchForm.subject,
-        message: dispatchForm.message
+        message,
+        targetUsers: userSearch ? [userSearch] : [],
+        channel: 'all'
       });
-
-      setMessage('Notification dispatched successfully.');
-      setDispatchForm((prev) => ({
-        ...prev,
-        subject: '',
-        message: ''
-      }));
-      await loadNotifications();
-    } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to dispatch notification.'));
+      setMessage('');
+      setUserSearch('');
+      success('Notification dispatched successfully');
+      fetchNotifications();
+    } catch (err) {
+      toastError(getApiErrorMessage(err));
     }
   };
 
+  const filteredUsers = useMemo(() => {
+    if (!userSearch) return [];
+    return users.filter(u => 
+      u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+      u.fullName.toLowerCase().includes(userSearch.toLowerCase())
+    );
+  }, [users, userSearch]);
+
   return (
-    <section className="page-wrap">
-      <div className="section-head">
-        <h1>Notification Center</h1>
-        <button type="button" className="btn btn-ghost" onClick={refreshData}>
-          Refresh
-        </button>
-      </div>
-
-      {error && <p className="error-text">{error}</p>}
-      {message && <p className="meta">{message}</p>}
-
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Notification Center</h1>
+      
       {canDispatch && (
-        <article className="surface-card">
-          <h3>Dispatch Notification</h3>
-
-          <div className="action-row">
-            <input
-              value={userSearch}
-              onChange={(event) => setUserSearch(event.target.value)}
-              placeholder="Search recipient by name/email"
-            />
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => loadUsers(userSearch)}
+        <div className="bg-white p-6 rounded-lg shadow mb-8">
+          <h2 className="text-lg font-semibold mb-4">Send New Notification</h2>
+          <form onSubmit={handleDispatch}>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Message</label>
+              <textarea 
+                className="w-full border rounded p-2"
+                rows="3"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Enter notification message..."
+                required
+              />
+            </div>
+            <div className="mb-4 relative">
+              <label className="block text-sm font-medium mb-1">Target User (Optional - Leave blank for all)</label>
+              <input 
+                type="text"
+                className="w-full border rounded p-2"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Search by name or email..."
+              />
+              {userSearch && filteredUsers.length > 0 && (
+                <div className="absolute z-10 w-full bg-white border mt-1 shadow-lg max-h-40 overflow-y-auto">
+                  {filteredUsers.map(u => (
+                    <div 
+                      key={u._id}
+                      className="p-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => setUserSearch(u.email)}
+                    >
+                      {u.fullName} ({u.email})
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button 
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
-              Search Users
-            </button>
-          </div>
-
-          <form className="form-grid" onSubmit={submitDispatch}>
-            <label>
-              Recipient
-              <select
-                value={dispatchForm.recipient}
-                onChange={(event) =>
-                  setDispatchForm((prev) => ({ ...prev, recipient: event.target.value }))
-                }
-                required
-              >
-                <option value="">Select recipient</option>
-                {users.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.fullName} ({item.email})
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Channel
-              <select
-                value={dispatchForm.channel}
-                onChange={(event) =>
-                  setDispatchForm((prev) => ({ ...prev, channel: event.target.value }))
-                }
-              >
-                <option value="in_app">In App</option>
-                <option value="email">Email</option>
-              </select>
-            </label>
-
-            <label>
-              Subject (optional)
-              <input
-                value={dispatchForm.subject}
-                onChange={(event) =>
-                  setDispatchForm((prev) => ({ ...prev, subject: event.target.value }))
-                }
-              />
-            </label>
-
-            <label>
-              Message
-              <textarea
-                minLength={1}
-                value={dispatchForm.message}
-                onChange={(event) =>
-                  setDispatchForm((prev) => ({ ...prev, message: event.target.value }))
-                }
-                required
-              />
-            </label>
-
-            <button type="submit" className="btn btn-primary">
               Dispatch Notification
             </button>
           </form>
-        </article>
+        </div>
       )}
 
-      <article className="surface-card">
-        <div className="section-head section-head-tight">
-          <h3>Inbox</h3>
-          <div className="action-row">
-            <select
-              value={filters.channel}
-              onChange={(event) => setFilters((prev) => ({ ...prev, channel: event.target.value }))}
-            >
-              <option value="">All channels</option>
-              <option value="in_app">In app</option>
-              <option value="email">Email</option>
-            </select>
-            <select
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">Sent Notifications</h2>
+          <div className="flex gap-2">
+            <select 
+              className="border rounded p-1"
               value={filters.status}
-              onChange={(event) => setFilters((prev) => ({ ...prev, status: event.target.value }))}
+              onChange={(e) => setFilters({...filters, status: e.target.value})}
             >
-              <option value="">All status</option>
-              <option value="queued">Queued</option>
+              <option value="">All Statuses</option>
               <option value="sent">Sent</option>
               <option value="failed">Failed</option>
             </select>
           </div>
         </div>
 
-        {loading && <p>Loading notifications...</p>}
-        {!loading && !notifications.length && <p>No notifications available for this filter.</p>}
-
-        {!!notifications.length && (
-          <div className="table-wrap">
-            <table>
+        {loading ? (
+          <p>Loading...</p>
+        ) : errorMessage ? (
+          <p className="text-red-500">{errorMessage}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
               <thead>
-                <tr>
-                  <th>Recipient</th>
-                  <th>Channel</th>
-                  <th>Subject</th>
-                  <th>Message</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                  <th>Read At</th>
-                  <th>Action</th>
+                <tr className="border-bottom">
+                  <th className="p-2">Message</th>
+                  <th className="p-2">Channel</th>
+                  <th className="p-2">Recipients</th>
+                  <th className="p-2">Date</th>
                 </tr>
               </thead>
               <tbody>
-                {notifications.map((item) => (
-                  <tr key={item._id}>
-                    <td>
-                      {String(item.recipient) === String(user?.id) ? 'You' : item.recipient}
-                    </td>
-                    <td>{item.channel}</td>
-                    <td>{item.subject || '-'}</td>
-                    <td>{item.message}</td>
-                    <td>
-                      <span className={`status-badge status-${item.status}`}>{item.status}</span>
-                    </td>
-                    <td>{toLocalDateTime(item.createdAt)}</td>
-                    <td>{toLocalDateTime(item.readAt)}</td>
-                    <td>
-                      {!item.readAt && (
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => markRead(item._id)}
-                        >
-                          Mark Read
-                        </button>
-                      )}
-                    </td>
+                {notifications.map(n => (
+                  <tr key={n._id} className="border-t">
+                    <td className="p-2">{n.message}</td>
+                    <td className="p-2 capitalize">{n.channel}</td>
+                    <td className="p-2">{n.targetUsers?.length || 'Global'}</td>
+                    <td className="p-2 text-sm">{toLocalDateTime(n.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </article>
-    </section>
+      </div>
+    </div>
   );
 }
 

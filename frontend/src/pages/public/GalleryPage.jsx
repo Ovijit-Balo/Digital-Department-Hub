@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cmsApi } from '../../api/modules';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
@@ -6,7 +6,7 @@ import { getApiErrorMessage } from '../../utils/http';
 import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import { toLocalizedText } from '../../utils/localized';
 
-function GalleryMediaItem({ item, language }) {
+function GalleryMediaItem({ item, language, onPreview }) {
   const [failed, setFailed] = useState(false);
   const src = resolveMediaUrl(item.mediaUrl);
   const caption = toLocalizedText(item.caption, language) || ui('gallery', 'untitled', language);
@@ -24,14 +24,14 @@ function GalleryMediaItem({ item, language }) {
   if (item.mediaType === 'video') {
     return (
       <article className="gallery-item-card">
-        <video controls src={src} className="gallery-media" />
+        <video controls src={src} className="gallery-media" onClick={() => onPreview(item)} />
         <p className="meta">{caption}</p>
       </article>
     );
   }
 
   return (
-    <article className="gallery-item-card">
+    <button type="button" className="gallery-item-card gallery-item-card--button" onClick={() => onPreview(item)}>
       <img
         src={src}
         alt={caption}
@@ -41,7 +41,7 @@ function GalleryMediaItem({ item, language }) {
         onError={() => setFailed(true)}
       />
       <p className="meta">{caption}</p>
-    </article>
+    </button>
   );
 }
 
@@ -50,6 +50,7 @@ function GalleryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [collections, setCollections] = useState([]);
+  const [previewItem, setPreviewItem] = useState(null);
 
   const loadCollections = useCallback(async () => {
     setLoading(true);
@@ -65,6 +66,11 @@ function GalleryPage() {
     }
   }, []);
 
+  const skeletonCollections = useMemo(
+    () => Array.from({ length: 2 }, (_, index) => index),
+    []
+  );
+
   useEffect(() => {
     loadCollections();
   }, [loadCollections]);
@@ -79,7 +85,24 @@ function GalleryPage() {
       </div>
 
       {error && <p className="error-text">{error}</p>}
-      {loading && <p>{ui('gallery', 'loading', language)}</p>}
+      {loading && (
+        <div className="stack-list" aria-label={ui('gallery', 'loading', language)}>
+          {skeletonCollections.map((index) => (
+            <article key={index} className="surface-card gallery-skeleton-card" aria-hidden="true">
+              <div className="skeleton skeleton-line skeleton-line--lg" />
+              <div className="skeleton skeleton-line" />
+              <div className="gallery-grid">
+                {Array.from({ length: 4 }).map((_, itemIndex) => (
+                  <div key={itemIndex} className="gallery-skeleton-tile">
+                    <div className="skeleton skeleton-media" />
+                    <div className="skeleton skeleton-line" />
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
       {!loading && !collections.length && <p>{ui('gallery', 'empty', language)}</p>}
 
       <div className="stack-list">
@@ -93,12 +116,38 @@ function GalleryPage() {
                 .slice()
                 .sort((left, right) => (left.order || 0) - (right.order || 0))
                 .map((item) => (
-                  <GalleryMediaItem key={`${item.mediaUrl}-${item.order}`} item={item} language={language} />
+                  <GalleryMediaItem
+                    key={`${item.mediaUrl}-${item.order}`}
+                    item={item}
+                    language={language}
+                    onPreview={setPreviewItem}
+                  />
                 ))}
             </div>
           </article>
         ))}
       </div>
+
+      {previewItem && (
+        <button
+          type="button"
+          className="gallery-modal"
+          aria-label="Close image preview"
+          onClick={() => setPreviewItem(null)}
+        >
+          <div className="gallery-modal__dialog" onClick={(event) => event.stopPropagation()}>
+            <img
+              src={resolveMediaUrl(previewItem.mediaUrl)}
+              alt={toLocalizedText(previewItem.caption, language) || ui('gallery', 'untitled', language)}
+              className="gallery-modal__media"
+            />
+            <div className="gallery-modal__copy">
+              <h3>{toLocalizedText(previewItem.caption, language) || ui('gallery', 'untitled', language)}</h3>
+              <p className="meta">{resolveMediaUrl(previewItem.mediaUrl)}</p>
+            </div>
+          </div>
+        </button>
+      )}
     </section>
   );
 }

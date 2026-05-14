@@ -164,8 +164,8 @@ const listBlogPosts = {
 
 const galleryItem = Joi.object({
   mediaType: Joi.string().valid('image', 'video').optional(),
-  mediaUrl: Joi.string().uri().required(),
-  thumbnailUrl: Joi.string().uri().allow('').optional(),
+  mediaUrl: Joi.string().uri({ scheme: ['http', 'https', 'data'] }).required(),
+  thumbnailUrl: Joi.string().uri({ scheme: ['http', 'https', 'data'] }).allow('').optional(),
   caption: localizedTextOptional.optional(),
   order: Joi.number().integer().min(0).optional()
 });
