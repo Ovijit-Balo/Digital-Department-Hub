@@ -2,6 +2,7 @@ const app = require('./app');
 const env = require('./config/env');
 const logger = require('./config/logger');
 const connectDB = require('./config/db');
+const cors = require('cors');
 
 // Initialize database connection
 let dbConnected = false;
@@ -12,6 +13,13 @@ const initializeDB = async () => {
     dbConnected = true;
   }
 };
+
+const corsOptions = {
+  origin: '*',
+  optionSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 
 // For Vercel serverless deployment
 if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {

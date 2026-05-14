@@ -1,4 +1,4 @@
-const defaultApiBase = 'http://localhost:5000/api/v1';
+const defaultApiBase = 'http://10.33.28.28:5000/api/v1';
 
 function getApiOrigin() {
   const base = (import.meta.env.VITE_API_URL || defaultApiBase).trim();

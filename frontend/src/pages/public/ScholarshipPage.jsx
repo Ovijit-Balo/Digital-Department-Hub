@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { scholarshipApi } from '../../api/modules';
 import { useAuth } from '../../context/AuthContext';
@@ -54,7 +54,22 @@ function ScholarshipPage() {
     selectedCategoryCode: ''
   });
 
+  const lastNoticeIdRef = useRef('');
+  const lastEditNoticeIdRef = useRef('');
+
   const [noticeForm, setNoticeForm] = useState({
+    title: { en: '', bn: '' },
+    description: { en: '', bn: '' },
+    eligibility: { en: '', bn: '' },
+    scholarshipType: 'one_off',
+    applicationWindowStart: '',
+    applicationWindowEnd: '',
+    deadline: '',
+    status: 'draft',
+    categories: [createEmptyCategory()]
+  });
+
+  const [editNoticeForm, setEditNoticeForm] = useState({
     title: { en: '', bn: '' },
     description: { en: '', bn: '' },
     eligibility: { en: '', bn: '' },
@@ -98,17 +113,23 @@ function ScholarshipPage() {
   );
 
   useEffect(() => {
-    if (!selectedNotice) {
+    if (!selectedNoticeId || !selectedNotice) {
       return;
     }
 
-    const draft = applicationDrafts[selectedNoticeId];
-    if (draft) {
-      setApplicationForm((prev) => ({
-        ...prev,
-        ...draft,
-        department: user?.department || draft.department || prev.department || ''
-      }));
+    if (lastNoticeIdRef.current !== selectedNoticeId) {
+      const draft = applicationDrafts[selectedNoticeId];
+      const nextCategoryCode =
+        draft?.selectedCategoryCode || selectedNoticeCategories[0]?.code || '';
+
+      setApplicationForm({
+        statement: draft?.statement || '',
+        gpa: draft?.gpa || '',
+        department: draft?.department || user?.department || '',
+        selectedCategoryCode: nextCategoryCode
+      });
+
+      lastNoticeIdRef.current = selectedNoticeId;
       return;
     }
 
@@ -116,15 +137,54 @@ function ScholarshipPage() {
       (category) => category.code === applicationForm.selectedCategoryCode
     );
 
-    if (selectedStillValid) {
+    if (!selectedStillValid) {
+      setApplicationForm((prev) => ({
+        ...prev,
+        selectedCategoryCode: selectedNoticeCategories[0]?.code || ''
+      }));
+    }
+  }, [applicationDrafts, applicationForm.selectedCategoryCode, selectedNotice, selectedNoticeCategories, selectedNoticeId, user?.department]);
+
+  useEffect(() => {
+    if (!selectedNotice || !selectedNoticeId || !canManageNotices) {
       return;
     }
 
-    setApplicationForm((prev) => ({
-      ...prev,
-      selectedCategoryCode: selectedNoticeCategories[0]?.code || ''
+    if (lastEditNoticeIdRef.current === selectedNoticeId) {
+      return;
+    }
+
+    const mappedCategories = (selectedNotice.categories || []).map((category) => ({
+      code: category.code || '',
+      nameEn: category.name?.en || '',
+      nameBn: category.name?.bn || '',
+      amount: category.amount ?? '',
+      slots: category.slots ?? 1
     }));
-  }, [applicationDrafts, applicationForm.selectedCategoryCode, selectedNotice, selectedNoticeCategories, selectedNoticeId, user?.department]);
+
+    setEditNoticeForm({
+      title: {
+        en: selectedNotice.title?.en || '',
+        bn: selectedNotice.title?.bn || ''
+      },
+      description: {
+        en: selectedNotice.description?.en || '',
+        bn: selectedNotice.description?.bn || ''
+      },
+      eligibility: {
+        en: selectedNotice.eligibility?.en || '',
+        bn: selectedNotice.eligibility?.bn || ''
+      },
+      scholarshipType: selectedNotice.scholarshipType || 'one_off',
+      applicationWindowStart: toIsoDate(selectedNotice.applicationWindowStart),
+      applicationWindowEnd: toIsoDate(selectedNotice.applicationWindowEnd),
+      deadline: toIsoDate(selectedNotice.deadline),
+      status: selectedNotice.status || 'draft',
+      categories: mappedCategories.length ? mappedCategories : [createEmptyCategory()]
+    });
+
+    lastEditNoticeIdRef.current = selectedNoticeId;
+  }, [canManageNotices, selectedNotice, selectedNoticeId]);
 
   useEffect(() => {
     if (!selectedNoticeId) {
@@ -319,8 +379,8 @@ function ScholarshipPage() {
     }
   };
 
-  const normalizeNoticeCategories = () => {
-    const normalized = noticeForm.categories
+  const normalizeNoticeCategories = (categories) => {
+    const normalized = categories
       .filter(
         (item) =>
           item.code.trim() &&
@@ -359,7 +419,7 @@ function ScholarshipPage() {
     setMessage('');
 
     try {
-      const categories = normalizeNoticeCategories();
+      const categories = normalizeNoticeCategories(noticeForm.categories);
 
       await scholarshipApi.createNotice({
         title: noticeForm.title,
@@ -395,6 +455,46 @@ function ScholarshipPage() {
         const nextMessage = getApiErrorMessage(apiError, 'Failed to create scholarship notice.');
         setMessage(nextMessage);
         toastError(nextMessage, { title: 'Notice creation failed' });
+      }
+    }
+  };
+
+  const submitNoticeEdit = async (event) => {
+    event.preventDefault();
+    setMessage('');
+
+    if (!selectedNoticeId) {
+      setMessage('Select a scholarship notice first.');
+      return;
+    }
+
+    try {
+      const categories = normalizeNoticeCategories(editNoticeForm.categories);
+
+      await scholarshipApi.updateNotice(selectedNoticeId, {
+        title: editNoticeForm.title,
+        description: editNoticeForm.description,
+        eligibility: editNoticeForm.eligibility,
+        scholarshipType: editNoticeForm.scholarshipType,
+        applicationWindowStart: new Date(editNoticeForm.applicationWindowStart).toISOString(),
+        applicationWindowEnd: new Date(editNoticeForm.applicationWindowEnd).toISOString(),
+        deadline: new Date(editNoticeForm.deadline).toISOString(),
+        status: editNoticeForm.status,
+        categories
+      });
+
+      setMessage('Scholarship notice updated successfully.');
+      success('Scholarship notice updated successfully.', { title: 'Notice updated' });
+      await loadNotices();
+      await loadNoticeDetails();
+    } catch (apiError) {
+      if (apiError instanceof Error && !apiError.response) {
+        setMessage(apiError.message);
+        toastError(apiError.message, { title: 'Notice update failed' });
+      } else {
+        const nextMessage = getApiErrorMessage(apiError, 'Failed to update scholarship notice.');
+        setMessage(nextMessage);
+        toastError(nextMessage, { title: 'Notice update failed' });
       }
     }
   };
@@ -476,8 +576,27 @@ function ScholarshipPage() {
     }));
   };
 
+  const updateEditNoticeLocalized = (field, locale, value) => {
+    setEditNoticeForm((prev) => ({
+      ...prev,
+      [field]: {
+        ...prev[field],
+        [locale]: value
+      }
+    }));
+  };
+
   const updateCategoryField = (index, field, value) => {
     setNoticeForm((prev) => ({
+      ...prev,
+      categories: prev.categories.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  const updateEditCategoryField = (index, field, value) => {
+    setEditNoticeForm((prev) => ({
       ...prev,
       categories: prev.categories.map((item, itemIndex) =>
         itemIndex === index ? { ...item, [field]: value } : item
@@ -492,8 +611,25 @@ function ScholarshipPage() {
     }));
   };
 
+  const addEditCategoryRow = () => {
+    setEditNoticeForm((prev) => ({
+      ...prev,
+      categories: [...prev.categories, createEmptyCategory()]
+    }));
+  };
+
   const removeCategoryRow = (index) => {
     setNoticeForm((prev) => {
+      const next = prev.categories.filter((_, categoryIndex) => categoryIndex !== index);
+      return {
+        ...prev,
+        categories: next.length ? next : [createEmptyCategory()]
+      };
+    });
+  };
+
+  const removeEditCategoryRow = (index) => {
+    setEditNoticeForm((prev) => {
       const next = prev.categories.filter((_, categoryIndex) => categoryIndex !== index);
       return {
         ...prev,
@@ -999,6 +1135,208 @@ function ScholarshipPage() {
 
       {(canManageNotices || canReview) && (
         <div className="workflow-grid workflow-grid-2">
+          {canManageNotices && (
+          <article className="surface-card">
+            <h3>Edit Selected Scholarship Notice</h3>
+            {!selectedNotice && <p>Select a notice to edit.</p>}
+            {selectedNotice && (
+              <form className="form-grid" onSubmit={submitNoticeEdit}>
+                <label>
+                  Title (EN)
+                  <input
+                    value={editNoticeForm.title.en}
+                    onChange={(event) => updateEditNoticeLocalized('title', 'en', event.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  Title (BN)
+                  <input
+                    value={editNoticeForm.title.bn}
+                    onChange={(event) => updateEditNoticeLocalized('title', 'bn', event.target.value)}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Description (EN)
+                  <textarea
+                    value={editNoticeForm.description.en}
+                    onChange={(event) => updateEditNoticeLocalized('description', 'en', event.target.value)}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Description (BN)
+                  <textarea
+                    value={editNoticeForm.description.bn}
+                    onChange={(event) => updateEditNoticeLocalized('description', 'bn', event.target.value)}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Eligibility (EN)
+                  <textarea
+                    value={editNoticeForm.eligibility.en}
+                    onChange={(event) => updateEditNoticeLocalized('eligibility', 'en', event.target.value)}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Eligibility (BN)
+                  <textarea
+                    value={editNoticeForm.eligibility.bn}
+                    onChange={(event) => updateEditNoticeLocalized('eligibility', 'bn', event.target.value)}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Scholarship Type
+                  <select
+                    value={editNoticeForm.scholarshipType}
+                    onChange={(event) =>
+                      setEditNoticeForm((prev) => ({ ...prev, scholarshipType: event.target.value }))
+                    }
+                  >
+                    <option value="one_off">One-Off</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </label>
+
+                <label>
+                  Application Window Start
+                  <input
+                    type="date"
+                    value={editNoticeForm.applicationWindowStart}
+                    onChange={(event) =>
+                      setEditNoticeForm((prev) => ({
+                        ...prev,
+                        applicationWindowStart: event.target.value
+                      }))
+                    }
+                    required
+                  />
+                </label>
+
+                <label>
+                  Application Window End
+                  <input
+                    type="date"
+                    value={editNoticeForm.applicationWindowEnd}
+                    onChange={(event) =>
+                      setEditNoticeForm((prev) => ({
+                        ...prev,
+                        applicationWindowEnd: event.target.value
+                      }))
+                    }
+                    required
+                  />
+                </label>
+
+                <label>
+                  Decision Date
+                  <input
+                    type="date"
+                    value={editNoticeForm.deadline}
+                    onChange={(event) =>
+                      setEditNoticeForm((prev) => ({ ...prev, deadline: event.target.value }))
+                    }
+                    required
+                  />
+                </label>
+
+                <label>
+                  Status
+                  <select
+                    value={editNoticeForm.status}
+                    onChange={(event) =>
+                      setEditNoticeForm((prev) => ({ ...prev, status: event.target.value }))
+                    }
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="open">Open</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </label>
+
+                <div className="surface-card inner-card">
+                  <div className="section-head section-head-tight">
+                    <h3>Category Amount Matrix</h3>
+                    <button type="button" className="btn btn-ghost" onClick={addEditCategoryRow}>
+                      Add Category
+                    </button>
+                  </div>
+
+                  <div className="stack-list">
+                    {editNoticeForm.categories.map((category, index) => (
+                      <article key={`${index}-${category.code || 'new'}`} className="surface-card inner-card">
+                        <div className="form-grid">
+                          <label>
+                            Code
+                            <input
+                              value={category.code}
+                              onChange={(event) => updateEditCategoryField(index, 'code', event.target.value)}
+                              placeholder="merit"
+                            />
+                          </label>
+                          <label>
+                            Name (EN)
+                            <input
+                              value={category.nameEn}
+                              onChange={(event) => updateEditCategoryField(index, 'nameEn', event.target.value)}
+                            />
+                          </label>
+                          <label>
+                            Name (BN)
+                            <input
+                              value={category.nameBn}
+                              onChange={(event) => updateEditCategoryField(index, 'nameBn', event.target.value)}
+                            />
+                          </label>
+                          <label>
+                            Amount
+                            <input
+                              type="number"
+                              min="0"
+                              value={category.amount}
+                              onChange={(event) => updateEditCategoryField(index, 'amount', event.target.value)}
+                            />
+                          </label>
+                          <label>
+                            Slots
+                            <input
+                              type="number"
+                              min="1"
+                              value={category.slots}
+                              onChange={(event) => updateEditCategoryField(index, 'slots', event.target.value)}
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => removeEditCategoryRow(index)}
+                          >
+                            Remove Category
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="submit" className="btn btn-primary">
+                  Update Notice
+                </button>
+              </form>
+            )}
+          </article>
+          )}
+
           {canManageNotices && (
           <article className="surface-card">
             <h3>Publish Scholarship Notice</h3>
