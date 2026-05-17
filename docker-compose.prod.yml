@@ -1,0 +1,68 @@
+version: '3.9'
+
+# Production overrides for docker-compose.yml
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  mongo:
+    restart: always
+    volumes:
+      - mongo_data:/data/db:delegated
+      - mongo_config:/data/configdb:delegated
+    # Enable authentication in production
+    # Create a backup of data before enabling
+    # Run: docker-compose exec mongo mongosh -u admin -p $MONGO_ROOT_PASSWORD
+
+  redis:
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data:delegated
+
+  backend:
+    restart: always
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Build from specific tag
+    image: ddh-backend:latest
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  worker:
+    restart: always
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    image: ddh-backend:latest
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  frontend:
+    restart: always
+    image: ddh-frontend:latest
+    ports:
+      - '80:80'
+      # SSL would be handled by reverse proxy (Nginx/HAProxy)
+      # Uncomment after setting up SSL certificates
+      # - '443:443'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
