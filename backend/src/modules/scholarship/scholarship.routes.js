@@ -11,8 +11,16 @@ const router = express.Router();
 const canManageScholarship = [ROLES.ADMIN, ROLES.MANAGER, ROLES.EDITOR];
 const canReviewScholarship = [ROLES.ADMIN, ROLES.MANAGER, ROLES.REVIEWER];
 
-router.get('/notices', validate(scholarshipValidation.listPublicNotices), scholarshipController.listNotices);
-router.get('/updates', validate(scholarshipValidation.listUpdates), scholarshipController.listUpdates);
+router.get(
+  '/notices',
+  validate(scholarshipValidation.listPublicNotices),
+  scholarshipController.listNotices
+);
+router.get(
+  '/updates',
+  validate(scholarshipValidation.listUpdates),
+  scholarshipController.listUpdates
+);
 router.get(
   '/manage/notices',
   authenticate,
@@ -20,7 +28,6 @@ router.get(
   validate(scholarshipValidation.listManageNotices),
   scholarshipController.listManageNotices
 );
-
 
 router.post(
   '/notices',

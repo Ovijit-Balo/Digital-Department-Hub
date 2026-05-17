@@ -90,7 +90,11 @@ const listVenues = async (query) => {
   const { page, limit, skip } = buildPagination(query);
 
   const [items, total] = await Promise.all([
-    Venue.find(filter).populate('manager', 'fullName email').sort({ name: 1 }).skip(skip).limit(limit),
+    Venue.find(filter)
+      .populate('manager', 'fullName email')
+      .sort({ name: 1 })
+      .skip(skip)
+      .limit(limit),
     Venue.countDocuments(filter)
   ]);
 

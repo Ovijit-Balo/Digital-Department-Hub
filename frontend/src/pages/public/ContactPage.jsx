@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { contactApi } from '../../api/modules';
+import InlineAlert from '../../components/common/InlineAlert';
+import SkeletonList from '../../components/common/SkeletonList';
 import { useAuth } from '../../context/AuthContext';
 import useRole from '../../hooks/useRole';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
 import { toLocalDateTime } from '../../utils/localized';
+import { validateInquiryForm } from '../../utils/formValidation';
 
 function ContactPage() {
   const { language } = useLanguage();
@@ -17,6 +20,7 @@ function ContactPage() {
   const [myLoading, setMyLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [formErrors, setFormErrors] = useState({});
   const [inquiryFilter, setInquiryFilter] = useState('');
   const [inquiries, setInquiries] = useState([]);
   const [myInquiryFilter, setMyInquiryFilter] = useState('');
@@ -98,6 +102,13 @@ function ContactPage() {
     setMessage('');
     setError('');
 
+    const nextErrors = validateInquiryForm(inquiryForm);
+    setFormErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setError('Please fix the highlighted inquiry fields.');
+      return;
+    }
+
     try {
       const response = await contactApi.submitInquiry(inquiryForm);
       const inquiry = response.data?.inquiry;
@@ -148,12 +159,8 @@ function ContactPage() {
         )}
       </div>
 
-      {error && <p className="error-text">{error}</p>}
-      {message && (
-        <p className="meta inquiry-feedback" role="status">
-          {message}
-        </p>
-      )}
+      {error && <InlineAlert type="error">{error}</InlineAlert>}
+      {message && <InlineAlert type="info">{message}</InlineAlert>}
 
       <article className="surface-card">
         <h3>{ui('contact', 'sendTitle', language)}</h3>
@@ -169,6 +176,7 @@ function ContactPage() {
               }
               required
             />
+            {formErrors.name && <span className="error-text">{formErrors.name}</span>}
           </label>
 
           <label>
@@ -181,6 +189,7 @@ function ContactPage() {
               }
               required
             />
+            {formErrors.email && <span className="error-text">{formErrors.email}</span>}
           </label>
 
           <label>
@@ -192,6 +201,7 @@ function ContactPage() {
               }
               required
             />
+            {formErrors.subject && <span className="error-text">{formErrors.subject}</span>}
           </label>
 
           <label>
@@ -204,6 +214,7 @@ function ContactPage() {
               }
               required
             />
+            {formErrors.message && <span className="error-text">{formErrors.message}</span>}
           </label>
 
           <button type="submit" className="btn btn-primary">
@@ -227,8 +238,10 @@ function ContactPage() {
             </select>
           </div>
 
-          {loading && <p>Loading inquiries...</p>}
-          {!loading && !inquiries.length && <p>No inquiries found for this filter.</p>}
+          {loading && <SkeletonList count={3} lines={3} />}
+          {!loading && !inquiries.length && (
+            <InlineAlert type="info">No inquiries found for this filter.</InlineAlert>
+          )}
 
           {!!inquiries.length && (
             <div className="table-wrap">
@@ -312,8 +325,10 @@ function ContactPage() {
             </select>
           </div>
 
-          {myLoading && <p>Loading your inquiries...</p>}
-          {!myLoading && !myInquiries.length && <p className="meta">{ui('contact', 'noMine', language)}</p>}
+          {myLoading && <SkeletonList count={2} lines={2} />}
+          {!myLoading && !myInquiries.length && (
+            <InlineAlert type="info">{ui('contact', 'noMine', language)}</InlineAlert>
+          )}
 
           {!!myInquiries.length && (
             <div className="table-wrap">

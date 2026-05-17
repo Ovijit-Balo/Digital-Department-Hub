@@ -99,7 +99,8 @@ const applyTranslationWorkflow = ({ entity, payload, localizedRules, label }) =>
 
   if (hasTargetLanguageContent) {
     if (isRequestedTargetStatusValid) {
-      resolvedTargetStatus = requestedTargetStatus === 'source' ? 'translated' : requestedTargetStatus;
+      resolvedTargetStatus =
+        requestedTargetStatus === 'source' ? 'translated' : requestedTargetStatus;
     } else if (existingWorkflow[targetStatusKey] === 'reviewed') {
       resolvedTargetStatus = 'reviewed';
     } else {
@@ -365,7 +366,10 @@ const createUploadSignature = async (payload) => {
     }
   }
 
-  throw new ApiError(StatusCodes.NOT_IMPLEMENTED, 'Signed upload generation is not configured for S3');
+  throw new ApiError(
+    StatusCodes.NOT_IMPLEMENTED,
+    'Signed upload generation is not configured for S3'
+  );
 };
 
 module.exports = {

@@ -3,7 +3,10 @@ const asyncHandler = require('../../utils/asyncHandler');
 const authService = require('./auth.service');
 
 const register = asyncHandler(async (req, res) => {
-  const result = await authService.registerUser(req.body);
+  const result = await authService.registerUser(req.body, {
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
 
   res.locals.auditMeta = {
     action: 'REGISTER_USER',
@@ -16,7 +19,10 @@ const register = asyncHandler(async (req, res) => {
 });
 
 const login = asyncHandler(async (req, res) => {
-  const result = await authService.loginUser(req.body);
+  const result = await authService.loginUser(req.body, {
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
 
   res.locals.auditMeta = {
     action: 'LOGIN',
@@ -70,11 +76,21 @@ const updateUserRoles = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ user });
 });
 
+const refresh = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.body;
+  const data = await authService.refreshAuth(refreshToken, {
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
+  res.status(StatusCodes.OK).json(data);
+});
+
 module.exports = {
   register,
   login,
   resetPassword,
   me,
   listUsers,
-  updateUserRoles
+  updateUserRoles,
+  refresh
 };

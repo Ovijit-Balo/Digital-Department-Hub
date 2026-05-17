@@ -17,6 +17,39 @@ const createEmptyCategory = () => ({
   slots: 1
 });
 
+function sortByDateDesc(list, field) {
+  return [...list].sort((left, right) => {
+    const leftTime = new Date(left?.[field] || 0).getTime();
+    const rightTime = new Date(right?.[field] || 0).getTime();
+
+    return rightTime - leftTime;
+  });
+}
+
+function sortByDeadlineThenTitle(list) {
+  return [...list].sort((left, right) => {
+    const leftState = left.applicationState || left.status || '';
+    const rightState = right.applicationState || right.status || '';
+    const leftPriority = leftState === 'open' ? 0 : 1;
+    const rightPriority = rightState === 'open' ? 0 : 1;
+
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority;
+    }
+
+    const leftDeadline = new Date(left.deadline || left.applicationWindowEnd || 0).getTime();
+    const rightDeadline = new Date(right.deadline || right.applicationWindowEnd || 0).getTime();
+
+    if (leftDeadline !== rightDeadline) {
+      return leftDeadline - rightDeadline;
+    }
+
+    return (toLocalizedText(left.title, 'en') || '').localeCompare(
+      toLocalizedText(right.title, 'en') || ''
+    );
+  });
+}
+
 function ScholarshipPage() {
   const { user, isAuthenticated } = useAuth();
   const { language } = useLanguage();
@@ -98,18 +131,85 @@ function ScholarshipPage() {
     [selectedNotice]
   );
 
+  const orderedNotices = useMemo(() => sortByDeadlineThenTitle(notices), [notices]);
+  const orderedApplications = useMemo(
+    () => sortByDateDesc(applications, 'createdAt'),
+    [applications]
+  );
+  const orderedMyApplications = useMemo(
+    () => sortByDateDesc(myApplications, 'createdAt'),
+    [myApplications]
+  );
+  const orderedRecipients = useMemo(() => sortByDateDesc(recipients, 'reviewedAt'), [recipients]);
+  const orderedGlobalUpdates = useMemo(
+    () => sortByDateDesc(globalUpdates, 'createdAt'),
+    [globalUpdates]
+  );
+  const orderedNoticeUpdates = useMemo(
+    () => sortByDateDesc(noticeUpdates, 'createdAt'),
+    [noticeUpdates]
+  );
+
+  const currentStep = selectedNoticeId ? (orderedMyApplications.length ? 3 : 2) : 1;
+  const isSelectedNoticeClosed =
+    selectedNotice && (selectedNotice.applicationState || selectedNotice.status) === 'closed';
+
+  const downloadSelectedNoticeInfo = useCallback(() => {
+    if (!selectedNotice) {
+      return;
+    }
+
+    const summaryLines = [
+      `Title: ${toLocalizedText(selectedNotice.title, language)}`,
+      `Status: ${selectedNotice.applicationState || selectedNotice.status}`,
+      `Description: ${toLocalizedText(selectedNotice.description, language)}`,
+      `Eligibility: ${toLocalizedText(selectedNotice.eligibility, language)}`,
+      `Window: ${toIsoDate(selectedNotice.applicationWindowStart)} to ${toIsoDate(selectedNotice.applicationWindowEnd)}`,
+      `Decision Date: ${toIsoDate(selectedNotice.deadline)}`,
+      '',
+      'Categories:'
+    ];
+
+    for (const category of selectedNoticeCategories) {
+      summaryLines.push(
+        `- ${toLocalizedText(category.name, language)} | ${category.code} | ${category.amount} | ${category.slots}`
+      );
+    }
+
+    const blob = new Blob([summaryLines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `scholarship-notice-${selectedNotice._id}.txt`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [language, selectedNotice, selectedNoticeCategories]);
+
+  const scrollToApplyForm = useCallback(() => {
+    document.getElementById('scholarship-application-form')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }, []);
+
   const dashboardStats = useMemo(
     () => ({
-      openNotices: notices.filter(
-        (notice) => (notice.applicationState || notice.status) === 'open'
-      ).length,
+      openNotices: notices.filter((notice) => (notice.applicationState || notice.status) === 'open')
+        .length,
       activeCategories: selectedNoticeCategories.length,
       recipientCount: recipients.length,
       reviewCount: canReview
         ? applications.filter((item) => ['submitted', 'under_review'].includes(item.status)).length
         : myApplications.length
     }),
-    [applications, canReview, myApplications.length, notices, recipients.length, selectedNoticeCategories.length]
+    [
+      applications,
+      canReview,
+      myApplications.length,
+      notices,
+      recipients.length,
+      selectedNoticeCategories.length
+    ]
   );
 
   useEffect(() => {
@@ -143,7 +243,14 @@ function ScholarshipPage() {
         selectedCategoryCode: selectedNoticeCategories[0]?.code || ''
       }));
     }
-  }, [applicationDrafts, applicationForm.selectedCategoryCode, selectedNotice, selectedNoticeCategories, selectedNoticeId, user?.department]);
+  }, [
+    applicationDrafts,
+    applicationForm.selectedCategoryCode,
+    selectedNotice,
+    selectedNoticeCategories,
+    selectedNoticeId,
+    user?.department
+  ]);
 
   useEffect(() => {
     if (!selectedNotice || !selectedNoticeId || !canManageNotices) {
@@ -211,6 +318,8 @@ function ScholarshipPage() {
     if (selectedNoticeId && !items.some((item) => item._id === selectedNoticeId)) {
       setSelectedNoticeId(items[0]?._id || '');
     }
+
+    return items;
   }, [canViewManageNotices, selectedNoticeId]);
 
   const loadApplications = useCallback(async () => {
@@ -243,6 +352,28 @@ function ScholarshipPage() {
       setRecipients([]);
       setNoticeUpdates([]);
       setRecipientInfo({ isPublished: false, recipientsPublishedAt: null, isRestricted: false });
+      return;
+    }
+
+    const selectedNoticeNow = notices.find((notice) => notice._id === selectedNoticeId) || null;
+    const isRecipientListPublished = Boolean(selectedNoticeNow?.recipientsPublishedAt);
+
+    if (!canReview && !isRecipientListPublished) {
+      setRecipients([]);
+      setRecipientInfo({ isPublished: false, recipientsPublishedAt: null, isRestricted: true });
+
+      try {
+        const updatesResult = await scholarshipApi.listNoticeUpdates(selectedNoticeId, {
+          limit: 20
+        });
+        setNoticeUpdates(updatesResult.data.items || []);
+      } catch (apiError) {
+        setNoticeUpdates([]);
+        setMessage(
+          getApiErrorMessage(apiError, 'Failed to load scholarship update timeline.')
+        );
+      }
+
       return;
     }
 
@@ -302,17 +433,24 @@ function ScholarshipPage() {
           isRestricted: true
         });
       } else {
-        setMessage(getApiErrorMessage(apiError, 'Failed to load scholarship recipients and updates.'));
+        setMessage(
+          getApiErrorMessage(apiError, 'Failed to load scholarship recipients and updates.')
+        );
       }
     }
-  }, [canReview, selectedNoticeId]);
+  }, [canReview, notices, selectedNoticeId]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      await Promise.all([loadNotices(), loadApplications(), loadMyApplications(), loadGlobalUpdates()]);
+      await Promise.all([
+        loadNotices(),
+        loadApplications(),
+        loadMyApplications(),
+        loadGlobalUpdates()
+      ]);
     } catch (apiError) {
       setError(getApiErrorMessage(apiError, 'Failed to load scholarship information.'));
     } finally {
@@ -343,6 +481,28 @@ function ScholarshipPage() {
     }
 
     try {
+      // Refresh notice list and details to ensure latest window/status before submitting
+      const freshNotices = await loadNotices();
+      await loadNoticeDetails();
+
+      const freshNotice = freshNotices.find((n) => n._id === selectedNoticeId);
+
+      if (!freshNotice) {
+        setMessage('Selected scholarship notice not found.');
+        return;
+      }
+
+      const liveState = freshNotice.applicationState || freshNotice.status;
+      if (liveState === 'closed') {
+        setMessage('Application window has closed');
+        return;
+      }
+
+      if (liveState === 'scheduled') {
+        setMessage('Application window has not opened yet');
+        return;
+      }
+
       await scholarshipApi.apply(selectedNoticeId, {
         statement: applicationForm.statement,
         gpa: Number(applicationForm.gpa),
@@ -650,7 +810,10 @@ function ScholarshipPage() {
       await loadNotices();
       await loadNoticeDetails();
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(apiError, 'Failed to update scholarship notice status.');
+      const nextMessage = getApiErrorMessage(
+        apiError,
+        'Failed to update scholarship notice status.'
+      );
       setMessage(nextMessage);
       toastError(nextMessage, { title: 'Notice update failed' });
     }
@@ -727,7 +890,9 @@ function ScholarshipPage() {
         <span className="breadcrumb-sep" aria-hidden="true">
           /
         </span>
-        <span className="breadcrumb-current">{ui('scholarship', 'breadcrumbScholarship', language)}</span>
+        <span className="breadcrumb-current">
+          {ui('scholarship', 'breadcrumbScholarship', language)}
+        </span>
       </nav>
 
       <header className="page-title-bar">
@@ -735,7 +900,32 @@ function ScholarshipPage() {
           <p className="eyebrow">{ui('scholarship', 'eyebrow', language)}</p>
           <h1>{ui('scholarship', 'title', language)}</h1>
           <p className="page-title-subtitle">{ui('scholarship', 'subtitle', language)}</p>
-          <p className="meta">{ui('scholarship', 'stepNotice', language)}</p>
+          <div className="scholarship-stepper" aria-label="Scholarship steps">
+            {[
+              { number: '1', label: 'Choose a notice' },
+              { number: '2', label: 'Review & Apply' },
+              { number: '3', label: 'Confirmation' }
+            ].map((step, index) => {
+              const stepIndex = index + 1;
+              const isCompleted = currentStep > stepIndex;
+              const isActive = currentStep === stepIndex;
+
+              return (
+                <div
+                  key={step.label}
+                  className={`scholarship-stepper__item${isCompleted ? ' is-completed' : ''}${
+                    isActive ? ' is-active' : ''
+                  }`}
+                >
+                  <span className="scholarship-stepper__circle" aria-hidden="true">
+                    {isCompleted ? '✓' : step.number}
+                  </span>
+                  <span className="scholarship-stepper__label">{step.label}</span>
+                  {stepIndex < 3 && <span className="scholarship-stepper__line" aria-hidden="true" />}
+                </div>
+              );
+            })}
+          </div>
         </div>
         <button type="button" className="btn btn-ghost" onClick={loadData}>
           {ui('scholarship', 'refresh', language)}
@@ -771,235 +961,252 @@ function ScholarshipPage() {
       {message && <p className="meta">{message}</p>}
       {loading && <p>{ui('scholarship', 'loading', language)}</p>}
 
-      <div className="workflow-grid workflow-grid-2">
-        {!!globalUpdates.length && (
-          <article className="surface-card">
+      <div className="workflow-grid workflow-grid-2 scholarship-overview-grid">
+        <article className="surface-card scholarship-notice-card" id="scholarship-notice-summary">
+          <div className="section-head section-head-tight">
+            <h3>{ui('scholarship', 'availableNotices', language)}</h3>
+            <div className="notice-selector-shell">
+              <select
+                className="notice-selector"
+                aria-label={ui('scholarship', 'availableNotices', language)}
+                value={selectedNoticeId}
+                onChange={(event) => setSelectedNoticeId(event.target.value)}
+              >
+                <option value="">{ui('scholarship', 'selectNoticePlaceholder', language)}</option>
+                {orderedNotices.map((notice) => (
+                  <option key={notice._id} value={notice._id}>
+                    {toLocalizedText(notice.title, language)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {!orderedNotices.length && <p>{ui('scholarship', 'noNotices', language)}</p>}
+
+          {selectedNotice && (
+            <article className="surface-card inner-card scholarship-notice-card__body">
+              <div className="section-head section-head-tight">
+                <h3>{toLocalizedText(selectedNotice.title, language)}</h3>
+                <span className={`status-badge status-${selectedNotice.status}`}>
+                  {selectedNotice.status}
+                </span>
+              </div>
+
+              <p className="scholarship-notice-card__description">
+                {toLocalizedText(selectedNotice.description, language)}
+              </p>
+              <p className="scholarship-notice-card__eligibility">
+                {toLocalizedText(selectedNotice.eligibility, language)}
+              </p>
+              <p className="meta scholarship-notice-card__meta">
+                Type: {selectedNotice.scholarshipType || 'one_off'} • Application Window:{' '}
+                {toIsoDate(selectedNotice.applicationWindowStart)} to{' '}
+                {toIsoDate(selectedNotice.applicationWindowEnd)} • Decision Date:{' '}
+                {toIsoDate(selectedNotice.deadline)}
+              </p>
+              <p className="meta scholarship-notice-card__meta">
+                Live State: {selectedNotice.applicationState || selectedNotice.status}
+              </p>
+
+              {!!selectedNoticeCategories.length && (
+                <div className="table-wrap scholarship-category-table" id="scholarship-category-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Category</th>
+                        <th>Code</th>
+                        <th>Amount</th>
+                        <th>Slots</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedNoticeCategories.map((category) => (
+                        <tr key={category.code}>
+                          <td>{toLocalizedText(category.name, language)}</td>
+                          <td>
+                            <span className="code-pill">{category.code}</span>
+                          </td>
+                          <td>
+                            <strong>{category.amount}</strong>
+                          </td>
+                          <td>{category.slots}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="notice-card-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={scrollToApplyForm}
+                  disabled={!selectedNotice || isSelectedNoticeClosed}
+                  title={isSelectedNoticeClosed ? 'This notice is closed.' : 'Jump to the application form.'}
+                >
+                  Apply Now
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => document.getElementById('scholarship-notice-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                >
+                  View Details
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={downloadSelectedNoticeInfo}>
+                  Download Info
+                </button>
+              </div>
+
+              {canManageNotices && (
+                <div className="inline-actions" style={{ marginTop: '0.7rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => updateNoticeStatus('open')}
+                  >
+                    Open Window
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => updateNoticeStatus('closed')}
+                  >
+                    Close Window
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => updateNoticeStatus('draft')}
+                  >
+                    Move to Draft
+                  </button>
+                </div>
+              )}
+
+              {canReview && (
+                <div className="inline-actions" style={{ marginTop: '0.7rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => publishRecipients(!recipientInfo.isPublished)}
+                  >
+                    {recipientInfo.isPublished
+                      ? 'Unpublish Recipient List'
+                      : 'Publish Recipient List'}
+                  </button>
+                </div>
+              )}
+            </article>
+          )}
+        </article>
+
+        {!!orderedGlobalUpdates.length && (
+          <article className="surface-card scholarship-feed-card">
             <h3>Scholarship Update Feed</h3>
             <div className="stack-list">
-              {globalUpdates.map((item) => (
-                <article key={item._id} className="surface-card inner-card">
-                  <div className="section-head section-head-tight">
+              {orderedGlobalUpdates.map((item) => (
+                <article key={item._id} className="surface-card inner-card scholarship-feed-item">
+                  <div className="section-head section-head-tight scholarship-feed-item__head">
                     <h3>{toLocalizedText(item.title, language)}</h3>
-                    <span className={`status-badge status-${item.kind}`}>{item.kind}</span>
+                    <span className={`status-badge scholarship-badge scholarship-badge--${item.kind}`}>
+                      {item.kind}
+                    </span>
                   </div>
-                  <p>{toLocalizedText(item.body, language)}</p>
-                  <p className="meta">
-                    Notice: {toLocalizedText(item.notice?.title, language)} • Posted: {toIsoDate(item.createdAt)}
+                  <p className="scholarship-feed-item__body">{toLocalizedText(item.body, language)}</p>
+                  <p className="meta scholarship-feed-item__meta">
+                    Notice: {toLocalizedText(item.notice?.title, language)} • Posted:{' '}
+                    {toIsoDate(item.createdAt)}
                   </p>
                 </article>
               ))}
             </div>
           </article>
         )}
-
-        <article className="surface-card">
-          <div className="section-head section-head-tight">
-            <h3>{ui('scholarship', 'availableNotices', language)}</h3>
-            <select
-              aria-label={ui('scholarship', 'availableNotices', language)}
-              value={selectedNoticeId}
-              onChange={(event) => setSelectedNoticeId(event.target.value)}
-            >
-              <option value="">{ui('scholarship', 'selectNoticePlaceholder', language)}</option>
-              {notices.map((notice) => (
-                <option key={notice._id} value={notice._id}>
-                  {toLocalizedText(notice.title, language)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-        {!notices.length && <p>{ui('scholarship', 'noNotices', language)}</p>}
-
-        {selectedNotice && (
-          <article className="surface-card inner-card">
-            <div className="section-head section-head-tight">
-              <h3>{toLocalizedText(selectedNotice.title, language)}</h3>
-              <span className={`status-badge status-${selectedNotice.status}`}>
-                {selectedNotice.status}
-              </span>
-            </div>
-
-            <p>{toLocalizedText(selectedNotice.description, language)}</p>
-            <p>{toLocalizedText(selectedNotice.eligibility, language)}</p>
-            <p className="meta">
-              Type: {selectedNotice.scholarshipType || 'one_off'} • Application Window:{' '}
-              {toIsoDate(selectedNotice.applicationWindowStart)} to{' '}
-              {toIsoDate(selectedNotice.applicationWindowEnd)} • Decision Date: {toIsoDate(selectedNotice.deadline)}
-            </p>
-            <p className="meta">Live State: {selectedNotice.applicationState || selectedNotice.status}</p>
-
-            {!!selectedNoticeCategories.length && (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Category</th>
-                      <th>Code</th>
-                      <th>Amount</th>
-                      <th>Slots</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedNoticeCategories.map((category) => (
-                      <tr key={category.code}>
-                        <td>{toLocalizedText(category.name, language)}</td>
-                        <td>{category.code}</td>
-                        <td>{category.amount}</td>
-                        <td>{category.slots}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {canManageNotices && (
-              <div className="inline-actions" style={{ marginTop: '0.7rem' }}>
-                <button type="button" className="btn btn-ghost" onClick={() => updateNoticeStatus('open')}>
-                  Open Window
-                </button>
-                <button type="button" className="btn btn-ghost" onClick={() => updateNoticeStatus('closed')}>
-                  Close Window
-                </button>
-                <button type="button" className="btn btn-ghost" onClick={() => updateNoticeStatus('draft')}>
-                  Move to Draft
-                </button>
-              </div>
-            )}
-
-            {canReview && (
-              <div className="inline-actions" style={{ marginTop: '0.7rem' }}>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => publishRecipients(!recipientInfo.isPublished)}
-                >
-                  {recipientInfo.isPublished ? 'Unpublish Recipient List' : 'Publish Recipient List'}
-                </button>
-              </div>
-            )}
-          </article>
-        )}
-        </article>
       </div>
 
       {isAuthenticated && (
         <div className="workflow-grid workflow-grid-2">
           {canApply && isAuthenticated && (
-            <article className="surface-card">
-            <p className="meta">{ui('scholarship', 'stepApply', language)}</p>
-            <h3>{ui('scholarship', 'applyTitle', language)}</h3>
-            <form className="form-grid" onSubmit={submitApplication}>
-              {!!selectedNoticeCategories.length && (
+            <article className="surface-card scholarship-apply-card">
+              <p className="meta">{ui('scholarship', 'stepApply', language)}</p>
+              <h3>{ui('scholarship', 'applyTitle', language)}</h3>
+              <form className="form-grid" id="scholarship-application-form" onSubmit={submitApplication}>
+                {!!selectedNoticeCategories.length && (
+                  <label>
+                    {ui('scholarship', 'categoryLabel', language)}
+                    <select
+                      value={applicationForm.selectedCategoryCode}
+                      onChange={(event) =>
+                        setApplicationForm((prev) => ({
+                          ...prev,
+                          selectedCategoryCode: event.target.value
+                        }))
+                      }
+                      required
+                    >
+                      <option value="">{ui('scholarship', 'selectCategory', language)}</option>
+                      {selectedNoticeCategories.map((category) => (
+                        <option key={category.code} value={category.code}>
+                          {toLocalizedText(category.name, language)} ({category.code})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
                 <label>
-                  {ui('scholarship', 'categoryLabel', language)}
-                  <select
-                    value={applicationForm.selectedCategoryCode}
+                  {ui('scholarship', 'statement', language)}
+                  <textarea
+                    minLength={30}
+                    value={applicationForm.statement}
                     onChange={(event) =>
-                      setApplicationForm((prev) => ({ ...prev, selectedCategoryCode: event.target.value }))
+                      setApplicationForm((prev) => ({ ...prev, statement: event.target.value }))
                     }
                     required
-                  >
-                    <option value="">{ui('scholarship', 'selectCategory', language)}</option>
-                    {selectedNoticeCategories.map((category) => (
-                      <option key={category.code} value={category.code}>
-                        {toLocalizedText(category.name, language)} ({category.code})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </label>
-              )}
 
-              <label>
-                {ui('scholarship', 'statement', language)}
-                <textarea
-                  minLength={30}
-                  value={applicationForm.statement}
-                  onChange={(event) =>
-                    setApplicationForm((prev) => ({ ...prev, statement: event.target.value }))
-                  }
-                  required
-                />
-              </label>
+                <label>
+                  {ui('scholarship', 'gpa', language)}
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="4"
+                    value={applicationForm.gpa}
+                    onChange={(event) =>
+                      setApplicationForm((prev) => ({ ...prev, gpa: event.target.value }))
+                    }
+                    required
+                  />
+                </label>
 
-              <label>
-                {ui('scholarship', 'gpa', language)}
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="4"
-                  value={applicationForm.gpa}
-                  onChange={(event) =>
-                    setApplicationForm((prev) => ({ ...prev, gpa: event.target.value }))
-                  }
-                  required
-                />
-              </label>
+                <label>
+                  {ui('scholarship', 'department', language)}
+                  <input
+                    value={applicationForm.department}
+                    onChange={(event) =>
+                      setApplicationForm((prev) => ({ ...prev, department: event.target.value }))
+                    }
+                    required
+                  />
+                </label>
 
-              <label>
-                {ui('scholarship', 'department', language)}
-                <input
-                  value={applicationForm.department}
-                  onChange={(event) =>
-                    setApplicationForm((prev) => ({ ...prev, department: event.target.value }))
-                  }
-                  required
-                />
-              </label>
-
-              <button type="submit" className="btn btn-primary">
-                {ui('scholarship', 'submitApp', language)}
-              </button>
-            </form>
-          </article>
+                <button type="submit" className="btn btn-primary scholarship-apply-card__submit">
+                  Submit Application
+                </button>
+              </form>
+            </article>
+          )}
+          </div>
           )}
 
-          <article className="surface-card">
-            <h3>My Application Tracker</h3>
-            {!myApplications.length && <p>You have not submitted any scholarship applications yet.</p>}
-            {!!myApplications.length && (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Notice</th>
-                      <th>Category</th>
-                      <th>Status</th>
-                      <th>Award</th>
-                      <th>Submitted</th>
-                      <th>Reviewed By</th>
-                      <th>Note</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {myApplications.map((item) => (
-                      <tr key={item._id}>
-                        <td>{toLocalizedText(item.notice?.title, language)}</td>
-                        <td>{item.selectedCategoryCode || '-'}</td>
-                        <td>
-                          <span className={`status-badge status-${item.status}`}>{item.status}</span>
-                        </td>
-                        <td>
-                          {item.awardedAmount ? `${item.awardedAmount} (${item.awardedCategoryCode || 'custom'})` : '-'}
-                        </td>
-                        <td>{toIsoDate(item.createdAt)}</td>
-                        <td>{item.reviewedBy?.fullName || '-'}</td>
-                        <td>{item.decisionNote || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </article>
-        </div>
-      )}
-
       {selectedNotice && (
-        <div className="workflow-grid workflow-grid-2">
-          <article className="surface-card">
+        <div className="workflow-grid workflow-grid-2 scholarship-notice-panel-grid">
+          <article className="surface-card scholarship-recipient-card">
             <div className="section-head section-head-tight">
               <h3>Recipient List</h3>
               {recipientInfo.recipientsPublishedAt && (
@@ -1007,54 +1214,69 @@ function ScholarshipPage() {
               )}
             </div>
 
-            {!recipients.length && !recipientInfo.isRestricted && <p>No recipients listed yet.</p>}
+            {!orderedRecipients.length && !recipientInfo.isRestricted && (
+              <div className="empty-state empty-state--center">
+                <div className="empty-state__icon" aria-hidden="true">
+                  •
+                </div>
+                <p className="empty-state__title">No recipients listed yet.</p>
+                <p className="empty-state__text">Recipients will appear here after publication.</p>
+              </div>
+            )}
             {recipientInfo.isRestricted && !canReview && (
               <p className="meta">Recipient list is not published yet.</p>
             )}
 
-            {!!recipients.length && (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Student</th>
-                      <th>Department</th>
-                      <th>Category</th>
-                      <th>Award Amount</th>
-                      <th>Reviewed At</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recipients.map((item) => (
-                      <tr key={item._id}>
-                        <td>{item.student?.fullName || 'Unknown'}</td>
-                        <td>{item.department}</td>
-                        <td>{item.awardedCategoryCode || item.selectedCategoryCode || '-'}</td>
-                        <td>{item.awardedAmount || '-'}</td>
-                        <td>{toIsoDate(item.reviewedAt)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {!!orderedRecipients.length && (
+              <div className="recipient-grid">
+                {orderedRecipients.map((item) => {
+                  const initials = (item.student?.fullName || 'Unknown')
+                    .split(' ')
+                    .map((part) => part[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase();
+
+                  return (
+                    <article key={item._id} className="recipient-card">
+                      <span className="recipient-card__avatar" aria-hidden="true">
+                        {initials}
+                      </span>
+                      <div className="recipient-card__body">
+                        <h4>{item.student?.fullName || 'Unknown'}</h4>
+                        <p>{item.department}</p>
+                      </div>
+                      <span className="recipient-card__badge">
+                        {item.awardedCategoryCode || item.selectedCategoryCode || 'Awarded'}
+                      </span>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </article>
 
-          <article className="surface-card">
+          <article className="surface-card scholarship-timeline-card">
             <h3>Notice Update Timeline</h3>
-            {!noticeUpdates.length && <p>No updates for this notice yet.</p>}
-            {!!noticeUpdates.length && (
-              <div className="stack-list">
-                {noticeUpdates.map((item) => (
-                  <article key={item._id} className="surface-card inner-card">
-                    <div className="section-head section-head-tight">
-                      <h3>{toLocalizedText(item.title, language)}</h3>
-                      <span className={`status-badge status-${item.kind}`}>{item.kind}</span>
+            {!orderedNoticeUpdates.length && <p>No updates for this notice yet.</p>}
+            {!!orderedNoticeUpdates.length && (
+              <div className="scholarship-timeline">
+                {orderedNoticeUpdates.map((item) => (
+                  <article key={item._id} className="scholarship-timeline__item">
+                    <span className="scholarship-timeline__dot" aria-hidden="true" />
+                    <div className="scholarship-timeline__content">
+                      <div className="section-head section-head-tight scholarship-timeline__head">
+                        <h3>{toLocalizedText(item.title, language)}</h3>
+                        <span className={`status-badge scholarship-badge scholarship-badge--${item.kind}`}>
+                          {item.kind}
+                        </span>
+                      </div>
+                      <p>{toLocalizedText(item.body, language)}</p>
+                      <p className="meta scholarship-timeline__meta">
+                        {item.visibility} • Posted by {item.postedBy?.fullName || 'System'} •{' '}
+                        {toIsoDate(item.createdAt)}
+                      </p>
                     </div>
-                    <p>{toLocalizedText(item.body, language)}</p>
-                    <p className="meta">
-                      {item.visibility} • Posted by {item.postedBy?.fullName || 'System'} • {toIsoDate(item.createdAt)}
-                    </p>
                   </article>
                 ))}
               </div>
@@ -1066,7 +1288,9 @@ function ScholarshipPage() {
                   Update Type
                   <select
                     value={updateForm.kind}
-                    onChange={(event) => setUpdateForm((prev) => ({ ...prev, kind: event.target.value }))}
+                    onChange={(event) =>
+                      setUpdateForm((prev) => ({ ...prev, kind: event.target.value }))
+                    }
                   >
                     <option value="general">General</option>
                     <option value="deadline">Deadline</option>
@@ -1092,7 +1316,9 @@ function ScholarshipPage() {
                   Title (EN)
                   <input
                     value={updateForm.title.en}
-                    onChange={(event) => updateUpdateFormLocalized('title', 'en', event.target.value)}
+                    onChange={(event) =>
+                      updateUpdateFormLocalized('title', 'en', event.target.value)
+                    }
                     required
                   />
                 </label>
@@ -1101,7 +1327,9 @@ function ScholarshipPage() {
                   Title (BN)
                   <input
                     value={updateForm.title.bn}
-                    onChange={(event) => updateUpdateFormLocalized('title', 'bn', event.target.value)}
+                    onChange={(event) =>
+                      updateUpdateFormLocalized('title', 'bn', event.target.value)
+                    }
                     required
                   />
                 </label>
@@ -1110,7 +1338,9 @@ function ScholarshipPage() {
                   Body (EN)
                   <textarea
                     value={updateForm.body.en}
-                    onChange={(event) => updateUpdateFormLocalized('body', 'en', event.target.value)}
+                    onChange={(event) =>
+                      updateUpdateFormLocalized('body', 'en', event.target.value)
+                    }
                     required
                   />
                 </label>
@@ -1119,7 +1349,9 @@ function ScholarshipPage() {
                   Body (BN)
                   <textarea
                     value={updateForm.body.bn}
-                    onChange={(event) => updateUpdateFormLocalized('body', 'bn', event.target.value)}
+                    onChange={(event) =>
+                      updateUpdateFormLocalized('body', 'bn', event.target.value)
+                    }
                     required
                   />
                 </label>
@@ -1136,24 +1368,252 @@ function ScholarshipPage() {
       {(canManageNotices || canReview) && (
         <div className="workflow-grid workflow-grid-2">
           {canManageNotices && (
-          <article className="surface-card">
-            <h3>Edit Selected Scholarship Notice</h3>
-            {!selectedNotice && <p>Select a notice to edit.</p>}
-            {selectedNotice && (
-              <form className="form-grid" onSubmit={submitNoticeEdit}>
+            <article className="surface-card">
+              <h3>Edit Selected Scholarship Notice</h3>
+              {!selectedNotice && <p>Select a notice to edit.</p>}
+              {selectedNotice && (
+                <form className="form-grid" onSubmit={submitNoticeEdit}>
+                  <label>
+                    Title (EN)
+                    <input
+                      value={editNoticeForm.title.en}
+                      onChange={(event) =>
+                        updateEditNoticeLocalized('title', 'en', event.target.value)
+                      }
+                      required
+                    />
+                  </label>
+                  <label>
+                    Title (BN)
+                    <input
+                      value={editNoticeForm.title.bn}
+                      onChange={(event) =>
+                        updateEditNoticeLocalized('title', 'bn', event.target.value)
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Description (EN)
+                    <textarea
+                      value={editNoticeForm.description.en}
+                      onChange={(event) =>
+                        updateEditNoticeLocalized('description', 'en', event.target.value)
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Description (BN)
+                    <textarea
+                      value={editNoticeForm.description.bn}
+                      onChange={(event) =>
+                        updateEditNoticeLocalized('description', 'bn', event.target.value)
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Eligibility (EN)
+                    <textarea
+                      value={editNoticeForm.eligibility.en}
+                      onChange={(event) =>
+                        updateEditNoticeLocalized('eligibility', 'en', event.target.value)
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Eligibility (BN)
+                    <textarea
+                      value={editNoticeForm.eligibility.bn}
+                      onChange={(event) =>
+                        updateEditNoticeLocalized('eligibility', 'bn', event.target.value)
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Scholarship Type
+                    <select
+                      value={editNoticeForm.scholarshipType}
+                      onChange={(event) =>
+                        setEditNoticeForm((prev) => ({
+                          ...prev,
+                          scholarshipType: event.target.value
+                        }))
+                      }
+                    >
+                      <option value="one_off">One-Off</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Application Window Start
+                    <input
+                      type="date"
+                      value={editNoticeForm.applicationWindowStart}
+                      onChange={(event) =>
+                        setEditNoticeForm((prev) => ({
+                          ...prev,
+                          applicationWindowStart: event.target.value
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Application Window End
+                    <input
+                      type="date"
+                      value={editNoticeForm.applicationWindowEnd}
+                      onChange={(event) =>
+                        setEditNoticeForm((prev) => ({
+                          ...prev,
+                          applicationWindowEnd: event.target.value
+                        }))
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Decision Date
+                    <input
+                      type="date"
+                      value={editNoticeForm.deadline}
+                      onChange={(event) =>
+                        setEditNoticeForm((prev) => ({ ...prev, deadline: event.target.value }))
+                      }
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    Status
+                    <select
+                      value={editNoticeForm.status}
+                      onChange={(event) =>
+                        setEditNoticeForm((prev) => ({ ...prev, status: event.target.value }))
+                      }
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="open">Open</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </label>
+
+                  <div className="surface-card inner-card">
+                    <div className="section-head section-head-tight">
+                      <h3>Category Amount Matrix</h3>
+                      <button type="button" className="btn btn-ghost" onClick={addEditCategoryRow}>
+                        Add Category
+                      </button>
+                    </div>
+
+                    <div className="stack-list">
+                      {editNoticeForm.categories.map((category, index) => (
+                        <article
+                          key={`${index}-${category.code || 'new'}`}
+                          className="surface-card inner-card"
+                        >
+                          <div className="form-grid">
+                            <label>
+                              Code
+                              <input
+                                value={category.code}
+                                onChange={(event) =>
+                                  updateEditCategoryField(index, 'code', event.target.value)
+                                }
+                                placeholder="merit"
+                              />
+                            </label>
+                            <label>
+                              Name (EN)
+                              <input
+                                value={category.nameEn}
+                                onChange={(event) =>
+                                  updateEditCategoryField(index, 'nameEn', event.target.value)
+                                }
+                              />
+                            </label>
+                            <label>
+                              Name (BN)
+                              <input
+                                value={category.nameBn}
+                                onChange={(event) =>
+                                  updateEditCategoryField(index, 'nameBn', event.target.value)
+                                }
+                              />
+                            </label>
+                            <label>
+                              Amount
+                              <input
+                                type="number"
+                                min="0"
+                                value={category.amount}
+                                onChange={(event) =>
+                                  updateEditCategoryField(index, 'amount', event.target.value)
+                                }
+                              />
+                            </label>
+                            <label>
+                              Slots
+                              <input
+                                type="number"
+                                min="1"
+                                value={category.slots}
+                                onChange={(event) =>
+                                  updateEditCategoryField(index, 'slots', event.target.value)
+                                }
+                              />
+                            </label>
+
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => removeEditCategoryRow(index)}
+                            >
+                              Remove Category
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button type="submit" className="btn btn-primary">
+                    Update Notice
+                  </button>
+                </form>
+              )}
+            </article>
+          )}
+
+          {canManageNotices && (
+            <article className="surface-card">
+              <h3>Publish Scholarship Notice</h3>
+              <form className="form-grid" onSubmit={submitNotice}>
                 <label>
                   Title (EN)
                   <input
-                    value={editNoticeForm.title.en}
-                    onChange={(event) => updateEditNoticeLocalized('title', 'en', event.target.value)}
+                    value={noticeForm.title.en}
+                    onChange={(event) => updateNoticeLocalized('title', 'en', event.target.value)}
                     required
                   />
                 </label>
                 <label>
                   Title (BN)
                   <input
-                    value={editNoticeForm.title.bn}
-                    onChange={(event) => updateEditNoticeLocalized('title', 'bn', event.target.value)}
+                    value={noticeForm.title.bn}
+                    onChange={(event) => updateNoticeLocalized('title', 'bn', event.target.value)}
                     required
                   />
                 </label>
@@ -1161,8 +1621,10 @@ function ScholarshipPage() {
                 <label>
                   Description (EN)
                   <textarea
-                    value={editNoticeForm.description.en}
-                    onChange={(event) => updateEditNoticeLocalized('description', 'en', event.target.value)}
+                    value={noticeForm.description.en}
+                    onChange={(event) =>
+                      updateNoticeLocalized('description', 'en', event.target.value)
+                    }
                     required
                   />
                 </label>
@@ -1170,8 +1632,10 @@ function ScholarshipPage() {
                 <label>
                   Description (BN)
                   <textarea
-                    value={editNoticeForm.description.bn}
-                    onChange={(event) => updateEditNoticeLocalized('description', 'bn', event.target.value)}
+                    value={noticeForm.description.bn}
+                    onChange={(event) =>
+                      updateNoticeLocalized('description', 'bn', event.target.value)
+                    }
                     required
                   />
                 </label>
@@ -1179,8 +1643,10 @@ function ScholarshipPage() {
                 <label>
                   Eligibility (EN)
                   <textarea
-                    value={editNoticeForm.eligibility.en}
-                    onChange={(event) => updateEditNoticeLocalized('eligibility', 'en', event.target.value)}
+                    value={noticeForm.eligibility.en}
+                    onChange={(event) =>
+                      updateNoticeLocalized('eligibility', 'en', event.target.value)
+                    }
                     required
                   />
                 </label>
@@ -1188,8 +1654,10 @@ function ScholarshipPage() {
                 <label>
                   Eligibility (BN)
                   <textarea
-                    value={editNoticeForm.eligibility.bn}
-                    onChange={(event) => updateEditNoticeLocalized('eligibility', 'bn', event.target.value)}
+                    value={noticeForm.eligibility.bn}
+                    onChange={(event) =>
+                      updateNoticeLocalized('eligibility', 'bn', event.target.value)
+                    }
                     required
                   />
                 </label>
@@ -1197,9 +1665,9 @@ function ScholarshipPage() {
                 <label>
                   Scholarship Type
                   <select
-                    value={editNoticeForm.scholarshipType}
+                    value={noticeForm.scholarshipType}
                     onChange={(event) =>
-                      setEditNoticeForm((prev) => ({ ...prev, scholarshipType: event.target.value }))
+                      setNoticeForm((prev) => ({ ...prev, scholarshipType: event.target.value }))
                     }
                   >
                     <option value="one_off">One-Off</option>
@@ -1211,9 +1679,9 @@ function ScholarshipPage() {
                   Application Window Start
                   <input
                     type="date"
-                    value={editNoticeForm.applicationWindowStart}
+                    value={noticeForm.applicationWindowStart}
                     onChange={(event) =>
-                      setEditNoticeForm((prev) => ({
+                      setNoticeForm((prev) => ({
                         ...prev,
                         applicationWindowStart: event.target.value
                       }))
@@ -1226,9 +1694,9 @@ function ScholarshipPage() {
                   Application Window End
                   <input
                     type="date"
-                    value={editNoticeForm.applicationWindowEnd}
+                    value={noticeForm.applicationWindowEnd}
                     onChange={(event) =>
-                      setEditNoticeForm((prev) => ({
+                      setNoticeForm((prev) => ({
                         ...prev,
                         applicationWindowEnd: event.target.value
                       }))
@@ -1241,20 +1709,20 @@ function ScholarshipPage() {
                   Decision Date
                   <input
                     type="date"
-                    value={editNoticeForm.deadline}
+                    value={noticeForm.deadline}
                     onChange={(event) =>
-                      setEditNoticeForm((prev) => ({ ...prev, deadline: event.target.value }))
+                      setNoticeForm((prev) => ({ ...prev, deadline: event.target.value }))
                     }
                     required
                   />
                 </label>
 
                 <label>
-                  Status
+                  Initial Status
                   <select
-                    value={editNoticeForm.status}
+                    value={noticeForm.status}
                     onChange={(event) =>
-                      setEditNoticeForm((prev) => ({ ...prev, status: event.target.value }))
+                      setNoticeForm((prev) => ({ ...prev, status: event.target.value }))
                     }
                   >
                     <option value="draft">Draft</option>
@@ -1266,20 +1734,25 @@ function ScholarshipPage() {
                 <div className="surface-card inner-card">
                   <div className="section-head section-head-tight">
                     <h3>Category Amount Matrix</h3>
-                    <button type="button" className="btn btn-ghost" onClick={addEditCategoryRow}>
+                    <button type="button" className="btn btn-ghost" onClick={addCategoryRow}>
                       Add Category
                     </button>
                   </div>
 
                   <div className="stack-list">
-                    {editNoticeForm.categories.map((category, index) => (
-                      <article key={`${index}-${category.code || 'new'}`} className="surface-card inner-card">
+                    {noticeForm.categories.map((category, index) => (
+                      <article
+                        key={`${index}-${category.code || 'new'}`}
+                        className="surface-card inner-card"
+                      >
                         <div className="form-grid">
                           <label>
                             Code
                             <input
                               value={category.code}
-                              onChange={(event) => updateEditCategoryField(index, 'code', event.target.value)}
+                              onChange={(event) =>
+                                updateCategoryField(index, 'code', event.target.value)
+                              }
                               placeholder="merit"
                             />
                           </label>
@@ -1287,14 +1760,18 @@ function ScholarshipPage() {
                             Name (EN)
                             <input
                               value={category.nameEn}
-                              onChange={(event) => updateEditCategoryField(index, 'nameEn', event.target.value)}
+                              onChange={(event) =>
+                                updateCategoryField(index, 'nameEn', event.target.value)
+                              }
                             />
                           </label>
                           <label>
                             Name (BN)
                             <input
                               value={category.nameBn}
-                              onChange={(event) => updateEditCategoryField(index, 'nameBn', event.target.value)}
+                              onChange={(event) =>
+                                updateCategoryField(index, 'nameBn', event.target.value)
+                              }
                             />
                           </label>
                           <label>
@@ -1303,7 +1780,9 @@ function ScholarshipPage() {
                               type="number"
                               min="0"
                               value={category.amount}
-                              onChange={(event) => updateEditCategoryField(index, 'amount', event.target.value)}
+                              onChange={(event) =>
+                                updateCategoryField(index, 'amount', event.target.value)
+                              }
                             />
                           </label>
                           <label>
@@ -1312,14 +1791,16 @@ function ScholarshipPage() {
                               type="number"
                               min="1"
                               value={category.slots}
-                              onChange={(event) => updateEditCategoryField(index, 'slots', event.target.value)}
+                              onChange={(event) =>
+                                updateCategoryField(index, 'slots', event.target.value)
+                              }
                             />
                           </label>
 
                           <button
                             type="button"
                             className="btn btn-ghost"
-                            onClick={() => removeEditCategoryRow(index)}
+                            onClick={() => removeCategoryRow(index)}
                           >
                             Remove Category
                           </button>
@@ -1330,263 +1811,85 @@ function ScholarshipPage() {
                 </div>
 
                 <button type="submit" className="btn btn-primary">
-                  Update Notice
+                  Publish Notice
                 </button>
               </form>
-            )}
-          </article>
-          )}
-
-          {canManageNotices && (
-          <article className="surface-card">
-            <h3>Publish Scholarship Notice</h3>
-            <form className="form-grid" onSubmit={submitNotice}>
-            <label>
-              Title (EN)
-              <input
-                value={noticeForm.title.en}
-                onChange={(event) => updateNoticeLocalized('title', 'en', event.target.value)}
-                required
-              />
-            </label>
-            <label>
-              Title (BN)
-              <input
-                value={noticeForm.title.bn}
-                onChange={(event) => updateNoticeLocalized('title', 'bn', event.target.value)}
-                required
-              />
-            </label>
-
-            <label>
-              Description (EN)
-              <textarea
-                value={noticeForm.description.en}
-                onChange={(event) => updateNoticeLocalized('description', 'en', event.target.value)}
-                required
-              />
-            </label>
-
-            <label>
-              Description (BN)
-              <textarea
-                value={noticeForm.description.bn}
-                onChange={(event) => updateNoticeLocalized('description', 'bn', event.target.value)}
-                required
-              />
-            </label>
-
-            <label>
-              Eligibility (EN)
-              <textarea
-                value={noticeForm.eligibility.en}
-                onChange={(event) => updateNoticeLocalized('eligibility', 'en', event.target.value)}
-                required
-              />
-            </label>
-
-            <label>
-              Eligibility (BN)
-              <textarea
-                value={noticeForm.eligibility.bn}
-                onChange={(event) => updateNoticeLocalized('eligibility', 'bn', event.target.value)}
-                required
-              />
-            </label>
-
-            <label>
-              Scholarship Type
-              <select
-                value={noticeForm.scholarshipType}
-                onChange={(event) =>
-                  setNoticeForm((prev) => ({ ...prev, scholarshipType: event.target.value }))
-                }
-              >
-                <option value="one_off">One-Off</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </label>
-
-            <label>
-              Application Window Start
-              <input
-                type="date"
-                value={noticeForm.applicationWindowStart}
-                onChange={(event) =>
-                  setNoticeForm((prev) => ({ ...prev, applicationWindowStart: event.target.value }))
-                }
-                required
-              />
-            </label>
-
-            <label>
-              Application Window End
-              <input
-                type="date"
-                value={noticeForm.applicationWindowEnd}
-                onChange={(event) =>
-                  setNoticeForm((prev) => ({ ...prev, applicationWindowEnd: event.target.value }))
-                }
-                required
-              />
-            </label>
-
-            <label>
-              Decision Date
-              <input
-                type="date"
-                value={noticeForm.deadline}
-                onChange={(event) => setNoticeForm((prev) => ({ ...prev, deadline: event.target.value }))}
-                required
-              />
-            </label>
-
-            <label>
-              Initial Status
-              <select
-                value={noticeForm.status}
-                onChange={(event) => setNoticeForm((prev) => ({ ...prev, status: event.target.value }))}
-              >
-                <option value="draft">Draft</option>
-                <option value="open">Open</option>
-                <option value="closed">Closed</option>
-              </select>
-            </label>
-
-            <div className="surface-card inner-card">
-              <div className="section-head section-head-tight">
-                <h3>Category Amount Matrix</h3>
-                <button type="button" className="btn btn-ghost" onClick={addCategoryRow}>
-                  Add Category
-                </button>
-              </div>
-
-              <div className="stack-list">
-                {noticeForm.categories.map((category, index) => (
-                  <article key={`${index}-${category.code || 'new'}`} className="surface-card inner-card">
-                    <div className="form-grid">
-                      <label>
-                        Code
-                        <input
-                          value={category.code}
-                          onChange={(event) => updateCategoryField(index, 'code', event.target.value)}
-                          placeholder="merit"
-                        />
-                      </label>
-                      <label>
-                        Name (EN)
-                        <input
-                          value={category.nameEn}
-                          onChange={(event) => updateCategoryField(index, 'nameEn', event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        Name (BN)
-                        <input
-                          value={category.nameBn}
-                          onChange={(event) => updateCategoryField(index, 'nameBn', event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        Amount
-                        <input
-                          type="number"
-                          min="0"
-                          value={category.amount}
-                          onChange={(event) => updateCategoryField(index, 'amount', event.target.value)}
-                        />
-                      </label>
-                      <label>
-                        Slots
-                        <input
-                          type="number"
-                          min="1"
-                          value={category.slots}
-                          onChange={(event) => updateCategoryField(index, 'slots', event.target.value)}
-                        />
-                      </label>
-
-                      <button type="button" className="btn btn-ghost" onClick={() => removeCategoryRow(index)}>
-                        Remove Category
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-
-              <button type="submit" className="btn btn-primary">
-                Publish Notice
-              </button>
-            </form>
-          </article>
+            </article>
           )}
 
           {canReview && (
-          <article className="surface-card">
-            <div className="section-head section-head-tight">
-              <h3>Review Queue</h3>
-              <button type="button" className="btn btn-ghost" onClick={exportCsv}>
-                Export CSV
-              </button>
-            </div>
-
-            {!applications.length && <p>No applications to review.</p>}
-            {!!applications.length && (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Student</th>
-                      <th>Notice</th>
-                      <th>Category</th>
-                      <th>GPA</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {applications.map((item) => (
-                      <tr key={item._id}>
-                        <td>{item.student?.fullName || 'Unknown'}</td>
-                        <td>{toLocalizedText(item.notice?.title, language)}</td>
-                        <td>{item.selectedCategoryCode || '-'}</td>
-                        <td>{item.gpa}</td>
-                        <td>{item.status}</td>
-                        <td>
-                          <div className="inline-actions">
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() =>
-                                reviewApplication(item._id, 'under_review', item.selectedCategoryCode)
-                              }
-                            >
-                              Review
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => reviewApplication(item._id, 'approved', item.selectedCategoryCode)}
-                            >
-                              Approve
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-ghost"
-                              onClick={() => reviewApplication(item._id, 'rejected', item.selectedCategoryCode)}
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <article className="surface-card">
+              <div className="section-head section-head-tight">
+                <h3>Review Queue</h3>
+                <button type="button" className="btn btn-ghost" onClick={exportCsv}>
+                  Export CSV
+                </button>
               </div>
-            )}
-          </article>
+
+              {!orderedApplications.length && <p>No applications to review.</p>}
+              {!!orderedApplications.length && (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Notice</th>
+                        <th>Category</th>
+                        <th>GPA</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orderedApplications.map((item) => (
+                        <tr key={item._id}>
+                          <td>{item.student?.fullName || 'Unknown'}</td>
+                          <td>{toLocalizedText(item.notice?.title, language)}</td>
+                          <td>{item.selectedCategoryCode || '-'}</td>
+                          <td>{item.gpa}</td>
+                          <td>{item.status}</td>
+                          <td>
+                            <div className="inline-actions">
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() =>
+                                  reviewApplication(
+                                    item._id,
+                                    'under_review',
+                                    item.selectedCategoryCode
+                                  )
+                                }
+                              >
+                                Review
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() =>
+                                  reviewApplication(item._id, 'approved', item.selectedCategoryCode)
+                                }
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() =>
+                                  reviewApplication(item._id, 'rejected', item.selectedCategoryCode)
+                                }
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </article>
           )}
         </div>
       )}

@@ -79,6 +79,11 @@ const pageSchema = new mongoose.Schema(
 
 pageSchema.index({ slug: 1 }, { unique: true });
 pageSchema.index({ status: 1, updatedAt: -1 });
-pageSchema.index({ 'title.en': 'text', 'title.bn': 'text', 'content.en': 'text', 'content.bn': 'text' });
+pageSchema.index({
+  'title.en': 'text',
+  'title.bn': 'text',
+  'content.en': 'text',
+  'content.bn': 'text'
+});
 
 module.exports = mongoose.model('Page', pageSchema);

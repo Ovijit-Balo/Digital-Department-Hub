@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
+import InlineAlert from '../../components/common/InlineAlert';
 import PaginationBar from '../../components/common/PaginationBar';
+import SkeletonList from '../../components/common/SkeletonList';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
@@ -45,9 +47,11 @@ function BlogsPage() {
         </button>
       </div>
 
-      {error && <p className="error-text">{error}</p>}
-      {loading && <p>{ui('blogs', 'loading', language)}</p>}
-      {!loading && !items.length && <p>{ui('blogs', 'empty', language)}</p>}
+      {error && <InlineAlert type="error">{error}</InlineAlert>}
+      {loading && <SkeletonList count={3} showMedia lines={3} />}
+      {!loading && !items.length && (
+        <InlineAlert type="info">{ui('blogs', 'empty', language)}</InlineAlert>
+      )}
 
       <div className="stack-list">
         {items.map((item) => (
@@ -55,7 +59,8 @@ function BlogsPage() {
             <h3>{toLocalizedText(item.title, language)}</h3>
             <p>{toLocalizedText(item.excerpt, language)}</p>
             <p className="meta">
-              {ui('newsroom', 'published', language)}: {toIsoDate(item.publishedAt || item.createdAt)}
+              {ui('newsroom', 'published', language)}:{' '}
+              {toIsoDate(item.publishedAt || item.createdAt)}
             </p>
             <Link to={`/blogs/${item.slug}`} className="btn btn-ghost">
               {ui('blogs', 'read', language)}

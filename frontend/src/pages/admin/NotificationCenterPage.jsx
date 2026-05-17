@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { authApi, notificationApi } from '../../api/modules';
-import { useAuth } from '../../context/AuthContext';
+import FilterBar from '../../components/common/FilterBar';
+import SkeletonList from '../../components/common/SkeletonList';
 import { useToast } from '../../context/ToastContext';
+import useDebounce from '../../hooks/useDebounce';
 import useRole from '../../hooks/useRole';
 import { getApiErrorMessage } from '../../utils/http';
 import { toLocalDateTime } from '../../utils/localized';
 
 function NotificationCenterPage() {
-  const { user } = useAuth();
   const canDispatch = useRole('admin', 'manager');
-  const { success, error: toastError, info } = useToast();
+  const { success, error: toastError } = useToast();
   const latestNotificationIdRef = useRef('');
 
   const [loading, setLoading] = useState(true);
@@ -24,6 +25,7 @@ function NotificationCenterPage() {
   });
 
   const [userSearch, setUserSearch] = useState('');
+  const debouncedUserSearch = useDebounce(userSearch, 250);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -77,24 +79,25 @@ function NotificationCenterPage() {
   };
 
   const filteredUsers = useMemo(() => {
-    if (!userSearch) return [];
-    return users.filter(u => 
-      u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
-      u.fullName.toLowerCase().includes(userSearch.toLowerCase())
+    if (!debouncedUserSearch) return [];
+    return users.filter(
+      (u) =>
+        u.email.toLowerCase().includes(debouncedUserSearch.toLowerCase()) ||
+        u.fullName.toLowerCase().includes(debouncedUserSearch.toLowerCase())
     );
-  }, [users, userSearch]);
+  }, [debouncedUserSearch, users]);
 
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Notification Center</h1>
-      
+
       {canDispatch && (
         <div className="bg-white p-6 rounded-lg shadow mb-8">
           <h2 className="text-lg font-semibold mb-4">Send New Notification</h2>
           <form onSubmit={handleDispatch}>
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">Message</label>
-              <textarea 
+              <textarea
                 className="w-full border rounded p-2"
                 rows="3"
                 value={message}
@@ -104,18 +107,18 @@ function NotificationCenterPage() {
               />
             </div>
             <div className="mb-4 relative">
-              <label className="block text-sm font-medium mb-1">Target User (Optional - Leave blank for all)</label>
-              <input 
-                type="text"
-                className="w-full border rounded p-2"
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                placeholder="Search by name or email..."
+              <label className="block text-sm font-medium mb-1">
+                Target User (Optional - Leave blank for all)
+              </label>
+              <FilterBar
+                searchValue={userSearch}
+                searchPlaceholder="Search by name or email..."
+                onSearchChange={(e) => setUserSearch(e.target.value)}
               />
-              {userSearch && filteredUsers.length > 0 && (
+              {debouncedUserSearch && filteredUsers.length > 0 && (
                 <div className="absolute z-10 w-full bg-white border mt-1 shadow-lg max-h-40 overflow-y-auto">
-                  {filteredUsers.map(u => (
-                    <div 
+                  {filteredUsers.map((u) => (
+                    <div
                       key={u._id}
                       className="p-2 hover:bg-gray-100 cursor-pointer"
                       onClick={() => setUserSearch(u.email)}
@@ -126,7 +129,7 @@ function NotificationCenterPage() {
                 </div>
               )}
             </div>
-            <button 
+            <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
@@ -140,10 +143,10 @@ function NotificationCenterPage() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Sent Notifications</h2>
           <div className="flex gap-2">
-            <select 
+            <select
               className="border rounded p-1"
               value={filters.status}
-              onChange={(e) => setFilters({...filters, status: e.target.value})}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
             >
               <option value="">All Statuses</option>
               <option value="sent">Sent</option>
@@ -153,7 +156,7 @@ function NotificationCenterPage() {
         </div>
 
         {loading ? (
-          <p>Loading...</p>
+          <SkeletonList count={3} lines={3} />
         ) : errorMessage ? (
           <p className="text-red-500">{errorMessage}</p>
         ) : (
@@ -168,7 +171,7 @@ function NotificationCenterPage() {
                 </tr>
               </thead>
               <tbody>
-                {notifications.map(n => (
+                {notifications.map((n) => (
                   <tr key={n._id} className="border-t">
                     <td className="p-2">{n.message}</td>
                     <td className="p-2 capitalize">{n.channel}</td>

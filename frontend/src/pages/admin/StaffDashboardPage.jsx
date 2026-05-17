@@ -88,7 +88,8 @@ function StaffDashboardPage() {
       </div>
 
       <p className="meta">
-        Operational workspace for daily service desk responsibilities and departmental response queues.
+        Operational workspace for daily service desk responsibilities and departmental response
+        queues.
       </p>
 
       {error && <p className="error-text">{error}</p>}

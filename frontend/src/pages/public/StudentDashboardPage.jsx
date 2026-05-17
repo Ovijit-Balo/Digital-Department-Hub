@@ -59,14 +59,19 @@ function StudentDashboardPage() {
     setError('');
 
     try {
-      const [noticesResponse, myApplicationsResponse, eventsResponse, venuesResponse, notificationsResponse] =
-        await Promise.all([
-          scholarshipApi.listNotices({ status: 'open', page: 1, limit: 4 }),
-          scholarshipApi.listMyApplications({ page: 1, limit: 6 }),
-          eventApi.listEvents({ status: 'published', page: 1, limit: 4 }),
-          bookingApi.listVenues({ isActive: true, page: 1, limit: 4 }),
-          notificationApi.listNotifications({ page: 1, limit: 6 })
-        ]);
+      const [
+        noticesResponse,
+        myApplicationsResponse,
+        eventsResponse,
+        venuesResponse,
+        notificationsResponse
+      ] = await Promise.all([
+        scholarshipApi.listNotices({ status: 'open', page: 1, limit: 4 }),
+        scholarshipApi.listMyApplications({ page: 1, limit: 6 }),
+        eventApi.listEvents({ status: 'published', page: 1, limit: 4 }),
+        bookingApi.listVenues({ isActive: true, page: 1, limit: 4 }),
+        notificationApi.listNotifications({ page: 1, limit: 6 })
+      ]);
 
       setSnapshot({
         metrics: {
@@ -153,7 +158,9 @@ function StudentDashboardPage() {
 
       <article className="surface-card">
         <h3>My Recent Applications</h3>
-        {!snapshot.myRecentApplications.length && <p>You have not submitted any applications yet.</p>}
+        {!snapshot.myRecentApplications.length && (
+          <p>You have not submitted any applications yet.</p>
+        )}
 
         {!!snapshot.myRecentApplications.length && (
           <div className="table-wrap">

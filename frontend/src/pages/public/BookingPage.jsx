@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { bookingApi } from '../../api/modules';
+import InlineAlert from '../../components/common/InlineAlert';
+import SkeletonList from '../../components/common/SkeletonList';
 import { useAuth } from '../../context/AuthContext';
 import useRole from '../../hooks/useRole';
 import { getApiErrorMessage } from '../../utils/http';
 import { toLocalDateTime } from '../../utils/localized';
+import { validateBookingForm } from '../../utils/formValidation';
 
 function BookingPage() {
   const { user, isAuthenticated } = useAuth();
@@ -13,6 +16,7 @@ function BookingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [formErrors, setFormErrors] = useState({});
   const [venues, setVenues] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [myBookings, setMyBookings] = useState([]);
@@ -61,7 +65,14 @@ function BookingPage() {
       myRequests: isAuthenticated ? myBookings.length : 0,
       pendingApprovals: canApprove ? bookings.length : 0
     }),
-    [bookings.length, calendarItems.length, canApprove, isAuthenticated, myBookings.length, venues.length]
+    [
+      bookings.length,
+      calendarItems.length,
+      canApprove,
+      isAuthenticated,
+      myBookings.length,
+      venues.length
+    ]
   );
 
   const loadVenues = useCallback(async () => {
@@ -103,7 +114,12 @@ function BookingPage() {
     });
 
     setCalendarItems(response.data.items || []);
-  }, [calendarRange.bookingType, calendarRange.endDate, calendarRange.startDate, calendarRange.venue]);
+  }, [
+    calendarRange.bookingType,
+    calendarRange.endDate,
+    calendarRange.startDate,
+    calendarRange.venue
+  ]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -125,6 +141,13 @@ function BookingPage() {
   const submitBooking = async (event) => {
     event.preventDefault();
     setMessage('');
+
+    const nextErrors = validateBookingForm(bookingForm);
+    setFormErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setMessage('Please fix the highlighted booking fields.');
+      return;
+    }
 
     const startTime = new Date(bookingForm.startTime);
     const endTime = new Date(bookingForm.endTime);
@@ -168,6 +191,11 @@ function BookingPage() {
   const createVenue = async (event) => {
     event.preventDefault();
     setMessage('');
+
+    if (!venueForm.name.trim() || !venueForm.location.trim()) {
+      setMessage('Venue name and location are required.');
+      return;
+    }
 
     try {
       await bookingApi.createVenue({
@@ -214,7 +242,9 @@ function BookingPage() {
       });
 
       setConflicts(response.data.conflicts || []);
-      setMessage(response.data.hasConflict ? 'Conflicts found.' : 'No conflicts in this time window.');
+      setMessage(
+        response.data.hasConflict ? 'Conflicts found.' : 'No conflicts in this time window.'
+      );
     } catch (apiError) {
       setMessage(getApiErrorMessage(apiError, 'Failed to check conflicts.'));
     }
@@ -239,7 +269,8 @@ function BookingPage() {
           <p className="eyebrow">Space Scheduling</p>
           <h1>Venue Booking</h1>
           <p className="page-title-subtitle">
-            Coordinate class, lab, and event requests with calendar visibility, conflict checks, and approval workflow.
+            Coordinate class, lab, and event requests with calendar visibility, conflict checks, and
+            approval workflow.
           </p>
         </div>
         <button type="button" className="btn btn-ghost" onClick={loadData}>
@@ -250,6 +281,7 @@ function BookingPage() {
       <section className="kpi-strip" aria-label="Booking summary">
         <article className="kpi-card">
           <p className="kpi-label">Active Venues</p>
+          {formErrors.venue && <span className="error-text">{formErrors.venue}</span>}
           <p className="kpi-value">{dashboardStats.activeVenues}</p>
           <p className="kpi-note">Available for requests</p>
         </article>
@@ -270,9 +302,9 @@ function BookingPage() {
         </article>
       </section>
 
-      {error && <p className="error-text">{error}</p>}
-      {message && <p className="meta">{message}</p>}
-      {loading && <p>Loading venues and booking queue...</p>}
+      {error && <InlineAlert type="error">{error}</InlineAlert>}
+      {message && <InlineAlert type="info">{message}</InlineAlert>}
+      {loading && <SkeletonList count={3} showMedia lines={3} />}
 
       <div className="workflow-grid workflow-grid-2">
         <article className="surface-card">
@@ -431,6 +463,7 @@ function BookingPage() {
                   minLength={3}
                   required
                 />
+                {formErrors.title && <span className="error-text">{formErrors.title}</span>}
               </label>
 
               <label>
@@ -443,6 +476,7 @@ function BookingPage() {
                   minLength={20}
                   required
                 />
+                {formErrors.purpose && <span className="error-text">{formErrors.purpose}</span>}
               </label>
 
               <label>
@@ -472,6 +506,9 @@ function BookingPage() {
                     placeholder="CSE-301"
                     required
                   />
+                  {formErrors.classCode && (
+                    <span className="error-text">{formErrors.classCode}</span>
+                  )}
                 </label>
               )}
 
@@ -504,6 +541,7 @@ function BookingPage() {
                   }}
                   required
                 />
+                {formErrors.startTime && <span className="error-text">{formErrors.startTime}</span>}
               </label>
 
               <label>
@@ -517,6 +555,7 @@ function BookingPage() {
                   }
                   required
                 />
+                {formErrors.endTime && <span className="error-text">{formErrors.endTime}</span>}
               </label>
 
               <label>
@@ -531,6 +570,9 @@ function BookingPage() {
                   }
                   required
                 />
+                {formErrors.attendeeCount && (
+                  <span className="error-text">{formErrors.attendeeCount}</span>
+                )}
               </label>
 
               <button type="submit" className="btn btn-primary">
@@ -596,7 +638,9 @@ function BookingPage() {
                           {toLocalDateTime(item.startTime)} - {toLocalDateTime(item.endTime)}
                         </td>
                         <td>
-                          <span className={`status-badge status-${item.status}`}>{item.status}</span>
+                          <span className={`status-badge status-${item.status}`}>
+                            {item.status}
+                          </span>
                         </td>
                         <td>{item.decisionNote || '-'}</td>
                       </tr>

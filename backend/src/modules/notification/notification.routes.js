@@ -16,7 +16,12 @@ router.post(
   notificationController.dispatch
 );
 
-router.get('/', authenticate, validate(notificationValidation.listNotifications), notificationController.list);
+router.get(
+  '/',
+  authenticate,
+  validate(notificationValidation.listNotifications),
+  notificationController.list
+);
 
 router.patch(
   '/:notificationId/read',

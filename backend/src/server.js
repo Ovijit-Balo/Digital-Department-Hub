@@ -32,9 +32,21 @@ if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
   const startServer = async () => {
     try {
       await initializeDB();
-      
+
       const server = app.listen(env.PORT, () => {
         logger.info(`API listening on port ${env.PORT}`);
+      });
+
+      server.on('error', (error) => {
+        if (error?.code === 'EADDRINUSE') {
+          logger.error(
+            `Port ${env.PORT} is already in use. Stop the other backend process or change PORT in your .env file.`
+          );
+        } else {
+          logger.error(`HTTP server error: ${error.message}`);
+        }
+
+        process.exit(1);
       });
 
       const shutdown = () => {
@@ -56,11 +68,17 @@ if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
           error.message.toLowerCase().includes('mongodb'));
 
       if (isMongoConnectionIssue) {
-        logger.error('MongoDB is not reachable. Check that the service is running and MONGODB_URI matches it.');
+        logger.error(
+          'MongoDB is not reachable. Check that the service is running and MONGODB_URI matches it.'
+        );
         logger.info(`Effective MONGODB_URI (from env): ${env.MONGODB_URI}`);
-        logger.info('Tip: copy backend/.env.example to backend/.env, or run npm scripts from the backend folder.');
+        logger.info(
+          'Tip: copy backend/.env.example to backend/.env, or run npm scripts from the backend folder.'
+        );
         if (process.platform === 'win32') {
-          logger.info('Windows: install MongoDB Server (winget install -e --id MongoDB.Server), then start the MongoDB Windows service.');
+          logger.info(
+            'Windows: install MongoDB Server (winget install -e --id MongoDB.Server), then start the MongoDB Windows service.'
+          );
         }
       }
 

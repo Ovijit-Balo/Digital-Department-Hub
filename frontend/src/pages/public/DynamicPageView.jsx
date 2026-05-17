@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
 import RichTextPreview from '../../components/common/RichTextPreview';
+import SkeletonCard from '../../components/common/SkeletonCard';
 import useLanguage from '../../hooks/useLanguage';
 import { getApiErrorMessage } from '../../utils/http';
 import { toLocalizedText } from '../../utils/localized';
@@ -34,7 +35,7 @@ function DynamicPageView() {
 
   return (
     <section className="page-wrap">
-      {loading && <p>Loading page...</p>}
+      {loading && <SkeletonCard showMedia lines={4} />}
       {error && <p className="error-text">{error}</p>}
 
       {!loading && !error && page && (

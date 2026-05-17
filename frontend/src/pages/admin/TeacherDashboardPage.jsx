@@ -111,7 +111,8 @@ function TeacherDashboardPage() {
       </div>
 
       <p className="meta">
-        Editorial workspace for classroom-facing content, departmental announcements, and publication readiness.
+        Editorial workspace for classroom-facing content, departmental announcements, and
+        publication readiness.
       </p>
 
       {error && <p className="error-text">{error}</p>}

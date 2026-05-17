@@ -35,6 +35,14 @@ router.post(
   eventController.createEvent
 );
 
+router.patch(
+  '/:eventId',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.MANAGER, ROLES.EDITOR),
+  validate(eventValidation.updateEvent),
+  eventController.updateEvent
+);
+
 router.post(
   '/:eventId/registrations',
   authenticate,

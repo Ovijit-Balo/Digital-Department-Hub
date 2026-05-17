@@ -10,7 +10,11 @@ const router = express.Router();
 
 const canManageInquiries = [ROLES.ADMIN, ROLES.MANAGER, ROLES.EDITOR];
 
-router.post('/inquiries', validate(contactValidation.submitInquiry), contactController.submitInquiry);
+router.post(
+  '/inquiries',
+  validate(contactValidation.submitInquiry),
+  contactController.submitInquiry
+);
 
 router.get(
   '/inquiries/mine',

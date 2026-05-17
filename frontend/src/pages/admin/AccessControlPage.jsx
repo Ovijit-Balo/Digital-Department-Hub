@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { authApi } from '../../api/modules';
+import FilterBar from '../../components/common/FilterBar';
+import SkeletonList from '../../components/common/SkeletonList';
 import useRole from '../../hooks/useRole';
+import useDebounce from '../../hooks/useDebounce';
 import { ALL_ROLES, ROLES } from '../../constants/roles';
 import { getApiErrorMessage } from '../../utils/http';
 import { toLocalDateTime } from '../../utils/localized';
@@ -34,17 +37,18 @@ function AccessControlPage() {
     isActive: ''
   });
 
+  const debouncedSearch = useDebounce(filters.search, 300);
+
   const queryParams = useMemo(() => {
-    const isActive =
-      filters.isActive === '' ? undefined : filters.isActive === 'true';
+    const isActive = filters.isActive === '' ? undefined : filters.isActive === 'true';
 
     return {
-      search: filters.search || undefined,
+      search: debouncedSearch || undefined,
       role: filters.role || undefined,
       isActive,
       limit: 100
     };
-  }, [filters.isActive, filters.role, filters.search]);
+  }, [debouncedSearch, filters.isActive, filters.role]);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -80,9 +84,7 @@ function AccessControlPage() {
         return prev;
       }
 
-      const nextRoles = hasRole
-        ? current.filter((item) => item !== role)
-        : [...current, role];
+      const nextRoles = hasRole ? current.filter((item) => item !== role) : [...current, role];
 
       return {
         ...prev,
@@ -130,19 +132,16 @@ function AccessControlPage() {
       <article className="surface-card">
         <div className="section-head section-head-tight">
           <h3>User Directory</h3>
-          <div className="action-row">
-            <input
-              value={filters.search}
-              placeholder="Search by name/email/department"
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, search: event.target.value }))
-              }
-            />
+          <FilterBar
+            searchValue={filters.search}
+            searchPlaceholder="Search by name/email/department"
+            onSearchChange={(event) =>
+              setFilters((prev) => ({ ...prev, search: event.target.value }))
+            }
+          >
             <select
               value={filters.role}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, role: event.target.value }))
-              }
+              onChange={(event) => setFilters((prev) => ({ ...prev, role: event.target.value }))}
             >
               <option value="">All roles</option>
               {ALL_ROLES.map((role) => (
@@ -161,10 +160,10 @@ function AccessControlPage() {
               <option value="true">Active</option>
               <option value="false">Inactive</option>
             </select>
-          </div>
+          </FilterBar>
         </div>
 
-        {loading && <p>Loading users...</p>}
+        {loading && <SkeletonList count={3} lines={4} />}
         {!loading && !users.length && <p>No users found for current filters.</p>}
 
         {!!users.length && (

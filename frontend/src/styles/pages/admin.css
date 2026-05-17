@@ -1,0 +1,228 @@
+.admin-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: calc(100vh - 72px);
+}
+
+.admin-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--stroke);
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.admin-sidebar-head h2 {
+  margin: 0;
+}
+
+.sidebar-caption {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.admin-nav {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.admin-sidebar-actions {
+  margin-top: auto;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--stroke);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-action-btn {
+  width: 100%;
+  text-align: center;
+}
+
+.admin-nav-link {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.6rem;
+}
+
+.admin-nav-link:hover {
+  background: rgba(255, 122, 24, 0.12);
+}
+
+.admin-content {
+  padding: 1rem 1.2rem;
+}
+
+.admin-layout {
+  gap: 0;
+}
+
+.admin-sidebar {
+  border-right-color: var(--stroke);
+  background: var(--card);
+}
+
+.admin-sidebar-head h2 {
+  color: var(--text);
+}
+
+.admin-nav-link {
+  border: 1px solid transparent;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+
+.admin-nav-link:hover {
+  border-color: rgba(37, 99, 235, 0.2);
+  background: rgba(37, 99, 235, 0.07);
+}
+
+.admin-content {
+  padding-top: 1.2rem;
+}
+
+.admin-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 1rem 1.2rem 0;
+}
+
+.admin-topbar-copy h1 {
+  margin: 0.15rem 0 0;
+  font-size: 1.45rem;
+}
+
+.admin-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.admin-topbar__menu {
+  display: none;
+}
+
+.admin-content {
+  width: 100%;
+}
+
+.admin-backdrop {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--stroke);
+  }
+
+  .admin-topbar {
+    flex-wrap: wrap;
+    padding-inline: 1rem;
+  }
+
+  .admin-topbar__menu {
+    display: inline-flex;
+  }
+
+  .admin-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(88vw, 320px);
+    transform: translateX(-102%);
+    transition: transform 220ms ease;
+    z-index: 60;
+    box-shadow: 18px 0 42px rgba(17, 24, 39, 0.18);
+  }
+
+  .admin-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .admin-layout--drawer-open .admin-backdrop,
+  .admin-layout--drawer-open .admin-sidebar.is-open + .admin-main + .admin-backdrop {
+    display: block;
+  }
+
+  .admin-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 50;
+  }
+}
+
+@media (min-width: 961px) {
+  .admin-sidebar.is-collapsed {
+    width: 92px;
+    overflow: hidden;
+  }
+
+  .admin-sidebar.is-collapsed .sidebar-caption,
+  .admin-sidebar.is-collapsed .admin-nav,
+  .admin-sidebar.is-collapsed .admin-sidebar-actions,
+  .admin-sidebar.is-collapsed .eyebrow,
+  .admin-sidebar.is-collapsed h2 {
+    display: none;
+  }
+
+  .admin-sidebar.is-collapsed .admin-sidebar-head {
+    justify-content: center;
+  }
+}
+
+:root[data-theme='dark'] .admin-sidebar {
+  background-color: rgba(16, 26, 43, 0.88);
+  color: var(--text);
+  border-color: var(--stroke);
+}
+
+:root[data-theme='dark'] .admin-nav-link {
+  background: var(--card);
+  color: var(--text);
+  border-color: var(--stroke);
+}
+
+:root[data-theme='dark'] .admin-nav-link:hover {
+  background: rgba(79, 140, 255, 0.14);
+  border-color: rgba(79, 140, 255, 0.28);
+}
+
+:root[data-theme='dark'] .admin-nav-link.is-active {
+  background: rgba(79, 140, 255, 0.18);
+  border-color: rgba(79, 140, 255, 0.4);
+  color: var(--primary);
+}
+
+:root[data-theme='dark'] .admin-sidebar {
+  background: rgba(16, 26, 43, 0.96);
+}
+
+:root[data-theme='dark'] .admin-topbar,
+:root[data-theme='dark'] .admin-content {
+  color: var(--text);
+}
+
+:root[data-theme='dark'] .admin-backdrop {
+  background: rgba(4, 8, 16, 0.58);
+}
+
+:root[data-theme='dark'] .admin-nav-link.is-active {
+  color: var(--primary);
+}

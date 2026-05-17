@@ -16,10 +16,17 @@ export default function ToastViewport() {
         <article key={toast.id} className={`toast toast--${toast.tone}`} role="status">
           <div className="toast__copy">
             <p className="toast__eyebrow">{toneLabels[toast.tone] || toneLabels.info}</p>
-            <h3 className="toast__title">{toast.title || toneLabels[toast.tone] || toneLabels.info}</h3>
+            <h3 className="toast__title">
+              {toast.title || toneLabels[toast.tone] || toneLabels.info}
+            </h3>
             {toast.message && <p className="toast__message">{toast.message}</p>}
           </div>
-          <button type="button" className="toast__close" aria-label="Dismiss notification" onClick={() => dismiss(toast.id)}>
+          <button
+            type="button"
+            className="toast__close"
+            aria-label="Dismiss notification"
+            onClick={() => dismiss(toast.id)}
+          >
             ×
           </button>
         </article>

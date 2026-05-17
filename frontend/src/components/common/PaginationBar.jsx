@@ -50,7 +50,8 @@ export default function PaginationBar({ language, page, total, limit, onPageChan
       </div>
 
       <span className="pagination-meta">
-        {ui('newsroom', 'pageOf', language)} {safePage} {ui('newsroom', 'of', language)} {totalPages}
+        {ui('newsroom', 'pageOf', language)} {safePage} {ui('newsroom', 'of', language)}{' '}
+        {totalPages}
       </span>
       <button
         type="button"

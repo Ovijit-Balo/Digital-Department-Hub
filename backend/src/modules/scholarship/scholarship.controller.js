@@ -104,7 +104,9 @@ const publishRecipients = asyncHandler(async (req, res) => {
   });
 
   res.locals.auditMeta = {
-    action: req.body.publish ? 'PUBLISH_SCHOLARSHIP_RECIPIENTS' : 'UNPUBLISH_SCHOLARSHIP_RECIPIENTS',
+    action: req.body.publish
+      ? 'PUBLISH_SCHOLARSHIP_RECIPIENTS'
+      : 'UNPUBLISH_SCHOLARSHIP_RECIPIENTS',
     entityType: 'ScholarshipNotice',
     entityId: notice._id.toString(),
     after: { recipientsPublishedAt: notice.recipientsPublishedAt }

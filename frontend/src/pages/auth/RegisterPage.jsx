@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getDefaultWorkspaceForUser } from '../../constants/roles';
+import { validateRegisterForm } from '../../utils/formValidation';
 
 const getPasswordStrength = (password) => {
   if (!password) {
@@ -36,6 +37,7 @@ function RegisterPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
 
   const passwordStrength = useMemo(() => getPasswordStrength(form.password), [form.password]);
 
@@ -49,6 +51,14 @@ function RegisterPage() {
   const onSubmit = async (event) => {
     event.preventDefault();
     setError('');
+
+    const nextErrors = validateRegisterForm(form);
+    setFormErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setError('Please fix the highlighted registration fields.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -88,6 +98,7 @@ function RegisterPage() {
           maxLength={120}
           required
         />
+        {formErrors.fullName && <p className="error-text">{formErrors.fullName}</p>}
 
         <label htmlFor="email">Email</label>
         <input
@@ -99,6 +110,7 @@ function RegisterPage() {
           onChange={onChange}
           required
         />
+        {formErrors.email && <p className="error-text">{formErrors.email}</p>}
 
         <label htmlFor="password">Password</label>
         <input
@@ -111,6 +123,7 @@ function RegisterPage() {
           minLength={8}
           required
         />
+        {formErrors.password && <p className="error-text">{formErrors.password}</p>}
 
         <div className="password-strength" aria-live="polite">
           <div className="password-strength__bar">
@@ -131,6 +144,7 @@ function RegisterPage() {
           onChange={onChange}
           maxLength={120}
         />
+        {formErrors.department && <p className="error-text">{formErrors.department}</p>}
 
         <label htmlFor="languagePreference">Language</label>
         <select

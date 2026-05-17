@@ -6,7 +6,10 @@ import { getApiErrorMessage } from '../../utils/http';
 import { toLocalizedText } from '../../utils/localized';
 
 function stripHtml(value = '') {
-  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function PagesPage() {

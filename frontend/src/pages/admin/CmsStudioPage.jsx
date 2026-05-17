@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cmsApi } from '../../api/modules';
-import RichTextEditor from '../../components/common/RichTextEditor';
+import GalleryForm from '../../components/cms/GalleryForm';
+import NewsForm from '../../components/cms/NewsForm';
+import PageForm from '../../components/cms/PageForm';
 import useRole from '../../hooks/useRole';
 import useLanguage from '../../hooks/useLanguage';
-import {
-  defaultTranslationWorkflow,
-  sourceLanguageOptions,
-  translationStatusOptions
-} from '../../data/cmsTranslations';
+import { defaultTranslationWorkflow } from '../../data/cmsTranslations';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalizedText } from '../../utils/localized';
 
@@ -100,11 +98,13 @@ function getLocalizedValue(localized, locale) {
 }
 
 function hasRichTextContent(value = '') {
-  return value
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim().length > 0;
+  return (
+    value
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim().length > 0
+  );
 }
 
 function getMissingSourceContentMessage(sourceLanguage, requiredChecks) {
@@ -115,48 +115,6 @@ function getMissingSourceContentMessage(sourceLanguage, requiredChecks) {
   }
 
   return `Missing ${sourceLanguage.toUpperCase()} source content for: ${missing.join(', ')}`;
-}
-
-function TranslationWorkflowFields({ value, onChange }) {
-  return (
-    <div className="workflow-grid">
-      <label>
-        Source Language
-        <select
-          value={value.sourceLanguage}
-          onChange={(event) => onChange('sourceLanguage', event.target.value)}
-        >
-          {sourceLanguageOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label>
-        EN Translation Status
-        <select value={value.enStatus} onChange={(event) => onChange('enStatus', event.target.value)}>
-          {translationStatusOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label>
-        BN Translation Status
-        <select value={value.bnStatus} onChange={(event) => onChange('bnStatus', event.target.value)}>
-          {translationStatusOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
-  );
 }
 
 function CmsStudioPage() {
@@ -613,14 +571,13 @@ function CmsStudioPage() {
       description: item.description || { ...initialLocalized },
       status: item.status || 'draft',
       translationWorkflow: normalizeWorkflow(item.translationWorkflow),
-      items:
-        item.items?.map((mediaItem) => ({
-          mediaType: mediaItem.mediaType || 'image',
-          mediaUrl: mediaItem.mediaUrl || '',
-          thumbnailUrl: mediaItem.thumbnailUrl || '',
-          caption: mediaItem.caption || { ...initialLocalized },
-          order: mediaItem.order || 0
-        })) || [createGalleryItem()]
+      items: item.items?.map((mediaItem) => ({
+        mediaType: mediaItem.mediaType || 'image',
+        mediaUrl: mediaItem.mediaUrl || '',
+        thumbnailUrl: mediaItem.thumbnailUrl || '',
+        caption: mediaItem.caption || { ...initialLocalized },
+        order: mediaItem.order || 0
+      })) || [createGalleryItem()]
     });
     setActiveSection('gallery');
   };
@@ -648,8 +605,8 @@ function CmsStudioPage() {
       </div>
 
       <p className="meta">
-        WYSIWYG content authoring, bilingual translation workflow tracking, and gallery media management
-        for non-technical staff.
+        WYSIWYG content authoring, bilingual translation workflow tracking, and gallery media
+        management for non-technical staff.
       </p>
 
       {error && <p className="error-text">{error}</p>}
@@ -695,188 +652,30 @@ function CmsStudioPage() {
       <article className="surface-card">
         <h3>{sectionTitle}</h3>
         <p className="meta">
-          Translation workflow: complete source-language content first, then add translation content in
-          the other language.
+          Translation workflow: complete source-language content first, then add translation content
+          in the other language.
         </p>
 
         {activeSection === 'pages' && (
-          <form className="form-grid" onSubmit={submitPage}>
-            <label>
-              Page Slug
-              <input
-                value={pageForm.slug}
-                onChange={(event) => setPageForm((prev) => ({ ...prev, slug: event.target.value }))}
-                onBlur={(event) =>
-                  setPageForm((prev) => ({ ...prev, slug: toSlug(event.target.value) }))
-                }
-                placeholder="about-department"
-                required
-              />
-            </label>
-
-            <label>
-              Title (EN)
-              <input
-                value={pageForm.title.en}
-                onChange={(event) => onPageLocalizedChange('title', 'en', event.target.value)}
-                required={pageSourceLanguage === 'en'}
-              />
-            </label>
-
-            <label>
-              Title (BN)
-              <input
-                value={pageForm.title.bn}
-                onChange={(event) => onPageLocalizedChange('title', 'bn', event.target.value)}
-                required={pageSourceLanguage === 'bn'}
-              />
-            </label>
-
-            <label>
-              Content (EN)
-              <RichTextEditor
-                value={pageForm.content.en}
-                onChange={(value) => onPageLocalizedChange('content', 'en', value)}
-                placeholder="Write page content in English"
-              />
-            </label>
-
-            <label>
-              Content (BN)
-              <RichTextEditor
-                value={pageForm.content.bn}
-                onChange={(value) => onPageLocalizedChange('content', 'bn', value)}
-                placeholder="Write page content in Bangla"
-              />
-            </label>
-
-            <label>
-              Publish Status
-              <select
-                value={pageForm.status}
-                onChange={(event) => setPageForm((prev) => ({ ...prev, status: event.target.value }))}
-              >
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-              </select>
-            </label>
-
-            <TranslationWorkflowFields
-              value={pageForm.translationWorkflow}
-              onChange={onPageWorkflowChange}
-            />
-
-            <button type="submit" className="btn btn-primary">
-              {pageForm.id ? 'Update Page' : 'Create Page'}
-            </button>
-          </form>
+          <PageForm
+            form={pageForm}
+            sourceLanguage={pageSourceLanguage}
+            onFieldChange={(field, value) => setPageForm((prev) => ({ ...prev, [field]: value }))}
+            onLocalizedChange={onPageLocalizedChange}
+            onWorkflowChange={onPageWorkflowChange}
+            onSubmit={submitPage}
+          />
         )}
 
         {activeSection === 'news' && (
-          <form className="form-grid" onSubmit={submitNews}>
-            <label>
-              Post Type
-              <select
-                value={newsForm.category}
-                onChange={(event) => setNewsForm((prev) => ({ ...prev, category: event.target.value }))}
-              >
-                <option value="news">News</option>
-                <option value="announcement">Announcement</option>
-              </select>
-            </label>
-
-            <label>
-              Title (EN)
-              <input
-                value={newsForm.title.en}
-                onChange={(event) => onNewsLocalizedChange('title', 'en', event.target.value)}
-                required={newsSourceLanguage === 'en'}
-              />
-            </label>
-
-            <label>
-              Title (BN)
-              <input
-                value={newsForm.title.bn}
-                onChange={(event) => onNewsLocalizedChange('title', 'bn', event.target.value)}
-                required={newsSourceLanguage === 'bn'}
-              />
-            </label>
-
-            <label>
-              Summary (EN)
-              <textarea
-                value={newsForm.summary.en}
-                onChange={(event) => onNewsLocalizedChange('summary', 'en', event.target.value)}
-                required={newsSourceLanguage === 'en'}
-              />
-            </label>
-
-            <label>
-              Summary (BN)
-              <textarea
-                value={newsForm.summary.bn}
-                onChange={(event) => onNewsLocalizedChange('summary', 'bn', event.target.value)}
-                required={newsSourceLanguage === 'bn'}
-              />
-            </label>
-
-            <label>
-              Body (EN)
-              <RichTextEditor
-                value={newsForm.body.en}
-                onChange={(value) => onNewsLocalizedChange('body', 'en', value)}
-                placeholder="Write detailed news body in English"
-              />
-            </label>
-
-            <label>
-              Body (BN)
-              <RichTextEditor
-                value={newsForm.body.bn}
-                onChange={(value) => onNewsLocalizedChange('body', 'bn', value)}
-                placeholder="Write detailed news body in Bangla"
-              />
-            </label>
-
-            <label>
-              Cover Image URL (optional)
-              <input
-                value={newsForm.coverImageUrl}
-                onChange={(event) =>
-                  setNewsForm((prev) => ({ ...prev, coverImageUrl: event.target.value }))
-                }
-              />
-            </label>
-
-            <label>
-              Tags (comma separated)
-              <input
-                value={newsForm.tagsInput}
-                onChange={(event) => setNewsForm((prev) => ({ ...prev, tagsInput: event.target.value }))}
-              />
-            </label>
-
-            <label>
-              Publish Status
-              <select
-                value={newsForm.status}
-                onChange={(event) => setNewsForm((prev) => ({ ...prev, status: event.target.value }))}
-              >
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-              </select>
-            </label>
-
-            <TranslationWorkflowFields
-              value={newsForm.translationWorkflow}
-              onChange={onNewsWorkflowChange}
-            />
-
-            <button type="submit" className="btn btn-primary">
-              {newsForm.id ? 'Update Item' : 'Create Item'}
-            </button>
-          </form>
+          <NewsForm
+            form={newsForm}
+            sourceLanguage={newsSourceLanguage}
+            onFieldChange={(field, value) => setNewsForm((prev) => ({ ...prev, [field]: value }))}
+            onLocalizedChange={onNewsLocalizedChange}
+            onWorkflowChange={onNewsWorkflowChange}
+            onSubmit={submitNews}
+          />
         )}
 
         {activeSection === 'blogs' && (
@@ -962,7 +761,9 @@ function CmsStudioPage() {
               Tags (comma separated)
               <input
                 value={blogForm.tagsInput}
-                onChange={(event) => setBlogForm((prev) => ({ ...prev, tagsInput: event.target.value }))}
+                onChange={(event) =>
+                  setBlogForm((prev) => ({ ...prev, tagsInput: event.target.value }))
+                }
               />
             </label>
 
@@ -970,7 +771,9 @@ function CmsStudioPage() {
               Publish Status
               <select
                 value={blogForm.status}
-                onChange={(event) => setBlogForm((prev) => ({ ...prev, status: event.target.value }))}
+                onChange={(event) =>
+                  setBlogForm((prev) => ({ ...prev, status: event.target.value }))
+                }
               >
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
@@ -989,178 +792,20 @@ function CmsStudioPage() {
         )}
 
         {activeSection === 'gallery' && (
-          <form className="form-grid" onSubmit={submitGallery}>
-            <label>
-              Gallery Slug
-              <input
-                value={galleryForm.slug}
-                onChange={(event) =>
-                  setGalleryForm((prev) => ({ ...prev, slug: event.target.value }))
-                }
-                onBlur={(event) =>
-                  setGalleryForm((prev) => ({ ...prev, slug: toSlug(event.target.value) }))
-                }
-                placeholder="dept-convocation-2026"
-                required
-              />
-            </label>
-
-            <label>
-              Title (EN)
-              <input
-                value={galleryForm.title.en}
-                onChange={(event) => onGalleryLocalizedChange('title', 'en', event.target.value)}
-                required={gallerySourceLanguage === 'en'}
-              />
-            </label>
-
-            <label>
-              Title (BN)
-              <input
-                value={galleryForm.title.bn}
-                onChange={(event) => onGalleryLocalizedChange('title', 'bn', event.target.value)}
-                required={gallerySourceLanguage === 'bn'}
-              />
-            </label>
-
-            <label>
-              Description (EN)
-              <textarea
-                value={galleryForm.description.en}
-                onChange={(event) =>
-                  onGalleryLocalizedChange('description', 'en', event.target.value)
-                }
-              />
-            </label>
-
-            <label>
-              Description (BN)
-              <textarea
-                value={galleryForm.description.bn}
-                onChange={(event) =>
-                  onGalleryLocalizedChange('description', 'bn', event.target.value)
-                }
-              />
-            </label>
-
-            <label>
-              Publish Status
-              <select
-                value={galleryForm.status}
-                onChange={(event) =>
-                  setGalleryForm((prev) => ({ ...prev, status: event.target.value }))
-                }
-              >
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-              </select>
-            </label>
-
-            <TranslationWorkflowFields
-              value={galleryForm.translationWorkflow}
-              onChange={onGalleryWorkflowChange}
-            />
-
-            <div className="surface-card inner-card">
-              <div className="section-head section-head-tight">
-                <h4>Gallery Media Items</h4>
-                <button type="button" className="btn btn-ghost" onClick={addGalleryItem}>
-                  Add Media
-                </button>
-              </div>
-
-              <div className="stack-list">
-                {galleryForm.items.map((item, index) => (
-                  <article key={`gallery-item-${index}`} className="surface-card inner-card">
-                    <div className="section-head section-head-tight">
-                      <h4>Item {index + 1}</h4>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => removeGalleryItem(index)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-
-                    <div className="form-grid">
-                      <label>
-                        Media Type
-                        <select
-                          value={item.mediaType}
-                          onChange={(event) =>
-                            updateGalleryItem(index, 'mediaType', event.target.value)
-                          }
-                        >
-                          <option value="image">Image</option>
-                          <option value="video">Video</option>
-                        </select>
-                      </label>
-
-                      <label>
-                        Media URL
-                        <input
-                          value={item.mediaUrl}
-                          onChange={(event) =>
-                            updateGalleryItem(index, 'mediaUrl', event.target.value)
-                          }
-                          placeholder="https://..."
-                          required
-                        />
-                      </label>
-
-                      <label>
-                        Thumbnail URL (optional)
-                        <input
-                          value={item.thumbnailUrl}
-                          onChange={(event) =>
-                            updateGalleryItem(index, 'thumbnailUrl', event.target.value)
-                          }
-                          placeholder="https://..."
-                        />
-                      </label>
-
-                      <label>
-                        Caption (EN)
-                        <input
-                          value={item.caption?.en || ''}
-                          onChange={(event) =>
-                            updateGalleryItemCaption(index, 'en', event.target.value)
-                          }
-                        />
-                      </label>
-
-                      <label>
-                        Caption (BN)
-                        <input
-                          value={item.caption?.bn || ''}
-                          onChange={(event) =>
-                            updateGalleryItemCaption(index, 'bn', event.target.value)
-                          }
-                        />
-                      </label>
-
-                      <label>
-                        Order
-                        <input
-                          type="number"
-                          min="0"
-                          value={item.order}
-                          onChange={(event) =>
-                            updateGalleryItem(index, 'order', Number(event.target.value))
-                          }
-                        />
-                      </label>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-
-            <button type="submit" className="btn btn-primary">
-              {galleryForm.id ? 'Update Gallery' : 'Create Gallery'}
-            </button>
-          </form>
+          <GalleryForm
+            form={galleryForm}
+            sourceLanguage={gallerySourceLanguage}
+            onFieldChange={(field, value) =>
+              setGalleryForm((prev) => ({ ...prev, [field]: value }))
+            }
+            onLocalizedChange={onGalleryLocalizedChange}
+            onWorkflowChange={onGalleryWorkflowChange}
+            onSubmit={submitGallery}
+            onAddItem={addGalleryItem}
+            onRemoveItem={removeGalleryItem}
+            onItemChange={updateGalleryItem}
+            onItemCaptionChange={updateGalleryItemCaption}
+          />
         )}
       </article>
 

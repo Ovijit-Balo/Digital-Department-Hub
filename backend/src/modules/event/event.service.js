@@ -100,9 +100,7 @@ const listEventCalendar = async (query, options = {}) => {
     }
   ]);
 
-  const summaryMap = new Map(
-    registrationSummary.map((item) => [item._id.toString(), item])
-  );
+  const summaryMap = new Map(registrationSummary.map((item) => [item._id.toString(), item]));
 
   return {
     startDate: start,
@@ -231,6 +229,27 @@ const listRegistrations = async ({ eventId, query }) => {
   };
 };
 
+const updateEvent = async (eventId, payload, userId) => {
+  const event = await Event.findById(eventId);
+
+  if (!event) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Event not found');
+  }
+
+  // Apply updates
+  event.title = payload.title;
+  event.description = payload.description;
+  event.location = payload.location;
+  event.startTime = payload.startTime;
+  event.endTime = payload.endTime;
+  event.registrationDeadline = payload.registrationDeadline;
+  event.capacity = payload.capacity;
+  if (payload.status) event.status = payload.status;
+
+  await event.save();
+  return event;
+};
+
 module.exports = {
   createEvent,
   listEvents,
@@ -239,4 +258,5 @@ module.exports = {
   checkIn,
   submitFeedback,
   listRegistrations
+  ,updateEvent
 };

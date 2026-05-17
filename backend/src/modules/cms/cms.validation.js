@@ -37,7 +37,11 @@ const translationWorkflow = Joi.object({
 
 const createPage = {
   body: Joi.object({
-    slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9-]+$/).required(),
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .required(),
     title: localizedText.required(),
     content: localizedText.required(),
     translationWorkflow: translationWorkflow.optional(),
@@ -48,7 +52,11 @@ const createPage = {
 const updatePage = {
   params: Joi.object({ id: objectId.required() }),
   body: Joi.object({
-    slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9-]+$/).optional(),
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .optional(),
     title: localizedText.optional(),
     content: localizedText.optional(),
     translationWorkflow: translationWorkflow.optional(),
@@ -62,7 +70,11 @@ const getPage = {
 
 const getPageBySlug = {
   params: Joi.object({
-    slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9-]+$/).required()
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .required()
   })
 };
 
@@ -118,7 +130,11 @@ const listNewsPosts = {
 
 const createBlogPost = {
   body: Joi.object({
-    slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9-]+$/).required(),
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .required(),
     title: localizedText.required(),
     excerpt: localizedText.required(),
     body: localizedText.required(),
@@ -132,7 +148,11 @@ const createBlogPost = {
 const updateBlogPost = {
   params: Joi.object({ id: objectId.required() }),
   body: Joi.object({
-    slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9-]+$/).optional(),
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .optional(),
     title: localizedText.optional(),
     excerpt: localizedText.optional(),
     body: localizedText.optional(),
@@ -149,7 +169,11 @@ const getBlogPost = {
 
 const getBlogPostBySlug = {
   params: Joi.object({
-    slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9-]+$/).required()
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .required()
   })
 };
 
@@ -164,15 +188,24 @@ const listBlogPosts = {
 
 const galleryItem = Joi.object({
   mediaType: Joi.string().valid('image', 'video').optional(),
-  mediaUrl: Joi.string().uri({ scheme: ['http', 'https', 'data'] }).required(),
-  thumbnailUrl: Joi.string().uri({ scheme: ['http', 'https', 'data'] }).allow('').optional(),
+  mediaUrl: Joi.string()
+    .uri({ scheme: ['http', 'https', 'data'] })
+    .required(),
+  thumbnailUrl: Joi.string()
+    .uri({ scheme: ['http', 'https', 'data'] })
+    .allow('')
+    .optional(),
   caption: localizedTextOptional.optional(),
   order: Joi.number().integer().min(0).optional()
 });
 
 const createGallery = {
   body: Joi.object({
-    slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9-]+$/).required(),
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .required(),
     title: localizedText.required(),
     description: localizedTextOptional.optional(),
     translationWorkflow: translationWorkflow.optional(),
@@ -184,7 +217,11 @@ const createGallery = {
 const updateGallery = {
   params: Joi.object({ id: objectId.required() }),
   body: Joi.object({
-    slug: Joi.string().trim().lowercase().pattern(/^[a-z0-9-]+$/).optional(),
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .optional(),
     title: localizedText.optional(),
     description: localizedTextOptional.optional(),
     translationWorkflow: translationWorkflow.optional(),

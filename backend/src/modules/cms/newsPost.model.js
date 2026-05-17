@@ -90,6 +90,11 @@ const newsPostSchema = new mongoose.Schema(
 newsPostSchema.index({ status: 1, publishedAt: -1 });
 newsPostSchema.index({ category: 1, status: 1, publishedAt: -1 });
 newsPostSchema.index({ tags: 1 });
-newsPostSchema.index({ 'title.en': 'text', 'title.bn': 'text', 'body.en': 'text', 'body.bn': 'text' });
+newsPostSchema.index({
+  'title.en': 'text',
+  'title.bn': 'text',
+  'body.en': 'text',
+  'body.bn': 'text'
+});
 
 module.exports = mongoose.model('NewsPost', newsPostSchema);

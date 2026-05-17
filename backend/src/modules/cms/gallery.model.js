@@ -143,6 +143,11 @@ const gallerySchema = new mongoose.Schema(
 
 gallerySchema.index({ slug: 1 }, { unique: true });
 gallerySchema.index({ status: 1, publishedAt: -1 });
-gallerySchema.index({ 'title.en': 'text', 'title.bn': 'text', 'description.en': 'text', 'description.bn': 'text' });
+gallerySchema.index({
+  'title.en': 'text',
+  'title.bn': 'text',
+  'description.en': 'text',
+  'description.bn': 'text'
+});
 
 module.exports = mongoose.model('Gallery', gallerySchema);

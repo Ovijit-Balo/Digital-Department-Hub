@@ -1,0 +1,64 @@
+.rich-preview {
+  line-height: 1.66;
+  color: var(--text);
+}
+
+.rich-preview :is(h1, h2, h3) {
+  color: var(--text);
+  margin-top: 0.7rem;
+}
+
+.rich-preview p {
+  margin: 0.5rem 0;
+}
+
+.rich-preview ul,
+.rich-preview ol {
+  padding-left: 1.1rem;
+}
+
+.rich-preview a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rich-editor-wrap {
+  border: 1px solid var(--stroke);
+  border-radius: 0.76rem;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.rich-editor-wrap .ql-toolbar.ql-snow {
+  border: 0;
+  border-bottom: 1px solid var(--stroke);
+  background: var(--card);
+}
+
+.rich-editor-wrap .ql-container.ql-snow {
+  border: 0;
+  min-height: 180px;
+}
+
+.qr-preview {
+  width: min(260px, 100%);
+  border-radius: 0.8rem;
+  border: 1px solid var(--stroke);
+  background: var(--card);
+  padding: 0.5rem;
+}
+
+.qr-preview {
+  border-color: var(--stroke);
+  box-shadow: 0 10px 22px rgba(14, 30, 56, 0.08);
+}
+
+:root[data-theme='dark'] .rich-editor-wrap {
+  background: var(--card);
+  border-color: var(--stroke);
+}
+
+:root[data-theme='dark'] .rich-preview a {
+  color: var(--primary);
+}

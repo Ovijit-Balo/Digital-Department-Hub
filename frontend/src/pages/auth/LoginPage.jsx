@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { validateLoginForm } from '../../utils/formValidation';
 import {
   PORTAL_DEFINITIONS,
   PORTAL_KEYS,
@@ -19,6 +20,7 @@ function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '', rememberMe: true });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
 
   const selectedPortal = useMemo(() => getPortalDefinition(portal), [portal]);
   const portalLinks = useMemo(
@@ -36,6 +38,14 @@ function LoginPage() {
   const onSubmit = async (event) => {
     event.preventDefault();
     setError('');
+
+    const nextErrors = validateLoginForm(form);
+    setFormErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setError('Please fix the highlighted sign-in fields.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -55,7 +65,9 @@ function LoginPage() {
 
       navigate(location.state?.from || getDefaultWorkspaceForUser(user), { replace: true });
     } catch (apiError) {
-      setError(apiError?.response?.data?.message || 'Login failed. Please verify your credentials.');
+      setError(
+        apiError?.response?.data?.message || 'Login failed. Please verify your credentials.'
+      );
     } finally {
       setLoading(false);
     }
@@ -64,6 +76,12 @@ function LoginPage() {
   return (
     <section className="auth-screen">
       <form className="auth-card" onSubmit={onSubmit}>
+        <div className="auth-card__topbar">
+          <Link to="/portals" className="auth-card__back-link">
+            ← Back to portal guide
+          </Link>
+        </div>
+
         <h1>{selectedPortal ? `${selectedPortal.label} Sign In` : 'Sign In'}</h1>
         <p>
           {selectedPortal
@@ -96,6 +114,7 @@ function LoginPage() {
           onChange={onChange}
           required
         />
+        {formErrors.email && <p className="error-text">{formErrors.email}</p>}
 
         <label htmlFor="password">Password</label>
         <input
@@ -107,6 +126,7 @@ function LoginPage() {
           onChange={onChange}
           required
         />
+        {formErrors.password && <p className="error-text">{formErrors.password}</p>}
 
         <label className="form-check">
           <input
@@ -132,9 +152,7 @@ function LoginPage() {
         </button>
 
         {selectedPortal && (
-          <p className="meta">
-            Post-login workspace: {selectedPortal.workspaceLabel}
-          </p>
+          <p className="meta">Post-login workspace: {selectedPortal.workspaceLabel}</p>
         )}
 
         {selectedPortal?.key === 'student' || !selectedPortal ? (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import useLanguage from '../../hooks/useLanguage';
@@ -15,13 +15,6 @@ function matchesNavPrefix(pathname, prefixes) {
 const CONTENT_PREFIXES = PUBLIC_NAV_CONTENT.map((item) => item.to);
 const SERVICE_PREFIXES = PUBLIC_NAV_SERVICES.map((item) => item.to);
 
-function closeDetailsFromEvent(event) {
-  const host = event.currentTarget.closest('details');
-  if (host) {
-    host.open = false;
-  }
-}
-
 function PublicLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -30,6 +23,8 @@ function PublicLayout() {
   const { isDark, toggleTheme } = useThemeContext();
   const primaryPortal = getPrimaryPortalForUser(user);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const navRef = useRef(null);
 
   const pathname = location.pathname;
 
@@ -46,6 +41,24 @@ function PublicLayout() {
     setMobileNavOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    setOpenDropdown(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (navRef.current && !navRef.current.contains(event.target)) {
+        setOpenDropdown(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, []);
+
   const workspaceLabel = primaryPortal
     ? toLocalizedText(
         { en: `${primaryPortal.label} Workspace`, bn: `${primaryPortal.label} ওয়ার্কস্পেস` },
@@ -60,17 +73,17 @@ function PublicLayout() {
   };
 
   const closeMobile = () => setMobileNavOpen(false);
+  const closeDropdowns = () => setOpenDropdown(null);
 
-  const navLinkClass = ({ isActive }) =>
-    `nav-link${isActive ? ' nav-link--active' : ''}`;
+  const navLinkClass = ({ isActive }) => `nav-link${isActive ? ' nav-link--active' : ''}`;
 
   const renderLink = (item) => (
     <NavLink
       key={item.to}
       to={item.to}
       className={navLinkClass}
-      onClick={(event) => {
-        closeDetailsFromEvent(event);
+      onClick={() => {
+        closeDropdowns();
         closeMobile();
       }}
     >
@@ -106,16 +119,23 @@ function PublicLayout() {
           {toLocalizedText({ en: 'Menu', bn: 'মেনু' }, language)}
         </button>
 
-        <nav id="public-primary-nav" className="public-nav" aria-label="Primary">
+        <nav id="public-primary-nav" ref={navRef} className="public-nav" aria-label="Primary">
           <div className="public-nav-inner">
             <NavLink to="/" end className={navLinkClass} onClick={closeMobile}>
               {ui('nav', 'home', language)}
             </NavLink>
 
             <details
+              open={openDropdown === 'content'}
               className={`nav-dropdown${contentGroupActive ? ' nav-dropdown--active' : ''}`}
             >
-              <summary className="nav-dropdown__summary">
+              <summary
+                className="nav-dropdown__summary"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setOpenDropdown((current) => (current === 'content' ? null : 'content'));
+                }}
+              >
                 {ui('nav', 'contentMedia', language)}
               </summary>
               <div className="nav-dropdown__panel" role="group">
@@ -124,9 +144,16 @@ function PublicLayout() {
             </details>
 
             <details
+              open={openDropdown === 'services'}
               className={`nav-dropdown${servicesGroupActive ? ' nav-dropdown--active' : ''}`}
             >
-              <summary className="nav-dropdown__summary">
+              <summary
+                className="nav-dropdown__summary"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setOpenDropdown((current) => (current === 'services' ? null : 'services'));
+                }}
+              >
                 {ui('nav', 'campusServices', language)}
               </summary>
               <div className="nav-dropdown__panel" role="group">
@@ -143,7 +170,9 @@ function PublicLayout() {
             {primaryPortal && (
               <NavLink
                 to={primaryPortal.workspacePath}
-                className={({ isActive }) => `nav-link nav-admin-link${isActive ? ' nav-link--active' : ''}`}
+                className={({ isActive }) =>
+                  `nav-link nav-admin-link${isActive ? ' nav-link--active' : ''}`
+                }
                 onClick={closeMobile}
               >
                 {workspaceLabel}
@@ -153,7 +182,12 @@ function PublicLayout() {
         </nav>
 
         <div className="auth-actions">
-          <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label="Toggle theme">
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+          >
             {isDark ? 'Light mode' : 'Dark mode'}
           </button>
           <label className="lang-switch" htmlFor="ui-language">
@@ -170,10 +204,10 @@ function PublicLayout() {
 
           {user ? (
             <>
-              <span className="user-chip">
+              <Link to="/profile" className="user-chip">
                 {user.fullName}
                 {primaryPortal ? ` • ${primaryPortal.label}` : ''}
-              </span>
+              </Link>
               <button type="button" className="btn btn-ghost" onClick={handleSignOut}>
                 {toLocalizedText({ en: 'Sign Out', bn: 'সাইন আউট' }, language)}
               </button>

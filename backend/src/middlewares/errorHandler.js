@@ -4,7 +4,11 @@ const logger = require('../config/logger');
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR;
 
-  logger.error(err.stack || err.message);
+  if (err.details) {
+    logger.error(`${req.method} ${req.originalUrl} -> ${err.message} :: ${JSON.stringify(err.details)}`);
+  } else {
+    logger.error(err.stack || err.message);
+  }
 
   res.status(statusCode).json({
     message: err.message || 'Internal server error',

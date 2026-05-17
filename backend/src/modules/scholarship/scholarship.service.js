@@ -199,7 +199,9 @@ const applyForScholarship = async ({ noticeId, userId, payload }) => {
       );
     }
 
-    const hasCategory = notice.categories.some((category) => category.code === normalizedSelectedCategory);
+    const hasCategory = notice.categories.some(
+      (category) => category.code === normalizedSelectedCategory
+    );
     if (!hasCategory) {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Selected scholarship category is invalid');
     }
@@ -352,7 +354,10 @@ const listRecipients = async ({ noticeId, query, includeUnpublished = false }) =
   }
 
   if (!notice.recipientsPublishedAt && !includeUnpublished) {
-    throw new ApiError(StatusCodes.FORBIDDEN, 'Recipient list is not published for this notice yet');
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      'Recipient list is not published for this notice yet'
+    );
   }
 
   const filter = {

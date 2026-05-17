@@ -8,7 +8,12 @@ const localizedText = Joi.object({
 });
 
 const scholarshipCategory = Joi.object({
-  code: Joi.string().trim().lowercase().pattern(/^[a-z0-9_-]+$/).max(40).required(),
+  code: Joi.string()
+    .trim()
+    .lowercase()
+    .pattern(/^[a-z0-9_-]+$/)
+    .max(40)
+    .required(),
   name: localizedText.required(),
   amount: Joi.number().min(0).required(),
   slots: Joi.number().integer().min(1).optional()
@@ -70,7 +75,12 @@ const apply = {
     statement: Joi.string().min(30).max(5000).required(),
     gpa: Joi.number().min(0).max(4).required(),
     department: Joi.string().trim().max(120).required(),
-    selectedCategoryCode: Joi.string().trim().lowercase().pattern(/^[a-z0-9_-]+$/).max(40).optional(),
+    selectedCategoryCode: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9_-]+$/)
+      .max(40)
+      .optional(),
     documents: Joi.array()
       .items(
         Joi.object({

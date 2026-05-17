@@ -86,7 +86,11 @@ router.delete(
 );
 
 router.get('/blogs', validate(cmsValidation.listBlogPosts), cmsController.listPublicBlogPosts);
-router.get('/blogs/slug/:slug', validate(cmsValidation.getBlogPostBySlug), cmsController.getBlogPostBySlug);
+router.get(
+  '/blogs/slug/:slug',
+  validate(cmsValidation.getBlogPostBySlug),
+  cmsController.getBlogPostBySlug
+);
 router.get(
   '/manage/blogs',
   authenticate,

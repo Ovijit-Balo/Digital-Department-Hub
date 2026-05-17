@@ -7,11 +7,19 @@ A departmental platform with a dynamic website and CMS to manage news, blogs, sc
 ## Local Development (Windows)
 
 ### Prerequisites
+
 - Node.js 20+ (Node 22 is OK)
 - MongoDB running on `mongodb://127.0.0.1:27017` (or set `MONGODB_URI` to MongoDB Atlas)
 - (Optional) Redis for background queues. If you do not have Redis, set `ENABLE_QUEUE=false` in `backend/.env`.
 
+### Environment files
+
+- Copy `backend/.env.example` to `backend/.env` for local development.
+- The backend also supports the repo root `.env` when you run commands from the workspace root.
+- For container runs, `docker-compose.yml` reads `backend/.env`.
+
 ### 1) Install & start MongoDB (recommended)
+
 Using `winget`:
 
 ```powershell
@@ -21,6 +29,7 @@ winget install -e --id MongoDB.Server
 Then open **Services** (`services.msc`) and start **MongoDB Server**.
 
 ### 2) Run the backend API
+
 Run these from the **`backend`** folder (so `npm` and `.env` line up). The app also loads `backend/.env` when the shell’s current directory is the repo root, but keeping `cd backend` avoids surprises.
 
 ```powershell
@@ -38,7 +47,17 @@ Optional demo data:
 npm run seed:demo
 ```
 
-### 3) Run the frontend
+### 3a) Run backend tests
+
+The backend test suite uses Jest and an in-memory MongoDB server for model and integration checks.
+
+```powershell
+cd backend
+npm test
+```
+
+### 4) Run the frontend
+
 ```powershell
 cd frontend
 npm install
@@ -47,13 +66,24 @@ npm run dev
 
 Vite will print a local URL (usually `http://localhost:5173`, or `5174` if `5173` is already in use).
 
+### 5) Run with Docker
+
+If you prefer containers, use the compose stack from the repo root:
+
+```powershell
+docker compose up --build
+```
+
+This starts MongoDB, Redis, the backend API, the backend worker, and the frontend container.
+
 ---
 
 ## Project Overview
 
-**Project A:** Core Department Website + CMS + Scholarship + Events/Auditorium/Lab Booking  
+**Project A:** Core Department Website + CMS + Scholarship + Events/Auditorium/Lab Booking
 
 **Modules:**
+
 - Content Management System (CMS)
 - Blog Management
 - News & Announcements
@@ -67,6 +97,7 @@ Vite will print a local URL (usually `http://localhost:5173`, or `5174` if `5173
 ## Scope
 
 ### 1. Public Website
+
 - Dynamic departmental website
 - News, announcements, and blog publishing
 - Public event listings and calendar
@@ -74,6 +105,7 @@ Vite will print a local URL (usually `http://localhost:5173`, or `5174` if `5173
 - Social sharing metadata
 
 ### 2. Content Management System (CMS)
+
 - WYSIWYG editor for non-technical staff
 - Page creation and editing
 - Blog and news management
@@ -81,16 +113,19 @@ Vite will print a local URL (usually `http://localhost:5173`, or `5174` if `5173
 - Content scheduling and publishing
 
 ### 3. Multilingual Support
+
 - Bangla and English language support
 - Language switcher for users
 - Translation workflow for administrators
 
 ### 4. Gallery Management
+
 - Image and video uploads
 - Organized gallery sections
 - Public gallery display on the website
 
 ### 5. Contact & Inquiry System
+
 - Contact forms for users
 - Inquiry tracking system
 - Admin response management
@@ -149,28 +184,63 @@ Features include:
 The project will deliver the following components:
 
 ### 1. Public Website Frontend
+
 - Responsive design
 - Dynamic content rendering
 - Event listings and scholarship information
 
 ### 2. CMS Admin Panel
+
 - Content creation and editing
 - Media and gallery management
 - Language management
 
 ### 3. Scholarship Management Panel
+
 - Scholarship publishing
 - Application review system
 - Recipient announcement tools
 
 ### 4. Content Features
+
 - News and blog publishing
 - Image/video gallery
 - Contact form management
 - Language switching support
 
 ### 5. Event & Venue Management
+
 - Event listing and registration system
 - QR-based attendance tracking
 - Auditorium and lab booking system
 - Admin approval workflows
+
+---
+
+## Useful Commands
+
+### Backend
+
+```powershell
+cd backend
+npm run dev
+npm test
+npm run lint
+npm run format
+```
+
+### Frontend
+
+```powershell
+cd frontend
+npm run dev
+npm run build
+npm run lint
+npm run format
+```
+
+### Docker
+
+```powershell
+docker compose up --build
+```

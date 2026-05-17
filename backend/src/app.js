@@ -26,10 +26,36 @@ const apiLimiter = rateLimit({
   }
 });
 
+// Input sanitization to prevent NoSQL injection
+try {
+  const mongoSanitize = require('express-mongo-sanitize');
+  // remove any keys that begin with '$' or contain '.'
+  app.use(mongoSanitize());
+} catch {
+  // optional dependency may not be installed in all environments
+}
+
+// Configure CORS with a safe dev-mode fallback.
+// In production, set `FRONTEND_URL` to a comma-separated list of allowed origins.
+const isDev = env.NODE_ENV === 'development';
+const allowedOrigins = env.FRONTEND_URL && env.FRONTEND_URL !== '*'
+  ? env.FRONTEND_URL.split(',').map((o) => o.trim())
+  : [];
+
 app.use(
   cors({
-    origin: env.FRONTEND_URL.split(',').map((origin) => origin.trim()),
-    credentials: true
+    origin: (origin, cb) => {
+      // Allow non-browser requests (curl, Postman) without an Origin header
+      if (!origin) return cb(null, true);
+      // In development you may set FRONTEND_URL='*' to allow any origin.
+      if (isDev && env.FRONTEND_URL === '*') return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error('Not allowed by CORS'));
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    optionsSuccessStatus: 204
   })
 );
 app.use(helmet());
@@ -47,7 +73,9 @@ app.use(auditMiddleware);
 
 app.get(['/health', '/api/health'], (req, res) => {
   res.set('cache-control', 'no-store');
-  res.status(200).json({ status: 'ok', service: 'digital-department-hub-api', requestId: req.requestId });
+  res
+    .status(200)
+    .json({ status: 'ok', service: 'digital-department-hub-api', requestId: req.requestId });
 });
 
 app.use('/api', apiLimiter);

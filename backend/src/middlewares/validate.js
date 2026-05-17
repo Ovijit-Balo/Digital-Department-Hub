@@ -15,7 +15,18 @@ const validate = (schema) => (req, res, next) => {
     });
 
     if (error) {
-      return next(new ApiError(StatusCodes.BAD_REQUEST, 'Validation failed', error.details));
+      const detailSummary = error.details
+        .map((detail) => detail.message)
+        .filter(Boolean)
+        .join('; ');
+
+      return next(
+        new ApiError(
+          StatusCodes.BAD_REQUEST,
+          detailSummary ? `Validation failed: ${detailSummary}` : 'Validation failed',
+          error.details
+        )
+      );
     }
 
     req[segment] = value;

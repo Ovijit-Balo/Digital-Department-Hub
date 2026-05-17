@@ -17,7 +17,11 @@ const buildPagination = ({ page, limit }) => {
   };
 };
 
-const notifySubmitterOnInquiryUpdate = async ({ inquiry, previousStatus, previousResolutionNote }) => {
+const notifySubmitterOnInquiryUpdate = async ({
+  inquiry,
+  previousStatus,
+  previousResolutionNote
+}) => {
   const hasChanged =
     previousStatus !== inquiry.status || previousResolutionNote !== inquiry.resolutionNote;
 

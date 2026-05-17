@@ -121,7 +121,17 @@ scholarshipNoticeSchema.pre('validate', function validateWindow(next) {
 
 scholarshipNoticeSchema.index({ deadline: 1, status: 1 });
 scholarshipNoticeSchema.index({ status: 1, createdAt: -1 });
-scholarshipNoticeSchema.index({ scholarshipType: 1, status: 1, applicationWindowStart: 1, applicationWindowEnd: 1 });
-scholarshipNoticeSchema.index({ 'title.en': 'text', 'title.bn': 'text', 'description.en': 'text', 'description.bn': 'text' });
+scholarshipNoticeSchema.index({
+  scholarshipType: 1,
+  status: 1,
+  applicationWindowStart: 1,
+  applicationWindowEnd: 1
+});
+scholarshipNoticeSchema.index({
+  'title.en': 'text',
+  'title.bn': 'text',
+  'description.en': 'text',
+  'description.bn': 'text'
+});
 
 module.exports = mongoose.model('ScholarshipNotice', scholarshipNoticeSchema);

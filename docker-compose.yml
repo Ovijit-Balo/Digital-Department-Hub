@@ -25,17 +25,8 @@ services:
     depends_on:
       - mongo
       - redis
-    environment:
-      NODE_ENV: production
-      PORT: 5000
-      MONGODB_URI: mongodb://mongo:27017/digital_department_hub
-      JWT_SECRET: replace-with-strong-secret
-      JWT_EXPIRES_IN: 1d
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      FRONTEND_URL: http://localhost:8080
-      LOG_LEVEL: info
-      RUN_WORKER_WITH_API: 'false'
+    env_file:
+      - ./backend/.env
     ports:
       - '5000:5000'
 
@@ -49,14 +40,8 @@ services:
       - backend
       - redis
       - mongo
-    environment:
-      NODE_ENV: production
-      MONGODB_URI: mongodb://mongo:27017/digital_department_hub
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      JWT_SECRET: replace-with-strong-secret
-      JWT_EXPIRES_IN: 1d
-      LOG_LEVEL: info
+    env_file:
+      - ./backend/.env
 
   frontend:
     build:

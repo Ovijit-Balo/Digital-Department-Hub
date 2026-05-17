@@ -93,6 +93,19 @@ const listRegistrations = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(data);
 });
 
+const updateEvent = asyncHandler(async (req, res) => {
+  const event = await eventService.updateEvent(req.params.eventId, req.body, req.user._id);
+
+  res.locals.auditMeta = {
+    action: 'UPDATE_EVENT',
+    entityType: 'Event',
+    entityId: event._id.toString(),
+    after: event
+  };
+
+  res.status(StatusCodes.OK).json({ event });
+});
+
 module.exports = {
   createEvent,
   listEvents,
@@ -103,4 +116,5 @@ module.exports = {
   checkIn,
   submitFeedback,
   listRegistrations
+  ,updateEvent
 };

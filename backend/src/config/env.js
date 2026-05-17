@@ -22,6 +22,7 @@ const envSchema = Joi.object({
   MONGODB_URI: Joi.string().default('mongodb://127.0.0.1:27017/digital_department_hub'),
   JWT_SECRET: Joi.string().min(16).default('development-secret-key-12345'),
   JWT_EXPIRES_IN: Joi.string().default('1d'),
+  REFRESH_TOKEN_EXPIRES_DAYS: Joi.number().default(7),
   REDIS_HOST: Joi.string().default('localhost'),
   REDIS_PORT: Joi.number().default(6379),
   REDIS_PASSWORD: Joi.string().allow('').optional(),

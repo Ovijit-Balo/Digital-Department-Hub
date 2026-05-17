@@ -16,6 +16,9 @@ export const eventApi = {
   createEvent(payload) {
     return apiClient.post('/events', payload);
   },
+  updateEvent(eventId, payload) {
+    return apiClient.patch(`/events/${eventId}`, payload);
+  },
   register(eventId) {
     return apiClient.post(`/events/${eventId}/registrations`);
   },

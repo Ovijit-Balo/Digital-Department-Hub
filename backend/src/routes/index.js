@@ -4,7 +4,7 @@ const routeModules = require('./routeModules');
 const router = express.Router();
 
 routeModules.forEach(({ path, router: moduleRouter }) => {
-	router.use(path, moduleRouter);
+  router.use(path, moduleRouter);
 });
 
 module.exports = router;

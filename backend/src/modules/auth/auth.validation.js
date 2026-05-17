@@ -20,6 +20,12 @@ const login = {
   })
 };
 
+const refresh = {
+  body: Joi.object({
+    refreshToken: Joi.string().min(20).required()
+  })
+};
+
 const resetPassword = {
   body: Joi.object({
     currentPassword: Joi.string().required(),
@@ -30,7 +36,9 @@ const resetPassword = {
 const listUsers = {
   query: Joi.object({
     search: Joi.string().max(120).optional(),
-    role: Joi.string().valid(...ALL_ROLES).optional(),
+    role: Joi.string()
+      .valid(...ALL_ROLES)
+      .optional(),
     isActive: Joi.boolean().optional(),
     page: Joi.number().min(1).default(1),
     limit: Joi.number().min(1).max(100).default(20)
@@ -42,13 +50,17 @@ const updateUserRoles = {
     userId: objectId.required()
   }),
   body: Joi.object({
-    roles: Joi.array().items(Joi.string().valid(...ALL_ROLES)).min(1).required()
+    roles: Joi.array()
+      .items(Joi.string().valid(...ALL_ROLES))
+      .min(1)
+      .required()
   })
 };
 
 module.exports = {
   register,
   login,
+  refresh,
   resetPassword,
   listUsers,
   updateUserRoles

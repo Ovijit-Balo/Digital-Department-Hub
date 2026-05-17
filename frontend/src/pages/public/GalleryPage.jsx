@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
@@ -6,7 +7,7 @@ import { getApiErrorMessage } from '../../utils/http';
 import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import { toLocalizedText } from '../../utils/localized';
 
-function GalleryMediaItem({ item, language, onPreview }) {
+function GalleryMediaItem({ item, language, onPreview, onOpenDetail }) {
   const [failed, setFailed] = useState(false);
   const src = resolveMediaUrl(item.mediaUrl);
   const caption = toLocalizedText(item.caption, language) || ui('gallery', 'untitled', language);
@@ -24,14 +25,18 @@ function GalleryMediaItem({ item, language, onPreview }) {
   if (item.mediaType === 'video') {
     return (
       <article className="gallery-item-card">
-        <video controls src={src} className="gallery-media" onClick={() => onPreview(item)} />
+        <video controls src={src} className="gallery-media" onClick={() => onOpenDetail()} />
         <p className="meta">{caption}</p>
       </article>
     );
   }
 
   return (
-    <button type="button" className="gallery-item-card gallery-item-card--button" onClick={() => onPreview(item)}>
+    <button
+      type="button"
+      className="gallery-item-card gallery-item-card--button"
+      onClick={() => onOpenDetail()}
+    >
       <img
         src={src}
         alt={caption}
@@ -51,6 +56,7 @@ function GalleryPage() {
   const [error, setError] = useState('');
   const [collections, setCollections] = useState([]);
   const [previewItem, setPreviewItem] = useState(null);
+  const navigate = useNavigate();
 
   const loadCollections = useCallback(async () => {
     setLoading(true);
@@ -66,10 +72,7 @@ function GalleryPage() {
     }
   }, []);
 
-  const skeletonCollections = useMemo(
-    () => Array.from({ length: 2 }, (_, index) => index),
-    []
-  );
+  const skeletonCollections = useMemo(() => Array.from({ length: 2 }, (_, index) => index), []);
 
   useEffect(() => {
     loadCollections();
@@ -107,8 +110,12 @@ function GalleryPage() {
 
       <div className="stack-list">
         {collections.map((collection) => (
-          <article key={collection._id} className="surface-card">
-            <h3>{toLocalizedText(collection.title, language)}</h3>
+            <article key={collection._id} className="surface-card">
+            <h3>
+              <button type="button" className="btn btn-ghost" onClick={() => navigate(`/gallery/${collection._id}`)}>
+                {toLocalizedText(collection.title, language)}
+              </button>
+            </h3>
             <p>{toLocalizedText(collection.description, language)}</p>
 
             <div className="gallery-grid">
@@ -121,6 +128,7 @@ function GalleryPage() {
                     item={item}
                     language={language}
                     onPreview={setPreviewItem}
+                    onOpenDetail={() => navigate(`/gallery/${collection._id}`)}
                   />
                 ))}
             </div>
@@ -138,11 +146,17 @@ function GalleryPage() {
           <div className="gallery-modal__dialog" onClick={(event) => event.stopPropagation()}>
             <img
               src={resolveMediaUrl(previewItem.mediaUrl)}
-              alt={toLocalizedText(previewItem.caption, language) || ui('gallery', 'untitled', language)}
+              alt={
+                toLocalizedText(previewItem.caption, language) ||
+                ui('gallery', 'untitled', language)
+              }
               className="gallery-modal__media"
             />
             <div className="gallery-modal__copy">
-              <h3>{toLocalizedText(previewItem.caption, language) || ui('gallery', 'untitled', language)}</h3>
+              <h3>
+                {toLocalizedText(previewItem.caption, language) ||
+                  ui('gallery', 'untitled', language)}
+              </h3>
               <p className="meta">{resolveMediaUrl(previewItem.mediaUrl)}</p>
             </div>
           </div>

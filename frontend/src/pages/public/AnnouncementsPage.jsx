@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { cmsApi } from '../../api/modules';
+import SkeletonList from '../../components/common/SkeletonList';
 import useLanguage from '../../hooks/useLanguage';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalizedText } from '../../utils/localized';
@@ -38,7 +39,7 @@ function AnnouncementsPage() {
       </div>
 
       {error && <p className="error-text">{error}</p>}
-      {loading && <p>Loading announcements...</p>}
+      {loading && <SkeletonList count={3} showMedia lines={2} />}
       {!loading && !items.length && <p>No announcements published yet.</p>}
 
       <div className="stack-list">

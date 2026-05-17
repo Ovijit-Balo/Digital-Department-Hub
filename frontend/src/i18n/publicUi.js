@@ -126,6 +126,34 @@ export const publicUi = {
       bn: 'নিচের “আমার জিজ্ঞাসা” থেকে যেকোনো সময় দেখুন।'
     }
   },
+  profile: {
+    eyebrow: { en: 'Account profile', bn: 'অ্যাকাউন্ট প্রোফাইল' },
+    title: { en: 'Profile', bn: 'প্রোফাইল' },
+    subtitle: {
+      en: 'Review your account details, active roles, and current session details.',
+      bn: 'আপনার অ্যাকাউন্ট, সক্রিয় রোল ও বর্তমান সেশন তথ্য দেখুন।'
+    },
+    backToWorkspace: { en: 'Back to workspace', bn: 'ওয়ার্কস্পেসে ফিরে যান' },
+    signOut: { en: 'Sign out', bn: 'সাইন আউট' },
+    accountTitle: { en: 'Account details', bn: 'অ্যাকাউন্টের বিবরণ' },
+    sessionTitle: { en: 'Session details', bn: 'সেশনের বিবরণ' },
+    accessTitle: { en: 'Quick access', bn: 'দ্রুত অ্যাক্সেস' },
+    accessHint: {
+      en: 'Use the workspace link below to return to your default landing area.',
+      bn: 'নিচের ওয়ার্কস্পেস লিঙ্ক দিয়ে আপনার ডিফল্ট জায়গায় ফিরে যান।'
+    },
+    name: { en: 'Name', bn: 'নাম' },
+    email: { en: 'Email', bn: 'ইমেইল' },
+    department: { en: 'Department', bn: 'বিভাগ' },
+    language: { en: 'Language', bn: 'ভাষা' },
+    roles: { en: 'Roles', bn: 'রোল' },
+    workspace: { en: 'Workspace', bn: 'ওয়ার্কস্পেস' },
+    lastLogin: { en: 'Last login', bn: 'শেষ সাইন-ইন' },
+    tokenExpiry: { en: 'Access token expires', bn: 'অ্যাক্সেস টোকেন মেয়াদ' },
+    goWorkspace: { en: 'Go to workspace', bn: 'ওয়ার্কস্পেসে যান' },
+    switchPortal: { en: 'Open portal login', bn: 'পোর্টাল লগইন খুলুন' },
+    notSet: { en: 'Not set', bn: 'সেট করা নেই' }
+  },
   newsroom: {
     title: { en: 'Newsroom', bn: 'নিউজরুম' },
     composer: { en: 'Content Composer', bn: 'কন্টেন্ট কম্পোজার' },

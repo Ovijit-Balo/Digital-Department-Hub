@@ -1,19 +1,22 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import PublicLayout from '../components/layout/PublicLayout';
 import AdminLayout from '../components/layout/AdminLayout';
 import RoleGuard from '../components/layout/RoleGuard';
 import HomePage from '../pages/public/HomePage';
 import NewsPage from '../pages/public/NewsPage';
+import NewsDetailPage from '../pages/public/NewsDetailPage';
 import AnnouncementsPage from '../pages/public/AnnouncementsPage';
 import BlogsPage from '../pages/public/BlogsPage';
 import BlogDetailPage from '../pages/public/BlogDetailPage';
 import GalleryPage from '../pages/public/GalleryPage';
+import GalleryDetailPage from '../pages/public/GalleryDetailPage';
 import PagesPage from '../pages/public/PagesPage';
 import DynamicPageView from '../pages/public/DynamicPageView';
 import ScholarshipPage from '../pages/public/ScholarshipPage';
 import EventsPage from '../pages/public/EventsPage';
 import BookingPage from '../pages/public/BookingPage';
 import ContactPage from '../pages/public/ContactPage';
+import ProfilePage from '../pages/ProfilePage';
 import PortalsPage from '../pages/public/PortalsPage';
 import StudentDashboardPage from '../pages/public/StudentDashboardPage';
 import LoginPage from '../pages/auth/LoginPage';
@@ -32,6 +35,7 @@ import {
   STUDENT_DASHBOARD_ROLES,
   TEACHER_DASHBOARD_ROLES
 } from '../constants/roles';
+import NotFoundPage from '../pages/NotFoundPage';
 
 function AppRouter() {
   return (
@@ -39,10 +43,12 @@ function AppRouter() {
       <Route element={<PublicLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/news" element={<NewsPage />} />
+        <Route path="/news/:newsId" element={<NewsDetailPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />
         <Route path="/blogs" element={<BlogsPage />} />
         <Route path="/blogs/:slug" element={<BlogDetailPage />} />
         <Route path="/gallery" element={<GalleryPage />} />
+        <Route path="/gallery/:galleryId" element={<GalleryDetailPage />} />
         <Route path="/pages" element={<PagesPage />} />
         <Route path="/pages/:slug" element={<DynamicPageView />} />
         <Route path="/scholarship" element={<ScholarshipPage />} />
@@ -63,6 +69,14 @@ function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/login/:portal" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/profile"
+        element={
+          <RoleGuard loginPath="/portals">
+            <ProfilePage />
+          </RoleGuard>
+        }
+      />
 
       <Route
         path="/admin"
@@ -108,7 +122,7 @@ function AppRouter() {
         />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

@@ -48,7 +48,9 @@ function AdminLayout() {
 
   return (
     <div className={`admin-layout${mobileSidebarOpen ? ' admin-layout--drawer-open' : ''}`}>
-      <aside className={`admin-sidebar${sidebarCollapsed ? ' is-collapsed' : ''}${mobileSidebarOpen ? ' is-open' : ''}`}>
+      <aside
+        className={`admin-sidebar${sidebarCollapsed ? ' is-collapsed' : ''}${mobileSidebarOpen ? ' is-open' : ''}`}
+      >
         <div className="admin-sidebar-head">
           <div>
             <p className="eyebrow">Enterprise Control Center</p>
@@ -79,13 +81,20 @@ function AdminLayout() {
         </nav>
 
         <div className="admin-sidebar-actions">
+          <Link to="/profile" className="btn btn-ghost admin-action-btn">
+            Profile
+          </Link>
           <button type="button" className="btn btn-ghost admin-action-btn" onClick={toggleTheme}>
             {isDark ? 'Light Mode' : 'Dark Mode'}
           </button>
           <Link to="/" className="btn btn-ghost admin-action-btn">
             Public Site
           </Link>
-          <button type="button" className="btn btn-primary admin-action-btn" onClick={handleSignOut}>
+          <button
+            type="button"
+            className="btn btn-primary admin-action-btn"
+            onClick={handleSignOut}
+          >
             Sign Out
           </button>
         </div>
@@ -106,6 +115,9 @@ function AdminLayout() {
             <h1>University ERP Command Deck</h1>
           </div>
           <div className="admin-topbar-actions">
+            <Link to="/profile" className="btn btn-ghost">
+              Profile
+            </Link>
             <button type="button" className="theme-toggle" onClick={toggleTheme}>
               {isDark ? 'Light' : 'Dark'}
             </button>

@@ -1,6 +1,9 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const env = require('../../config/env');
 const { StatusCodes } = require('http-status-codes');
 const User = require('./user.model');
+const RefreshToken = require('./refreshToken.model');
 const ApiError = require('../../utils/ApiError');
 const { signAccessToken } = require('../../utils/jwt');
 const { ROLES } = require('../../config/roles');
@@ -29,7 +32,26 @@ const buildPagination = ({ page, limit }) => {
   };
 };
 
-const registerUser = async (payload) => {
+const issueRefreshToken = async (user, requestMeta = {}) => {
+  const refreshToken = crypto.randomBytes(48).toString('hex');
+  const hash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  const expiresAt = new Date(
+    Date.now() + Number(env.REFRESH_TOKEN_EXPIRES_DAYS) * 24 * 60 * 60 * 1000
+  );
+
+  await RefreshToken.create({
+    user: user._id,
+    tokenHash: hash,
+    expiresAt,
+    createdByIp: requestMeta.ip || null,
+    userAgent: requestMeta.userAgent || null,
+    deviceLabel: requestMeta.deviceLabel || null
+  });
+
+  return refreshToken;
+};
+
+const registerUser = async (payload, requestMeta = {}) => {
   const exists = await User.findOne({ email: payload.email.toLowerCase() });
   if (exists) {
     throw new ApiError(StatusCodes.CONFLICT, 'Email already registered');
@@ -47,14 +69,16 @@ const registerUser = async (payload) => {
   });
 
   const token = signAccessToken({ sub: user._id.toString(), roles: user.roles });
+  const refreshToken = await issueRefreshToken(user, requestMeta);
 
   return {
     user: sanitizeUser(user),
-    token
+    token,
+    refreshToken
   };
 };
 
-const loginUser = async ({ email, password }) => {
+const loginUser = async ({ email, password }, requestMeta = {}) => {
   const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
 
   if (!user || !user.isActive) {
@@ -70,11 +94,55 @@ const loginUser = async ({ email, password }) => {
   await user.save();
 
   const token = signAccessToken({ sub: user._id.toString(), roles: user.roles });
+  const refreshToken = await issueRefreshToken(user, requestMeta);
 
   return {
     user: sanitizeUser(user),
-    token
+    token,
+    refreshToken
   };
+};
+
+const refreshAuth = async (rawRefreshToken, requestMeta = {}) => {
+  if (!rawRefreshToken) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid refresh token');
+  }
+  const hash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+
+  const tokenDoc = await RefreshToken.findOne({ tokenHash: hash, revoked: false }).populate('user');
+  if (!tokenDoc || tokenDoc.expiresAt.getTime() <= Date.now()) {
+    throw new ApiError(StatusCodes.UNAUTHORIZED, 'Invalid refresh token');
+  }
+
+  // rotate: revoke old token and create a new one
+  const newRefreshToken = crypto.randomBytes(48).toString('hex');
+  const newHash = crypto.createHash('sha256').update(newRefreshToken).digest('hex');
+  const expiresAt = new Date(
+    Date.now() + Number(env.REFRESH_TOKEN_EXPIRES_DAYS) * 24 * 60 * 60 * 1000
+  );
+
+  // mark current token as revoked and set replacedByTokenHash
+  tokenDoc.revoked = true;
+  tokenDoc.replacedByTokenHash = newHash;
+  tokenDoc.lastUsedAt = new Date();
+  await tokenDoc.save();
+
+  // persist new token
+  await RefreshToken.create({
+    user: tokenDoc.user._id,
+    tokenHash: newHash,
+    expiresAt,
+    createdByIp: requestMeta.ip || tokenDoc.createdByIp || null,
+    userAgent: requestMeta.userAgent || tokenDoc.userAgent || null,
+    deviceLabel: tokenDoc.deviceLabel || null
+  });
+
+  const accessToken = signAccessToken({
+    sub: tokenDoc.user._id.toString(),
+    roles: tokenDoc.user.roles
+  });
+
+  return { token: accessToken, refreshToken: newRefreshToken };
 };
 
 const resetPassword = async ({ userId, currentPassword, newPassword }) => {
@@ -92,6 +160,7 @@ const resetPassword = async ({ userId, currentPassword, newPassword }) => {
   user.passwordHash = await bcrypt.hash(newPassword, 12);
   user.passwordChangedAt = new Date();
   await user.save();
+  await RefreshToken.updateMany({ user: user._id, revoked: false }, { $set: { revoked: true } });
 
   return { message: 'Password reset successful' };
 };
@@ -169,5 +238,6 @@ module.exports = {
   resetPassword,
   getProfile,
   listUsers,
-  updateUserRoles
+  updateUserRoles,
+  refreshAuth
 };
