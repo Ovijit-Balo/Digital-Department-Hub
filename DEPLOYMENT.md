@@ -3,13 +3,6 @@
 This guide covers deploying the Digital Department Hub to your Ubuntu 24.04 LTS server.
 
 **Server Details:**
-- Hostname: `ip-lab-student-02`
-- Public IP: `135.171.216.245`
-- OS: Ubuntu 24.04 LTS
-- Size: Standard B2s (2 vCPU, 4 GiB RAM)
-- Subdomain: `csedusc-formula1.farefin.com`
-
----
 
 ## Architecture Overview
 
@@ -127,7 +120,7 @@ REDIS_PASSWORD=
 RUN_WORKER_WITH_API=false
 ENABLE_QUEUE=true
 STORAGE_PROVIDER=cloudinary
-FRONTEND_URL=https://csedusc-formula1.farefin.com
+FRONTEND_URL=
 LOG_LEVEL=info
 EMAIL_FROM=no-reply@departmenthub.edu
 CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud
@@ -200,7 +193,7 @@ sudo tee /etc/nginx/sites-available/csedusc-formula1 > /dev/null <<'EOF'
 server {
     listen 80;
     listen [::]:80;
-    server_name csedusc-formula1.farefin.com;
+    server_name 
 
     # Redirect HTTP to HTTPS (uncomment after SSL setup)
     # return 301 https://$server_name$request_uri;
@@ -228,7 +221,7 @@ server {
 # server {
 #     listen 443 ssl http2;
 #     listen [::]:443 ssl http2;
-#     server_name csedusc-formula1.farefin.com;
+#     server_name 
 #
 #     ssl_certificate /etc/letsencrypt/live/csedusc-formula1.farefin.com/fullchain.pem;
 #     ssl_certificate_key /etc/letsencrypt/live/csedusc-formula1.farefin.com/privkey.pem;
