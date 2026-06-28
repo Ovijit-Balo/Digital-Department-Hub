@@ -5,7 +5,7 @@ const objectId = Joi.string().hex().length(24);
 const dispatchNotification = {
   body: Joi.object({
     recipient: objectId.required(),
-    channel: Joi.string().valid('in_app', 'email').required(),
+    channel: Joi.string().valid('in_app', 'email', 'all').required(),
     subject: Joi.string().max(200).allow('').optional(),
     message: Joi.string().min(1).max(5000).required(),
     metadata: Joi.object().optional()

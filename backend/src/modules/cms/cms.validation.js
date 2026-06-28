@@ -89,6 +89,11 @@ const listPages = {
 
 const createNewsPost = {
   body: Joi.object({
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .optional(),
     title: localizedText.required(),
     summary: localizedText.required(),
     body: localizedText.required(),
@@ -103,6 +108,11 @@ const createNewsPost = {
 const updateNewsPost = {
   params: Joi.object({ id: objectId.required() }),
   body: Joi.object({
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .optional(),
     title: localizedText.optional(),
     summary: localizedText.optional(),
     body: localizedText.optional(),
@@ -118,11 +128,26 @@ const getNewsPost = {
   params: Joi.object({ id: objectId.required() })
 };
 
+const getNewsPostBySlug = {
+  params: Joi.object({
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .required()
+  })
+};
+
 const listNewsPosts = {
   query: Joi.object({
     status: Joi.string().valid('draft', 'published').optional(),
     category: Joi.string().valid('news', 'announcement').optional(),
     search: Joi.string().trim().optional(),
+    tags: Joi.string().trim().optional(),
+    startDate: Joi.date().iso().optional(),
+    endDate: Joi.date().iso().optional(),
+    sortBy: Joi.string().valid('publishedAt', 'createdAt', 'updatedAt').default('publishedAt'),
+    sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
     page: Joi.number().min(1).default(1),
     limit: Joi.number().min(1).max(100).default(20)
   })
@@ -181,6 +206,11 @@ const listBlogPosts = {
   query: Joi.object({
     status: Joi.string().valid('draft', 'published').optional(),
     search: Joi.string().trim().optional(),
+    tags: Joi.string().trim().optional(),
+    startDate: Joi.date().iso().optional(),
+    endDate: Joi.date().iso().optional(),
+    sortBy: Joi.string().valid('publishedAt', 'createdAt', 'updatedAt').default('publishedAt'),
+    sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
     page: Joi.number().min(1).default(1),
     limit: Joi.number().min(1).max(100).default(20)
   })
@@ -234,10 +264,22 @@ const getGallery = {
   params: Joi.object({ id: objectId.required() })
 };
 
+const getGalleryBySlug = {
+  params: Joi.object({
+    slug: Joi.string()
+      .trim()
+      .lowercase()
+      .pattern(/^[a-z0-9-]+$/)
+      .required()
+  })
+};
+
 const listGalleries = {
   query: Joi.object({
     status: Joi.string().valid('draft', 'published').optional(),
     search: Joi.string().trim().optional(),
+    sortBy: Joi.string().valid('publishedAt', 'createdAt', 'updatedAt').default('publishedAt'),
+    sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
     page: Joi.number().min(1).default(1),
     limit: Joi.number().min(1).max(100).default(20)
   })
@@ -246,6 +288,19 @@ const listGalleries = {
 const createUploadSignature = {
   body: Joi.object({
     folder: Joi.string().trim().max(120).optional()
+  })
+};
+
+const bulkDelete = {
+  body: Joi.object({
+    ids: Joi.array().items(Joi.string()).min(1).max(50).required()
+  })
+};
+
+const bulkUpdateStatus = {
+  body: Joi.object({
+    ids: Joi.array().items(Joi.string()).min(1).max(50).required(),
+    status: Joi.string().valid('draft', 'published').required()
   })
 };
 
@@ -258,6 +313,7 @@ module.exports = {
   createNewsPost,
   updateNewsPost,
   getNewsPost,
+  getNewsPostBySlug,
   listNewsPosts,
   createBlogPost,
   updateBlogPost,
@@ -267,6 +323,9 @@ module.exports = {
   createGallery,
   updateGallery,
   getGallery,
+  getGalleryBySlug,
   listGalleries,
-  createUploadSignature
+  createUploadSignature,
+  bulkDelete,
+  bulkUpdateStatus
 };

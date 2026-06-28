@@ -114,10 +114,34 @@ const listNotices = async (query, options = {}) => {
   };
 };
 
-const updateNoticeStatus = async ({ noticeId, payload }) => {
+const updateNotice = async ({ noticeId, payload }) => {
   const notice = await ScholarshipNotice.findById(noticeId);
   if (!notice) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Scholarship notice not found');
+  }
+
+  if (payload.title) {
+    notice.title = payload.title;
+  }
+
+  if (payload.description) {
+    notice.description = payload.description;
+  }
+
+  if (payload.eligibility) {
+    notice.eligibility = payload.eligibility;
+  }
+
+  if (payload.scholarshipType) {
+    notice.scholarshipType = payload.scholarshipType;
+  }
+
+  if (payload.categories) {
+    notice.categories = normalizeCategories(payload.categories);
+  }
+
+  if (payload.attachments) {
+    notice.attachments = payload.attachments;
   }
 
   if (payload.applicationWindowStart) {
@@ -318,6 +342,22 @@ const reviewApplication = async ({
         throw new ApiError(StatusCodes.BAD_REQUEST, 'Award category is not part of this notice');
       }
 
+      if (category.slots) {
+        const approvedCount = await ScholarshipApplication.countDocuments({
+          notice: application.notice._id,
+          status: 'approved',
+          awardedCategoryCode: normalizedAwardCategory,
+          _id: { $ne: application._id }
+        });
+
+        if (approvedCount >= category.slots) {
+          throw new ApiError(
+            StatusCodes.BAD_REQUEST,
+            `All ${category.slots} slot(s) for category "${normalizedAwardCategory}" are filled`
+          );
+        }
+      }
+
       application.awardedCategoryCode = normalizedAwardCategory;
       application.awardedAmount =
         awardedAmount !== undefined && awardedAmount !== null && awardedAmount !== ''
@@ -476,7 +516,7 @@ const exportApplicationsCsv = async ({ noticeId, status }) => {
 module.exports = {
   createNotice,
   listNotices,
-  updateNoticeStatus,
+  updateNotice,
   setRecipientPublication,
   applyForScholarship,
   listApplications,

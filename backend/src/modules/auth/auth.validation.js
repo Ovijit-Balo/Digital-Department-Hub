@@ -57,11 +57,21 @@ const updateUserRoles = {
   })
 };
 
+const updateUserStatus = {
+  params: Joi.object({
+    userId: objectId.required()
+  }),
+  body: Joi.object({
+    isActive: Joi.boolean().required()
+  })
+};
+
 module.exports = {
   register,
   login,
   refresh,
   resetPassword,
   listUsers,
-  updateUserRoles
+  updateUserRoles,
+  updateUserStatus
 };

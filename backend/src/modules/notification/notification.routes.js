@@ -30,4 +30,29 @@ router.patch(
   notificationController.markRead
 );
 
+// User notification routes
+router.get(
+  '/user',
+  authenticate,
+  notificationController.getUserNotifications
+);
+
+router.patch(
+  '/user/:notificationId/read',
+  authenticate,
+  notificationController.markAsRead
+);
+
+router.patch(
+  '/user/read-all',
+  authenticate,
+  notificationController.markAllAsRead
+);
+
+router.get(
+  '/user/unread-count',
+  authenticate,
+  notificationController.getUnreadCount
+);
+
 module.exports = router;

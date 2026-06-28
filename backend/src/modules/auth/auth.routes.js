@@ -4,13 +4,14 @@ const authValidation = require('./auth.validation');
 const validate = require('../../middlewares/validate');
 const authenticate = require('../../middlewares/authMiddleware');
 const authorize = require('../../middlewares/roleMiddleware');
+const { authLimiter, refreshLimiter } = require('../../middlewares/rateLimiters');
 const { ROLES } = require('../../config/roles');
 
 const router = express.Router();
 
-router.post('/register', validate(authValidation.register), authController.register);
-router.post('/login', validate(authValidation.login), authController.login);
-router.post('/refresh', validate(authValidation.refresh), authController.refresh);
+router.post('/register', authLimiter, validate(authValidation.register), authController.register);
+router.post('/login', authLimiter, validate(authValidation.login), authController.login);
+router.post('/refresh', refreshLimiter, validate(authValidation.refresh), authController.refresh);
 router.post(
   '/reset-password',
   authenticate,
@@ -32,6 +33,14 @@ router.patch(
   authorize(ROLES.ADMIN),
   validate(authValidation.updateUserRoles),
   authController.updateUserRoles
+);
+
+router.patch(
+  '/users/:userId/status',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(authValidation.updateUserStatus),
+  authController.updateUserStatus
 );
 
 module.exports = router;

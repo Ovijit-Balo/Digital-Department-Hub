@@ -1,9 +1,26 @@
 const { randomUUID } = require('crypto');
 const { StatusCodes } = require('http-status-codes');
+const mongoose = require('mongoose');
 const QRCode = require('qrcode');
 const Event = require('./event.model');
 const EventRegistration = require('./eventRegistration.model');
 const ApiError = require('../../utils/ApiError');
+
+const runInTransaction = async (operation) => {
+  const session = await mongoose.startSession();
+
+  try {
+    let result;
+
+    await session.withTransaction(async () => {
+      result = await operation(session);
+    });
+
+    return result;
+  } finally {
+    await session.endSession();
+  }
+};
 
 const buildPagination = ({ page, limit }) => {
   const parsedPage = Number(page || 1);
@@ -123,46 +140,55 @@ const listEventCalendar = async (query, options = {}) => {
 };
 
 const registerForEvent = async ({ eventId, userId }) => {
-  const event = await Event.findById(eventId);
+  return runInTransaction(async (session) => {
+    const event = await Event.findById(eventId).session(session);
 
-  if (!event) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'Event not found');
-  }
+    if (!event) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Event not found');
+    }
 
-  if (event.status !== 'published') {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Event is not open for registration');
-  }
+    if (event.status !== 'published') {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Event is not open for registration');
+    }
 
-  if (event.registrationDeadline < new Date()) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Registration deadline has passed');
-  }
+    if (event.registrationDeadline < new Date()) {
+      throw new ApiError(StatusCodes.BAD_REQUEST, 'Registration deadline has passed');
+    }
 
-  const alreadyRegistered = await EventRegistration.findOne({ event: eventId, attendee: userId });
-  if (alreadyRegistered) {
-    throw new ApiError(StatusCodes.CONFLICT, 'You are already registered for this event');
-  }
+    const alreadyRegistered = await EventRegistration.findOne({ event: eventId, attendee: userId }).session(
+      session
+    );
+    if (alreadyRegistered) {
+      throw new ApiError(StatusCodes.CONFLICT, 'You are already registered for this event');
+    }
 
-  const registrationCount = await EventRegistration.countDocuments({
-    event: eventId,
-    status: { $in: ['registered', 'checked_in'] }
+    const registrationCount = await EventRegistration.countDocuments({
+      event: eventId,
+      status: { $in: ['registered', 'checked_in'] }
+    }).session(session);
+
+    if (registrationCount >= event.capacity) {
+      throw new ApiError(StatusCodes.CONFLICT, 'Event is full');
+    }
+
+    const qrToken = randomUUID();
+    const qrPayload = JSON.stringify({ eventId, qrToken });
+    const qrCodeDataUrl = await QRCode.toDataURL(qrPayload);
+
+    const [registration] = await EventRegistration.create(
+      [
+        {
+          event: eventId,
+          attendee: userId,
+          qrToken,
+          qrCodeDataUrl
+        }
+      ],
+      { session }
+    );
+
+    return registration;
   });
-
-  if (registrationCount >= event.capacity) {
-    throw new ApiError(StatusCodes.CONFLICT, 'Event is full');
-  }
-
-  const qrToken = randomUUID();
-  const qrPayload = JSON.stringify({ eventId, qrToken });
-  const qrCodeDataUrl = await QRCode.toDataURL(qrPayload);
-
-  const registration = await EventRegistration.create({
-    event: eventId,
-    attendee: userId,
-    qrToken,
-    qrCodeDataUrl
-  });
-
-  return registration;
 };
 
 const checkIn = async ({ eventId, qrToken }) => {
@@ -257,6 +283,6 @@ module.exports = {
   registerForEvent,
   checkIn,
   submitFeedback,
-  listRegistrations
-  ,updateEvent
+  listRegistrations,
+  updateEvent
 };

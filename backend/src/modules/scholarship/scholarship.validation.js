@@ -59,14 +59,27 @@ const listManageNotices = {
   })
 };
 
-const updateNoticeStatus = {
+const updateNotice = {
   params: Joi.object({ noticeId: objectId.required() }),
   body: Joi.object({
-    status: Joi.string().valid('draft', 'open', 'closed').optional(),
+    title: localizedText.optional(),
+    description: localizedText.optional(),
+    eligibility: localizedText.optional(),
+    scholarshipType: Joi.string().valid('one_off', 'monthly').optional(),
+    deadline: Joi.date().iso().optional(),
     applicationWindowStart: Joi.date().iso().optional(),
     applicationWindowEnd: Joi.date().iso().optional(),
-    deadline: Joi.date().iso().optional()
-  }).or('status', 'applicationWindowStart', 'applicationWindowEnd', 'deadline')
+    status: Joi.string().valid('draft', 'open', 'closed').optional(),
+    categories: Joi.array().items(scholarshipCategory).optional(),
+    attachments: Joi.array()
+      .items(
+        Joi.object({
+          name: Joi.string().trim().required(),
+          url: Joi.string().uri().required()
+        })
+      )
+      .optional()
+  }).min(1)
 };
 
 const apply = {
@@ -186,7 +199,7 @@ module.exports = {
   createNotice,
   listPublicNotices,
   listManageNotices,
-  updateNoticeStatus,
+  updateNotice,
   apply,
   reviewApplication,
   listApplications,

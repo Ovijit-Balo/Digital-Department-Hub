@@ -1,6 +1,8 @@
 const { StatusCodes } = require('http-status-codes');
 const asyncHandler = require('../../utils/asyncHandler');
 const cmsService = require('./cms.service');
+const AnalyticsService = require('../analytics/analytics.service');
+const logger = require('../../config/logger');
 
 const createPage = asyncHandler(async (req, res) => {
   const page = await cmsService.createPage(req.body, req.user._id);
@@ -32,6 +34,18 @@ const getPage = asyncHandler(async (req, res) => {
 
 const getPageBySlug = asyncHandler(async (req, res) => {
   const page = await cmsService.getPageBySlug(req.params.slug);
+
+  // Track view asynchronously (don't wait for it)
+  AnalyticsService.trackView({
+    entityType: 'page',
+    entityId: page._id,
+    userId: req.user?._id || null,
+    sessionId: req.sessionID || null,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+    referrer: req.get('referrer')
+  }).catch((err) => logger.error('Analytics tracking error:', err));
+
   res.status(StatusCodes.OK).json({ page });
 });
 
@@ -85,6 +99,28 @@ const listPublicNewsPosts = asyncHandler(async (req, res) => {
 
 const getNewsPost = asyncHandler(async (req, res) => {
   const post = await cmsService.getNewsPostById(req.params.id);
+  res.status(StatusCodes.OK).json({ post });
+});
+
+const getPublicNewsPost = asyncHandler(async (req, res) => {
+  const post = await cmsService.getPublicNewsPostById(req.params.id);
+  res.status(StatusCodes.OK).json({ post });
+});
+
+const getNewsPostBySlug = asyncHandler(async (req, res) => {
+  const post = await cmsService.getNewsPostBySlug(req.params.slug);
+
+  // Track view asynchronously (don't wait for it)
+  AnalyticsService.trackView({
+    entityType: 'news',
+    entityId: post._id,
+    userId: req.user?._id || null,
+    sessionId: req.sessionID || null,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+    referrer: req.get('referrer')
+  }).catch((err) => logger.error('Analytics tracking error:', err));
+
   res.status(StatusCodes.OK).json({ post });
 });
 
@@ -143,6 +179,18 @@ const getBlogPost = asyncHandler(async (req, res) => {
 
 const getBlogPostBySlug = asyncHandler(async (req, res) => {
   const post = await cmsService.getBlogPostBySlug(req.params.slug);
+
+  // Track view asynchronously (don't wait for it)
+  AnalyticsService.trackView({
+    entityType: 'blog',
+    entityId: post._id,
+    userId: req.user?._id || null,
+    sessionId: req.sessionID || null,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+    referrer: req.get('referrer')
+  }).catch((err) => logger.error('Analytics tracking error:', err));
+
   res.status(StatusCodes.OK).json({ post });
 });
 
@@ -199,6 +247,28 @@ const getGallery = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ gallery });
 });
 
+const getPublicGallery = asyncHandler(async (req, res) => {
+  const gallery = await cmsService.getPublicGalleryById(req.params.id);
+  res.status(StatusCodes.OK).json({ gallery });
+});
+
+const getGalleryBySlug = asyncHandler(async (req, res) => {
+  const gallery = await cmsService.getGalleryBySlug(req.params.slug);
+
+  // Track view asynchronously (don't wait for it)
+  AnalyticsService.trackView({
+    entityType: 'gallery',
+    entityId: gallery._id,
+    userId: req.user?._id || null,
+    sessionId: req.sessionID || null,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+    referrer: req.get('referrer')
+  }).catch((err) => logger.error('Analytics tracking error:', err));
+
+  res.status(StatusCodes.OK).json({ gallery });
+});
+
 const updateGallery = asyncHandler(async (req, res) => {
   const gallery = await cmsService.updateGallery(req.params.id, req.body, req.user._id);
 
@@ -229,6 +299,118 @@ const createUploadSignature = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ signature });
 });
 
+const bulkDeletePages = asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+  const result = await cmsService.bulkDelete(Page, ids, 'Page');
+
+  res.locals.auditMeta = {
+    action: 'BULK_DELETE_PAGES',
+    entityType: 'Page',
+    entityId: ids.join(','),
+    after: { deletedCount: result.deletedCount }
+  };
+
+  res.status(StatusCodes.OK).json(result);
+});
+
+const bulkUpdatePageStatus = asyncHandler(async (req, res) => {
+  const { ids, status } = req.body;
+  const result = await cmsService.bulkUpdateStatus(Page, ids, status, 'Page');
+
+  res.locals.auditMeta = {
+    action: 'BULK_UPDATE_PAGE_STATUS',
+    entityType: 'Page',
+    entityId: ids.join(','),
+    after: { status, modifiedCount: result.modifiedCount }
+  };
+
+  res.status(StatusCodes.OK).json(result);
+});
+
+const bulkDeleteNews = asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+  const result = await cmsService.bulkDelete(NewsPost, ids, 'News post');
+
+  res.locals.auditMeta = {
+    action: 'BULK_DELETE_NEWS',
+    entityType: 'NewsPost',
+    entityId: ids.join(','),
+    after: { deletedCount: result.deletedCount }
+  };
+
+  res.status(StatusCodes.OK).json(result);
+});
+
+const bulkUpdateNewsStatus = asyncHandler(async (req, res) => {
+  const { ids, status } = req.body;
+  const result = await cmsService.bulkUpdateStatus(NewsPost, ids, status, 'News post');
+
+  res.locals.auditMeta = {
+    action: 'BULK_UPDATE_NEWS_STATUS',
+    entityType: 'NewsPost',
+    entityId: ids.join(','),
+    after: { status, modifiedCount: result.modifiedCount }
+  };
+
+  res.status(StatusCodes.OK).json(result);
+});
+
+const bulkDeleteBlogs = asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+  const result = await cmsService.bulkDelete(BlogPost, ids, 'Blog post');
+
+  res.locals.auditMeta = {
+    action: 'BULK_DELETE_BLOGS',
+    entityType: 'BlogPost',
+    entityId: ids.join(','),
+    after: { deletedCount: result.deletedCount }
+  };
+
+  res.status(StatusCodes.OK).json(result);
+});
+
+const bulkUpdateBlogStatus = asyncHandler(async (req, res) => {
+  const { ids, status } = req.body;
+  const result = await cmsService.bulkUpdateStatus(BlogPost, ids, status, 'Blog post');
+
+  res.locals.auditMeta = {
+    action: 'BULK_UPDATE_BLOG_STATUS',
+    entityType: 'BlogPost',
+    entityId: ids.join(','),
+    after: { status, modifiedCount: result.modifiedCount }
+  };
+
+  res.status(StatusCodes.OK).json(result);
+});
+
+const bulkDeleteGalleries = asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+  const result = await cmsService.bulkDelete(Gallery, ids, 'Gallery');
+
+  res.locals.auditMeta = {
+    action: 'BULK_DELETE_GALLERIES',
+    entityType: 'Gallery',
+    entityId: ids.join(','),
+    after: { deletedCount: result.deletedCount }
+  };
+
+  res.status(StatusCodes.OK).json(result);
+});
+
+const bulkUpdateGalleryStatus = asyncHandler(async (req, res) => {
+  const { ids, status } = req.body;
+  const result = await cmsService.bulkUpdateStatus(Gallery, ids, status, 'Gallery');
+
+  res.locals.auditMeta = {
+    action: 'BULK_UPDATE_GALLERY_STATUS',
+    entityType: 'Gallery',
+    entityId: ids.join(','),
+    after: { status, modifiedCount: result.modifiedCount }
+  };
+
+  res.status(StatusCodes.OK).json(result);
+});
+
 module.exports = {
   createPage,
   listPublicPages,
@@ -237,12 +419,18 @@ module.exports = {
   getPageBySlug,
   updatePage,
   deletePage,
+  bulkDeletePages,
+  bulkUpdatePageStatus,
   createNewsPost,
   listPublicNewsPosts,
   listNewsPosts,
   getNewsPost,
+  getPublicNewsPost,
+  getNewsPostBySlug,
   updateNewsPost,
   deleteNewsPost,
+  bulkDeleteNews,
+  bulkUpdateNewsStatus,
   createBlogPost,
   listPublicBlogPosts,
   listBlogPosts,
@@ -250,11 +438,17 @@ module.exports = {
   getBlogPostBySlug,
   updateBlogPost,
   deleteBlogPost,
+  bulkDeleteBlogs,
+  bulkUpdateBlogStatus,
   createGallery,
   listPublicGalleries,
   listGalleries,
   getGallery,
+  getPublicGallery,
+  getGalleryBySlug,
   updateGallery,
   deleteGallery,
+  bulkDeleteGalleries,
+  bulkUpdateGalleryStatus,
   createUploadSignature
 };

@@ -22,6 +22,18 @@ export const cmsApi = {
   listManageNews(params = {}) {
     return apiClient.get('/cms/manage/news', { params });
   },
+  getNewsById(newsId) {
+    return apiClient.get(`/cms/news/${newsId}`);
+  },
+  getNewsBySlug(slug) {
+    return apiClient.get(`/cms/news/slug/${slug}`);
+  },
+  getGalleryById(galleryId) {
+    return apiClient.get(`/cms/galleries/${galleryId}`);
+  },
+  getGalleryBySlug(slug) {
+    return apiClient.get(`/cms/galleries/slug/${slug}`);
+  },
   createNews(payload) {
     return apiClient.post('/cms/news', payload);
   },
@@ -62,5 +74,17 @@ export const cmsApi = {
   },
   updateGallery(galleryId, payload) {
     return apiClient.patch(`/cms/galleries/${galleryId}`, payload);
+  },
+  deletePage(pageId) {
+    return apiClient.delete(`/cms/pages/${pageId}`);
+  },
+  deleteNews(newsId) {
+    return apiClient.delete(`/cms/news/${newsId}`);
+  },
+  deleteBlog(blogId) {
+    return apiClient.delete(`/cms/blogs/${blogId}`);
+  },
+  deleteGallery(galleryId) {
+    return apiClient.delete(`/cms/galleries/${galleryId}`);
   }
 };

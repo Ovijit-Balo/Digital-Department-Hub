@@ -1,15 +1,26 @@
 import axios from 'axios';
+import {
+  getAccessToken,
+  getRefreshToken,
+  persistTokens
+} from '../constants/authStorage';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1',
   timeout: 10000
 });
 
+const PROTECTED_PATH_PREFIXES = ['/admin', '/profile', '/student'];
+
 let _logoutHandler = null;
 let _tokenUpdateHandler = null;
 let _refreshInProgress = false;
 let _refreshPromise = null;
 let _requestQueue = [];
+
+export function isProtectedPath(pathname = window.location.pathname) {
+  return PROTECTED_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 export function registerLogoutHandler(fn) {
   _logoutHandler = fn;
@@ -27,8 +38,58 @@ export function clearTokenUpdateHandler() {
   _tokenUpdateHandler = null;
 }
 
+function notifyTokenUpdate(newToken) {
+  if (typeof _tokenUpdateHandler === 'function') {
+    try {
+      _tokenUpdateHandler(newToken);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function triggerLogout() {
+  if (typeof _logoutHandler === 'function') {
+    _logoutHandler();
+  }
+}
+
+export async function refreshAccessToken() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    return null;
+  }
+
+  const response = await axios.post(`${apiClient.defaults.baseURL}/auth/refresh`, {
+    refreshToken
+  });
+  const newToken = response?.data?.token;
+  const newRefresh = response?.data?.refreshToken;
+
+  if (!newToken) {
+    return null;
+  }
+
+  persistTokens(newToken, newRefresh);
+  notifyTokenUpdate(newToken);
+  return newToken;
+}
+
+function drainRefreshQueue(newToken, refreshErr) {
+  if (newToken) {
+    _requestQueue.forEach(({ resolve, originalRequest: req }) => {
+      req.headers = req.headers || {};
+      req.headers.Authorization = `Bearer ${newToken}`;
+      resolve(axios(req));
+    });
+  } else {
+    _requestQueue.forEach(({ reject }) => reject(refreshErr));
+  }
+  _requestQueue = [];
+}
+
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('ddh_access_token');
+  const token = getAccessToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -44,15 +105,12 @@ apiClient.interceptors.response.use(
     const originalRequest = err.config;
 
     if (status === 401) {
-      // If no refresh token present, immediately logout
-      const refreshToken =
-        localStorage.getItem('ddh_refresh_token') || sessionStorage.getItem('ddh_refresh_token');
+      const refreshToken = getRefreshToken();
       if (!refreshToken) {
-        if (typeof _logoutHandler === 'function') _logoutHandler();
+        triggerLogout();
         return Promise.reject(err);
       }
 
-      // If a refresh is already in progress, queue the request
       if (_refreshInProgress) {
         return new Promise((resolve, reject) => {
           _requestQueue.push({ resolve, reject, originalRequest });
@@ -61,55 +119,22 @@ apiClient.interceptors.response.use(
 
       _refreshInProgress = true;
 
-      // Use raw axios to call refresh endpoint to avoid interceptors
-      _refreshPromise = axios
-        .post(`${apiClient.defaults.baseURL}/auth/refresh`, { refreshToken })
-        .then((r) => {
-          const newToken = r?.data?.token;
-          const newRefresh = r?.data?.refreshToken;
-
+      _refreshPromise = refreshAccessToken()
+        .then((newToken) => {
           if (newToken) {
-            // persist tokens in same storage where refreshToken was found
-            if (localStorage.getItem('ddh_refresh_token')) {
-              localStorage.setItem('ddh_access_token', newToken);
-              if (newRefresh) localStorage.setItem('ddh_refresh_token', newRefresh);
-            } else {
-              sessionStorage.setItem('ddh_access_token', newToken);
-              if (newRefresh) sessionStorage.setItem('ddh_refresh_token', newRefresh);
-            }
-
-            if (typeof _tokenUpdateHandler === 'function') {
-              try {
-                _tokenUpdateHandler(newToken);
-              } catch {
-                /* ignore */
-              }
-            }
-
-            // retry original request
             originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             const retry = axios(originalRequest);
-
-            // drain queue
-            _requestQueue.forEach(({ resolve, originalRequest: req }) => {
-              req.headers = req.headers || {};
-              req.headers.Authorization = `Bearer ${newToken}`;
-              resolve(axios(req));
-            });
-            _requestQueue = [];
-
+            drainRefreshQueue(newToken);
             return retry;
           }
 
-          // no token in refresh response -> logout
-          if (typeof _logoutHandler === 'function') _logoutHandler();
+          triggerLogout();
           return Promise.reject(err);
         })
         .catch((refreshErr) => {
-          if (typeof _logoutHandler === 'function') _logoutHandler();
-          _requestQueue.forEach(({ reject }) => reject(refreshErr));
-          _requestQueue = [];
+          triggerLogout();
+          drainRefreshQueue(null, refreshErr);
           return Promise.reject(refreshErr);
         })
         .finally(() => {

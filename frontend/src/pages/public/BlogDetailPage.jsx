@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
 import RichTextPreview from '../../components/common/RichTextPreview';
 import useLanguage from '../../hooks/useLanguage';
+import usePageMeta from '../../hooks/usePageMeta';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalizedText } from '../../utils/localized';
 
@@ -31,6 +32,17 @@ function BlogDetailPage() {
     loadPost();
   }, [loadPost]);
 
+  const title = useMemo(
+    () => (post ? toLocalizedText(post.title, language) : ''),
+    [post, language]
+  );
+  const summary = useMemo(
+    () => (post ? toLocalizedText(post.excerpt, language) : ''),
+    [post, language]
+  );
+
+  usePageMeta({ title: title || undefined, description: summary || undefined });
+
   return (
     <section className="page-wrap">
       {loading && <p>Loading blog post...</p>}
@@ -38,8 +50,9 @@ function BlogDetailPage() {
 
       {!loading && !error && post && (
         <article className="surface-card">
-          <h1>{toLocalizedText(post.title, language)}</h1>
+          <h1>{title}</h1>
           <p className="meta">Published: {toIsoDate(post.publishedAt || post.createdAt)}</p>
+          {summary ? <p className="blog-detail-summary">{summary}</p> : null}
           <RichTextPreview html={toLocalizedText(post.body, language)} />
         </article>
       )}

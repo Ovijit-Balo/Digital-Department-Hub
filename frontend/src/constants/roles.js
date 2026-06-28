@@ -12,6 +12,7 @@ export const ACCESS_CONTROL_VIEW_ROLES = Object.freeze([ROLES.ADMIN, ROLES.MANAG
 export const CMS_STUDIO_ROLES = Object.freeze([ROLES.ADMIN, ROLES.EDITOR]);
 export const TEACHER_DASHBOARD_ROLES = Object.freeze([ROLES.ADMIN, ROLES.EDITOR]);
 export const STAFF_DASHBOARD_ROLES = Object.freeze([ROLES.ADMIN, ROLES.MANAGER]);
+export const NOTIFICATION_CENTER_ROLES = Object.freeze([ROLES.ADMIN, ROLES.MANAGER]);
 export const STUDENT_DASHBOARD_ROLES = Object.freeze([ROLES.STUDENT, ROLES.REVIEWER]);
 
 export const PORTALS = Object.freeze({

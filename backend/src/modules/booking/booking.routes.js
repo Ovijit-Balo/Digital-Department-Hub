@@ -21,7 +21,7 @@ router.post(
 router.post(
   '/requests',
   authenticate,
-  authorize(ROLES.STUDENT, ROLES.ADMIN, ROLES.EDITOR, ROLES.MANAGER),
+  authorize(ROLES.STUDENT, ROLES.ADMIN, ROLES.EDITOR, ROLES.MANAGER, ROLES.REVIEWER),
   validate(bookingValidation.requestBooking),
   bookingController.requestBooking
 );

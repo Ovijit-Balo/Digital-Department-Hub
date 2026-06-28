@@ -40,31 +40,54 @@ function BlogsPage() {
 
   return (
     <section className="page-wrap">
-      <div className="section-head">
-        <h1>{ui('blogs', 'title', language)}</h1>
+      <header className="page-title-bar">
+        <div>
+          <p className="eyebrow">Department Blog</p>
+          <h1>{ui('blogs', 'title', language)}</h1>
+          <p className="page-title-subtitle">Insights, stories, and updates from the department</p>
+        </div>
         <button type="button" className="btn btn-ghost" onClick={loadBlogs}>
           {ui('home', 'refresh', language)}
         </button>
-      </div>
+      </header>
 
       {error && <InlineAlert type="error">{error}</InlineAlert>}
       {loading && <SkeletonList count={3} showMedia lines={3} />}
       {!loading && !items.length && (
-        <InlineAlert type="info">{ui('blogs', 'empty', language)}</InlineAlert>
+        <div className="empty-state empty-state--center">
+          <div className="empty-state__icon" aria-hidden="true">📝</div>
+          <p className="empty-state__title">{ui('blogs', 'empty', language)}</p>
+          <p className="empty-state__text">No blog posts published yet.</p>
+        </div>
       )}
 
-      <div className="stack-list">
+      <div className="content-list content-list--grid">
         {items.map((item) => (
-          <article key={item._id} className="surface-card">
-            <h3>{toLocalizedText(item.title, language)}</h3>
-            <p>{toLocalizedText(item.excerpt, language)}</p>
-            <p className="meta">
-              {ui('newsroom', 'published', language)}:{' '}
-              {toIsoDate(item.publishedAt || item.createdAt)}
+          <article key={item._id} className="surface-card content-card">
+            <div className="content-card__header">
+              <h3 className="content-card__title">
+                <Link to={`/blogs/${item.slug}`} className="content-card__title-link">
+                  {toLocalizedText(item.title, language)}
+                </Link>
+              </h3>
+              <span className="content-card__badge content-card__badge--academic">
+                Blog
+              </span>
+            </div>
+            <p className="content-card__excerpt">
+              {toLocalizedText(item.excerpt, language)}
             </p>
-            <Link to={`/blogs/${item.slug}`} className="btn btn-ghost">
-              {ui('blogs', 'read', language)}
-            </Link>
+            <div className="content-card__footer">
+              <p className="content-card__meta">
+                <span className="content-card__meta-item">
+                  <span className="content-card__meta-icon" aria-hidden="true">📅</span>
+                  {toIsoDate(item.publishedAt || item.createdAt)}
+                </span>
+              </p>
+              <Link to={`/blogs/${item.slug}`} className="btn btn-ghost">
+                {ui('blogs', 'read', language)}
+              </Link>
+            </div>
           </article>
         ))}
       </div>

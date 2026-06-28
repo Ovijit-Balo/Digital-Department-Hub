@@ -6,6 +6,7 @@ const bookingRoutes = require('../modules/booking/booking.routes');
 const contactRoutes = require('../modules/contact/contact.routes');
 const notificationRoutes = require('../modules/notification/notification.routes');
 const auditRoutes = require('../modules/audit/audit.routes');
+const sitemapRoutes = require('../modules/sitemap/sitemap.routes');
 
 module.exports = [
   { path: '/auth', router: authRoutes },
@@ -15,5 +16,6 @@ module.exports = [
   { path: '/bookings', router: bookingRoutes },
   { path: '/contacts', router: contactRoutes },
   { path: '/notifications', router: notificationRoutes },
-  { path: '/audits', router: auditRoutes }
+  { path: '/audits', router: auditRoutes },
+  { path: '', router: sitemapRoutes }
 ];

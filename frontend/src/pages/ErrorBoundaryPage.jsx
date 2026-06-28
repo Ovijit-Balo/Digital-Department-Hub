@@ -12,7 +12,9 @@ export class ErrorBoundaryPage extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('ErrorBoundary caught error', error, info);
+    // In production, send error to logging service
+    // For now, errors are silently caught to avoid exposing sensitive info
+    // TODO: Integrate with error tracking service (e.g., Sentry)
   }
 
   render() {

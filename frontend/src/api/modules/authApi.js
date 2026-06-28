@@ -9,5 +9,8 @@ export const authApi = {
   },
   updateUserRoles(userId, payload) {
     return apiClient.patch(`/auth/users/${userId}/roles`, payload);
+  },
+  updateUserStatus(userId, payload) {
+    return apiClient.patch(`/auth/users/${userId}/status`, payload);
   }
 };

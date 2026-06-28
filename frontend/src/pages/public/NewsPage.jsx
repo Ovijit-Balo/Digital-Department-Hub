@@ -106,6 +106,7 @@ function NewsPage() {
   const [activeNewsFilter, setActiveNewsFilter] = useState('all');
 
   const [newsForm, setNewsForm] = useState({
+    slug: '',
     title: { ...initialLocalized },
     summary: { ...initialLocalized },
     body: { ...initialLocalized },
@@ -200,6 +201,7 @@ function NewsPage() {
       await cmsApi.createNews({ ...newsForm, tags: [] });
       setSubmitMessage('News post published successfully.');
       setNewsForm({
+        slug: '',
         title: { ...initialLocalized },
         summary: { ...initialLocalized },
         body: { ...initialLocalized },
@@ -300,6 +302,20 @@ function NewsPage() {
 
           {activeComposer === 'news' ? (
             <form className="form-grid" onSubmit={submitNews}>
+              <label>
+                Slug
+                <input
+                  value={newsForm.slug}
+                  onChange={(event) =>
+                    setNewsForm((prev) => ({
+                      ...prev,
+                      slug: event.target.value.toLowerCase().replace(/\s+/g, '-')
+                    }))
+                  }
+                  placeholder="department-announcement"
+                  required
+                />
+              </label>
               <label>
                 News title (EN)
                 <input
@@ -495,7 +511,7 @@ function NewsPage() {
                         <div className="newsroom-item__body">
                           <div className="newsroom-item__title-row">
                               <h3>
-                                <button type="button" className="btn btn-ghost" onClick={() => navigate(`/news/${item._id}`)}>
+                                <button type="button" className="btn btn-ghost" onClick={() => navigate(`/news/${item.slug || item._id}`)}>
                                   {toLocalizedText(item.title, language)}
                                 </button>
                               </h3>
@@ -536,7 +552,7 @@ function NewsPage() {
                                 <button
                                   type="button"
                                   className="btn btn-primary"
-                                  onClick={() => navigate(`/news/${item._id}`)}
+                                  onClick={() => navigate(`/news/${item.slug || item._id}`)}
                                 >
                                   Open page
                                 </button>

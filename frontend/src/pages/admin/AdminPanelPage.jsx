@@ -18,7 +18,7 @@ function AdminPanelPage() {
   const { success, error: toastError, info } = useToast();
   const canManageBookings = useRole('admin', 'manager');
   const canManageInquiries = useRole('admin', 'manager', 'editor');
-  const canReviewScholarships = useRole('admin', 'manager');
+  const canReviewScholarships = useRole('admin', 'manager', 'reviewer');
   const canViewAudits = useRole('admin', 'manager');
 
   const [loading, setLoading] = useState(true);

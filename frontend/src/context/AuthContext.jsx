@@ -12,16 +12,23 @@ import apiClient, {
   registerLogoutHandler,
   clearLogoutHandler,
   registerTokenUpdateHandler,
-  clearTokenUpdateHandler
+  clearTokenUpdateHandler,
+  refreshAccessToken,
+  isProtectedPath
 } from '../api/client';
+import { authApi } from '../api/modules';
+import {
+  TOKEN_KEY,
+  SESSION_TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
+  SESSION_REFRESH_TOKEN_KEY,
+  USER_KEY,
+  SESSION_USER_KEY,
+  REMEMBER_KEY,
+  clearAllAuthStorage
+} from '../constants/authStorage';
 
-const TOKEN_KEY = 'ddh_access_token';
-const SESSION_TOKEN_KEY = 'ddh_session_access_token';
-const REFRESH_TOKEN_KEY = 'ddh_refresh_token';
-const SESSION_REFRESH_TOKEN_KEY = 'ddh_session_refresh_token';
-const USER_KEY = 'ddh_user';
-const SESSION_USER_KEY = 'ddh_session_user';
-const REMEMBER_KEY = 'ddh_token_remember';
+const LOGIN_PATH = '/login';
 
 const AuthContext = createContext(null);
 
@@ -37,9 +44,7 @@ const readStoredAuth = () => {
     const user = JSON.parse(userRaw);
     return { token, user };
   } catch {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    clearAllAuthStorage();
     return { token: null, user: null };
   }
 };
@@ -73,7 +78,6 @@ export function AuthProvider({ children }) {
   };
 
   const setToken = useCallback((token) => {
-    // persist new token according to remember flag
     const remember = localStorage.getItem(REMEMBER_KEY);
     if (remember) {
       localStorage.setItem(TOKEN_KEY, token);
@@ -87,15 +91,37 @@ export function AuthProvider({ children }) {
   }, []);
 
   const clearAuth = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
-    localStorage.removeItem(REMEMBER_KEY);
-    sessionStorage.removeItem(SESSION_TOKEN_KEY);
-    sessionStorage.removeItem(SESSION_USER_KEY);
-    sessionStorage.removeItem(SESSION_REFRESH_TOKEN_KEY);
+    clearAllAuthStorage();
     setAuth({ token: null, user: null });
   }, []);
+
+  const persistUser = useCallback((user) => {
+    const remember = localStorage.getItem(REMEMBER_KEY);
+    if (remember) {
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    } else {
+      sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+    }
+    setAuth((prev) => ({ ...prev, user }));
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    if (!auth.token) {
+      return null;
+    }
+
+    try {
+      const { data } = await authApi.me();
+      if (data?.user) {
+        persistUser(data.user);
+        return data.user;
+      }
+    } catch {
+      /* keep cached profile until next successful refresh */
+    }
+
+    return null;
+  }, [auth.token, persistUser]);
 
   const login = async (credentials, options = {}) => {
     const { data } = await apiClient.post('/auth/login', credentials);
@@ -137,75 +163,86 @@ export function AuthProvider({ children }) {
     }
   }, [auth.token]);
 
-  // Auto-logout on token expiry and register logout handler for API client
-  const expiryTimerRef = useRef(null);
+  const refreshTimerRef = useRef(null);
 
   useEffect(() => {
-    // register logout handler so api client can trigger it on 401
     registerLogoutHandler(() => {
       clearAuth();
-      // redirect to login page
-      try {
-        window.location.href = '/auth/login';
-      } catch {
-        // ignore
+      if (isProtectedPath()) {
+        try {
+          window.location.href = LOGIN_PATH;
+        } catch {
+          /* ignore */
+        }
       }
     });
 
-    registerTokenUpdateHandler((newToken) => {
-      if (newToken) setToken(newToken);
+    registerTokenUpdateHandler(async (newToken) => {
+      if (newToken) {
+        setToken(newToken);
+        try {
+          const { data } = await authApi.me();
+          if (data?.user) {
+            persistUser(data.user);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
     });
 
     return () => {
       clearLogoutHandler();
       clearTokenUpdateHandler();
-      if (expiryTimerRef.current) {
-        clearTimeout(expiryTimerRef.current);
-        expiryTimerRef.current = null;
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
       }
     };
-  }, [clearAuth, setToken]);
+  }, [clearAuth, persistUser, setToken]);
 
   useEffect(() => {
-    if (expiryTimerRef.current) {
-      clearTimeout(expiryTimerRef.current);
-      expiryTimerRef.current = null;
-    }
-
-    if (!decodedToken || !decodedToken.exp) return undefined;
-
-    const expiryMs = decodedToken.exp * 1000;
-    const now = Date.now();
-
-    if (expiryMs <= now) {
-      // token already expired
-      clearAuth();
-      try {
-        window.location.href = '/auth/login';
-      } catch {
-        // ignore
-      }
+    if (!auth.token) {
       return undefined;
     }
 
-    // schedule logout a few seconds before actual expiry
-    const msUntilExpiry = Math.max(0, expiryMs - now - 2000);
-    expiryTimerRef.current = setTimeout(() => {
-      clearAuth();
+    refreshUser();
+
+    return undefined;
+  }, [auth.token, refreshUser]);
+
+  useEffect(() => {
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+
+    if (!decodedToken?.exp) return undefined;
+
+    const refreshToken =
+      localStorage.getItem(REFRESH_TOKEN_KEY) ||
+      sessionStorage.getItem(SESSION_REFRESH_TOKEN_KEY);
+    if (!refreshToken) return undefined;
+
+    const expiryMs = decodedToken.exp * 1000;
+    const now = Date.now();
+    const msUntilRefresh = Math.max(0, expiryMs - now - 60_000);
+
+    refreshTimerRef.current = setTimeout(async () => {
       try {
-        window.location.href = '/auth/login';
+        await refreshAccessToken();
       } catch {
-        // ignore
+        /* next API call will trigger interceptor refresh or logout */
       }
-    }, msUntilExpiry);
+    }, msUntilRefresh);
 
     return () => {
-      if (expiryTimerRef.current) {
-        clearTimeout(expiryTimerRef.current);
-        expiryTimerRef.current = null;
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
       }
     };
-  }, [clearAuth, decodedToken]);
+  }, [decodedToken]);
 
   const value = {
     token: auth.token,
@@ -215,7 +252,8 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
-    hasRole
+    hasRole,
+    refreshUser
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

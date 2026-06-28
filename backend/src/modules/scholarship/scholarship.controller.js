@@ -25,8 +25,8 @@ const listManageNotices = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(data);
 });
 
-const updateNoticeStatus = asyncHandler(async (req, res) => {
-  const notice = await scholarshipService.updateNoticeStatus({
+const updateNotice = asyncHandler(async (req, res) => {
+  const notice = await scholarshipService.updateNotice({
     noticeId: req.params.noticeId,
     payload: req.body
   });
@@ -37,6 +37,7 @@ const updateNoticeStatus = asyncHandler(async (req, res) => {
     entityId: notice._id.toString(),
     after: {
       status: notice.status,
+      title: notice.title,
       applicationWindowStart: notice.applicationWindowStart,
       applicationWindowEnd: notice.applicationWindowEnd,
       deadline: notice.deadline
@@ -170,6 +171,16 @@ const listNoticeUpdates = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(data);
 });
 
+const listManageNoticeUpdates = asyncHandler(async (req, res) => {
+  const data = await scholarshipService.listUpdates({
+    ...req.query,
+    noticeId: req.params.noticeId,
+    includeInternal: true
+  });
+
+  res.status(StatusCodes.OK).json(data);
+});
+
 const exportApplications = asyncHandler(async (req, res) => {
   const csv = await scholarshipService.exportApplicationsCsv(req.query);
 
@@ -182,7 +193,7 @@ module.exports = {
   createNotice,
   listNotices,
   listManageNotices,
-  updateNoticeStatus,
+  updateNotice,
   apply,
   listApplications,
   listMyApplications,
@@ -193,5 +204,6 @@ module.exports = {
   createUpdate,
   listNoticeUpdates,
   listUpdates,
+  listManageNoticeUpdates,
   exportApplications
 };

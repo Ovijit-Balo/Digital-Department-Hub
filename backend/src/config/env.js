@@ -15,12 +15,14 @@ if (!fs.existsSync(backendEnvPath) && !fs.existsSync(cwdEnvPath)) {
   dotenv.config();
 }
 
+const DEFAULT_JWT_SECRET = 'development-secret-key-12345';
+
 const envSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').default('development'),
   PORT: Joi.number().default(5000),
   // Prefer IPv4 localhost by default to avoid Windows IPv6 (::1) binding issues.
   MONGODB_URI: Joi.string().default('mongodb://127.0.0.1:27017/digital_department_hub'),
-  JWT_SECRET: Joi.string().min(16).default('development-secret-key-12345'),
+  JWT_SECRET: Joi.string().min(16).default(DEFAULT_JWT_SECRET),
   JWT_EXPIRES_IN: Joi.string().default('1d'),
   REFRESH_TOKEN_EXPIRES_DAYS: Joi.number().default(7),
   REDIS_HOST: Joi.string().default('localhost'),
@@ -43,6 +45,12 @@ const { value, error } = envSchema.validate(process.env, { abortEarly: false });
 
 if (error) {
   throw new Error(`Environment validation error: ${error.message}`);
+}
+
+if (value.NODE_ENV === 'production' && value.JWT_SECRET === DEFAULT_JWT_SECRET) {
+  throw new Error(
+    'JWT_SECRET must be set to a strong unique value in production. Do not use the default development secret.'
+  );
 }
 
 const parseBoolean = (raw) => raw === true || raw === 'true';

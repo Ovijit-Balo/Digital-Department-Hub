@@ -232,6 +232,27 @@ const updateUserRoles = async ({ actorId, targetUserId, roles }) => {
   return sanitizeUser(target);
 };
 
+const updateUserStatus = async ({ actorId, targetUserId, isActive }) => {
+  const target = await User.findById(targetUserId);
+
+  if (!target) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'User not found');
+  }
+
+  if (actorId.toString() === targetUserId.toString() && !isActive) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'You cannot deactivate your own account');
+  }
+
+  target.isActive = isActive;
+  await target.save();
+
+  if (!isActive) {
+    await RefreshToken.updateMany({ user: target._id, revoked: false }, { $set: { revoked: true } });
+  }
+
+  return sanitizeUser(target);
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -239,5 +260,6 @@ module.exports = {
   getProfile,
   listUsers,
   updateUserRoles,
+  updateUserStatus,
   refreshAuth
 };

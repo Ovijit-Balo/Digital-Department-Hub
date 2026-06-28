@@ -47,8 +47,32 @@ router.delete(
   validate(cmsValidation.getPage),
   cmsController.deletePage
 );
+router.post(
+  '/pages/bulk/delete',
+  authenticate,
+  authorize(...canManageContent),
+  validate(cmsValidation.bulkDelete),
+  cmsController.bulkDeletePages
+);
+router.patch(
+  '/pages/bulk/status',
+  authenticate,
+  authorize(...canManageContent),
+  validate(cmsValidation.bulkUpdateStatus),
+  cmsController.bulkUpdatePageStatus
+);
 
 router.get('/news', validate(cmsValidation.listNewsPosts), cmsController.listPublicNewsPosts);
+router.get(
+  '/news/slug/:slug',
+  validate(cmsValidation.getNewsPostBySlug),
+  cmsController.getNewsPostBySlug
+);
+router.get(
+  '/news/:id',
+  validate(cmsValidation.getNewsPost),
+  cmsController.getPublicNewsPost
+);
 router.get(
   '/manage/news',
   authenticate,
@@ -57,7 +81,7 @@ router.get(
   cmsController.listNewsPosts
 );
 router.get(
-  '/news/:id',
+  '/manage/news/:id',
   authenticate,
   authorize(...canManageContent),
   validate(cmsValidation.getNewsPost),
@@ -83,6 +107,20 @@ router.delete(
   authorize(...canManageContent),
   validate(cmsValidation.getNewsPost),
   cmsController.deleteNewsPost
+);
+router.post(
+  '/news/bulk/delete',
+  authenticate,
+  authorize(...canManageContent),
+  validate(cmsValidation.bulkDelete),
+  cmsController.bulkDeleteNews
+);
+router.patch(
+  '/news/bulk/status',
+  authenticate,
+  authorize(...canManageContent),
+  validate(cmsValidation.bulkUpdateStatus),
+  cmsController.bulkUpdateNewsStatus
 );
 
 router.get('/blogs', validate(cmsValidation.listBlogPosts), cmsController.listPublicBlogPosts);
@@ -126,8 +164,32 @@ router.delete(
   validate(cmsValidation.getBlogPost),
   cmsController.deleteBlogPost
 );
+router.post(
+  '/blogs/bulk/delete',
+  authenticate,
+  authorize(...canManageContent),
+  validate(cmsValidation.bulkDelete),
+  cmsController.bulkDeleteBlogs
+);
+router.patch(
+  '/blogs/bulk/status',
+  authenticate,
+  authorize(...canManageContent),
+  validate(cmsValidation.bulkUpdateStatus),
+  cmsController.bulkUpdateBlogStatus
+);
 
 router.get('/galleries', validate(cmsValidation.listGalleries), cmsController.listPublicGalleries);
+router.get(
+  '/galleries/slug/:slug',
+  validate(cmsValidation.getGalleryBySlug),
+  cmsController.getGalleryBySlug
+);
+router.get(
+  '/galleries/:id',
+  validate(cmsValidation.getGallery),
+  cmsController.getPublicGallery
+);
 router.get(
   '/manage/galleries',
   authenticate,
@@ -136,7 +198,7 @@ router.get(
   cmsController.listGalleries
 );
 router.get(
-  '/galleries/:id',
+  '/manage/galleries/:id',
   authenticate,
   authorize(...canManageContent),
   validate(cmsValidation.getGallery),
@@ -162,6 +224,20 @@ router.delete(
   authorize(...canManageContent),
   validate(cmsValidation.getGallery),
   cmsController.deleteGallery
+);
+router.post(
+  '/galleries/bulk/delete',
+  authenticate,
+  authorize(...canManageContent),
+  validate(cmsValidation.bulkDelete),
+  cmsController.bulkDeleteGalleries
+);
+router.patch(
+  '/galleries/bulk/status',
+  authenticate,
+  authorize(...canManageContent),
+  validate(cmsValidation.bulkUpdateStatus),
+  cmsController.bulkUpdateGalleryStatus
 );
 
 router.post(

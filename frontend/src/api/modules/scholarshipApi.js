@@ -40,6 +40,9 @@ export const scholarshipApi = {
   listNoticeUpdates(noticeId, params = {}) {
     return apiClient.get(`/scholarships/notices/${noticeId}/updates`, { params });
   },
+  listManageNoticeUpdates(noticeId, params = {}) {
+    return apiClient.get(`/scholarships/notices/${noticeId}/updates/manage`, { params });
+  },
   createNoticeUpdate(noticeId, payload) {
     return apiClient.post(`/scholarships/notices/${noticeId}/updates`, payload);
   },

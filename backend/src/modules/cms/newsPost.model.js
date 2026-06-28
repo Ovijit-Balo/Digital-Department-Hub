@@ -35,6 +35,13 @@ const translationWorkflowSchema = new mongoose.Schema(
 
 const newsPostSchema = new mongoose.Schema(
   {
+    slug: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true // Allows multiple documents without the field
+    },
     title: {
       type: localizedTextSchema,
       required: true
@@ -87,6 +94,7 @@ const newsPostSchema = new mongoose.Schema(
   }
 );
 
+newsPostSchema.index({ slug: 1 }, { unique: true, sparse: true });
 newsPostSchema.index({ status: 1, publishedAt: -1 });
 newsPostSchema.index({ category: 1, status: 1, publishedAt: -1 });
 newsPostSchema.index({ tags: 1 });

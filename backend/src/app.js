@@ -10,6 +10,9 @@ const requestContext = require('./middlewares/requestContext');
 const auditMiddleware = require('./middlewares/auditMiddleware');
 const notFound = require('./middlewares/notFound');
 const errorHandler = require('./middlewares/errorHandler');
+const sitemapRoutes = require('./modules/sitemap/sitemap.routes');
+const analyticsRoutes = require('./modules/analytics/analytics.routes');
+const adminRoutes = require('./modules/admin/admin.routes');
 
 const app = express();
 
@@ -79,6 +82,9 @@ app.get(['/health', '/api/health'], (req, res) => {
 });
 
 app.use('/api', apiLimiter);
+app.use('/', sitemapRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1', routes);
 app.use(notFound);
 app.use(errorHandler);

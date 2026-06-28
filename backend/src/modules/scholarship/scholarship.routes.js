@@ -41,8 +41,16 @@ router.patch(
   '/notices/:noticeId',
   authenticate,
   authorize(...canManageScholarship),
-  validate(scholarshipValidation.updateNoticeStatus),
-  scholarshipController.updateNoticeStatus
+  validate(scholarshipValidation.updateNotice),
+  scholarshipController.updateNotice
+);
+
+router.get(
+  '/notices/:noticeId/updates/manage',
+  authenticate,
+  authorize(...canManageScholarship, ...canReviewScholarship),
+  validate(scholarshipValidation.listNoticeUpdates),
+  scholarshipController.listManageNoticeUpdates
 );
 
 router.get(
@@ -84,7 +92,7 @@ router.patch(
 router.post(
   '/notices/:noticeId/applications',
   authenticate,
-  authorize(ROLES.STUDENT),
+  authorize(ROLES.STUDENT, ROLES.REVIEWER),
   validate(scholarshipValidation.apply),
   scholarshipController.apply
 );

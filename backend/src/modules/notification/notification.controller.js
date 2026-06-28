@@ -1,12 +1,25 @@
 const { StatusCodes } = require('http-status-codes');
 const asyncHandler = require('../../utils/asyncHandler');
 const notificationService = require('./notification.service');
+const User = require('../auth/user.model');
+const ApiError = require('../../utils/ApiError');
 const { ROLES } = require('../../config/roles');
 
 const privilegedRoles = [ROLES.ADMIN, ROLES.MANAGER];
 
 const dispatch = asyncHandler(async (req, res) => {
-  const notification = await notificationService.dispatchNotification({ payload: req.body });
+  const recipient = await User.findById(req.body.recipient).select('email fullName isActive');
+
+  if (!recipient || !recipient.isActive) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Recipient not found');
+  }
+
+  const notification = await notificationService.dispatchNotification({
+    payload: {
+      ...req.body,
+      recipientEmail: recipient.email
+    }
+  });
 
   res.locals.auditMeta = {
     action: 'DISPATCH_NOTIFICATION',
@@ -49,8 +62,46 @@ const markRead = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ notification });
 });
 
+const getUserNotifications = asyncHandler(async (req, res) => {
+  const data = await notificationService.getUserNotifications({
+    userId: req.user._id,
+    query: req.query
+  });
+
+  res.status(StatusCodes.OK).json(data);
+});
+
+const markAsRead = asyncHandler(async (req, res) => {
+  const notification = await notificationService.markNotificationAsRead({
+    notificationId: req.params.notificationId,
+    userId: req.user._id
+  });
+
+  res.status(StatusCodes.OK).json({ notification });
+});
+
+const markAllAsRead = asyncHandler(async (req, res) => {
+  const result = await notificationService.markAllNotificationsAsRead({
+    userId: req.user._id
+  });
+
+  res.status(StatusCodes.OK).json(result);
+});
+
+const getUnreadCount = asyncHandler(async (req, res) => {
+  const result = await notificationService.getUnreadCount({
+    userId: req.user._id
+  });
+
+  res.status(StatusCodes.OK).json(result);
+});
+
 module.exports = {
   dispatch,
   list,
-  markRead
+  markRead,
+  getUserNotifications,
+  markAsRead,
+  markAllAsRead,
+  getUnreadCount
 };

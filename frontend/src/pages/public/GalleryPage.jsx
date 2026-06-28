@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
+import InlineAlert from '../../components/common/InlineAlert';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
@@ -80,14 +81,18 @@ function GalleryPage() {
 
   return (
     <section className="page-wrap">
-      <div className="section-head">
-        <h1>{ui('gallery', 'title', language)}</h1>
+      <header className="page-title-bar">
+        <div>
+          <p className="eyebrow">Media Collections</p>
+          <h1>{ui('gallery', 'title', language)}</h1>
+          <p className="page-title-subtitle">Photo galleries and media from department events</p>
+        </div>
         <button type="button" className="btn btn-ghost" onClick={loadCollections}>
           {ui('home', 'refresh', language)}
         </button>
-      </div>
+      </header>
 
-      {error && <p className="error-text">{error}</p>}
+      {error && <InlineAlert type="error">{error}</InlineAlert>}
       {loading && (
         <div className="stack-list" aria-label={ui('gallery', 'loading', language)}>
           {skeletonCollections.map((index) => (
@@ -106,19 +111,32 @@ function GalleryPage() {
           ))}
         </div>
       )}
-      {!loading && !collections.length && <p>{ui('gallery', 'empty', language)}</p>}
+      {!loading && !collections.length && (
+        <div className="empty-state empty-state--center">
+          <div className="empty-state__icon" aria-hidden="true">🖼️</div>
+          <p className="empty-state__title">{ui('gallery', 'empty', language)}</p>
+          <p className="empty-state__text">No gallery collections published yet.</p>
+        </div>
+      )}
 
-      <div className="stack-list">
+      <div className="content-list">
         {collections.map((collection) => (
-            <article key={collection._id} className="surface-card">
-            <h3>
-              <button type="button" className="btn btn-ghost" onClick={() => navigate(`/gallery/${collection._id}`)}>
-                {toLocalizedText(collection.title, language)}
-              </button>
-            </h3>
-            <p>{toLocalizedText(collection.description, language)}</p>
+            <article key={collection._id} className="surface-card content-card">
+            <div className="content-card__header">
+              <h3 className="content-card__title">
+                <button type="button" className="btn btn-ghost" onClick={() => navigate(`/gallery/${collection._id}`)}>
+                  {toLocalizedText(collection.title, language)}
+                </button>
+              </h3>
+              <span className="content-card__badge content-card__badge--research">
+                {collection.items?.length || 0} items
+              </span>
+            </div>
+            <p className="content-card__excerpt">
+              {toLocalizedText(collection.description, language)}
+            </p>
 
-            <div className="gallery-grid">
+            <div className="gallery-grid gallery-grid--enhanced">
               {(collection.items || [])
                 .slice()
                 .sort((left, right) => (left.order || 0) - (right.order || 0))

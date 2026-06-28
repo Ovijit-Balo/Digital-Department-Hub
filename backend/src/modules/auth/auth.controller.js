@@ -85,6 +85,23 @@ const refresh = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(data);
 });
 
+const updateUserStatus = asyncHandler(async (req, res) => {
+  const user = await authService.updateUserStatus({
+    actorId: req.user._id,
+    targetUserId: req.params.userId,
+    isActive: req.body.isActive
+  });
+
+  res.locals.auditMeta = {
+    action: req.body.isActive ? 'ACTIVATE_USER' : 'DEACTIVATE_USER',
+    entityType: 'User',
+    entityId: user.id,
+    after: { isActive: user.isActive }
+  };
+
+  res.status(StatusCodes.OK).json({ user });
+});
+
 module.exports = {
   register,
   login,
@@ -92,5 +109,6 @@ module.exports = {
   me,
   listUsers,
   updateUserRoles,
+  updateUserStatus,
   refresh
 };

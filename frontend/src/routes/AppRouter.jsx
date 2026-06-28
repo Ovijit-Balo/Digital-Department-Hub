@@ -31,6 +31,7 @@ import {
   ACCESS_CONTROL_VIEW_ROLES,
   ADMIN_PANEL_ROLES,
   CMS_STUDIO_ROLES,
+  NOTIFICATION_CENTER_ROLES,
   STAFF_DASHBOARD_ROLES,
   STUDENT_DASHBOARD_ROLES,
   TEACHER_DASHBOARD_ROLES
@@ -64,19 +65,19 @@ function AppRouter() {
             </RoleGuard>
           }
         />
+        <Route
+          path="/profile"
+          element={
+            <RoleGuard loginPath="/portals">
+              <ProfilePage />
+            </RoleGuard>
+          }
+        />
       </Route>
 
       <Route path="/login" element={<LoginPage />} />
       <Route path="/login/:portal" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route
-        path="/profile"
-        element={
-          <RoleGuard loginPath="/portals">
-            <ProfilePage />
-          </RoleGuard>
-        }
-      />
 
       <Route
         path="/admin"
@@ -103,7 +104,14 @@ function AppRouter() {
             </RoleGuard>
           }
         />
-        <Route path="notifications" element={<NotificationCenterPage />} />
+        <Route
+          path="notifications"
+          element={
+            <RoleGuard roles={NOTIFICATION_CENTER_ROLES} loginPath="/login/admin">
+              <NotificationCenterPage />
+            </RoleGuard>
+          }
+        />
         <Route
           path="cms"
           element={

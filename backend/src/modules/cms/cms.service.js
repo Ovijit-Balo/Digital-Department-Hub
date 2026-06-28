@@ -1,10 +1,12 @@
 const { StatusCodes } = require('http-status-codes');
+const mongoose = require('mongoose');
 const Page = require('./page.model');
 const NewsPost = require('./newsPost.model');
 const BlogPost = require('./blogPost.model');
 const Gallery = require('./gallery.model');
 const env = require('../../config/env');
 const { createCloudinaryUploadSignature } = require('../../config/storage');
+const ImageService = require('../../services/imageService');
 const ApiError = require('../../utils/ApiError');
 
 const TRANSLATION_STATUSES = new Set(['source', 'pending', 'translated', 'reviewed']);
@@ -275,10 +277,34 @@ const listNewsPosts = async (query) => {
     filter.category = query.category;
   }
 
+  // Tag filtering
+  if (query.tags) {
+    const tagArray = query.tags.split(',').map((t) => t.trim()).filter(Boolean);
+    if (tagArray.length > 0) {
+      filter.tags = { $in: tagArray };
+    }
+  }
+
+  // Date range filtering
+  if (query.startDate || query.endDate) {
+    filter.publishedAt = {};
+    if (query.startDate) {
+      filter.publishedAt.$gte = new Date(query.startDate);
+    }
+    if (query.endDate) {
+      filter.publishedAt.$lte = new Date(query.endDate);
+    }
+  }
+
   const { page, limit, skip } = buildPagination(query);
 
+  // Sorting
+  const sortBy = query.sortBy || 'publishedAt';
+  const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
+  const sort = { [sortBy]: sortOrder };
+
   const [items, total] = await Promise.all([
-    NewsPost.find(filter).sort({ publishedAt: -1, createdAt: -1 }).skip(skip).limit(limit),
+    NewsPost.find(filter).sort(sort).skip(skip).limit(limit),
     NewsPost.countDocuments(filter)
   ]);
 
@@ -294,6 +320,31 @@ const getNewsPostById = async (id) => {
   return getEntityById(NewsPost, id, 'News post');
 };
 
+const getPublicNewsPostById = async (id) => {
+  const post = await NewsPost.findOne({ _id: id, status: 'published' });
+
+  if (!post) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'News post not found');
+  }
+
+  return post;
+};
+
+const getNewsPostBySlug = async (slug, options = {}) => {
+  const filter = {
+    slug,
+    ...(options.includeDraft ? {} : { status: 'published' })
+  };
+
+  const post = await NewsPost.findOne(filter);
+
+  if (!post) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'News post not found');
+  }
+
+  return post;
+};
+
 const updateNewsPost = async (id, payload, userId) => {
   return updateEntity(NewsPost, id, payload, userId, 'News post');
 };
@@ -307,7 +358,45 @@ const createBlogPost = async (payload, userId) => {
 };
 
 const listBlogPosts = async (query) => {
-  return listEntities(BlogPost, query, { publishedAt: -1, createdAt: -1 });
+  const filter = buildContentFilter(query);
+
+  // Tag filtering
+  if (query.tags) {
+    const tagArray = query.tags.split(',').map((t) => t.trim()).filter(Boolean);
+    if (tagArray.length > 0) {
+      filter.tags = { $in: tagArray };
+    }
+  }
+
+  // Date range filtering
+  if (query.startDate || query.endDate) {
+    filter.publishedAt = {};
+    if (query.startDate) {
+      filter.publishedAt.$gte = new Date(query.startDate);
+    }
+    if (query.endDate) {
+      filter.publishedAt.$lte = new Date(query.endDate);
+    }
+  }
+
+  const { page, limit, skip } = buildPagination(query);
+
+  // Sorting
+  const sortBy = query.sortBy || 'publishedAt';
+  const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
+  const sort = { [sortBy]: sortOrder };
+
+  const [items, total] = await Promise.all([
+    BlogPost.find(filter).sort(sort).skip(skip).limit(limit),
+    BlogPost.countDocuments(filter)
+  ]);
+
+  return {
+    items,
+    page,
+    limit,
+    total
+  };
 };
 
 const getBlogPostById = async (id) => {
@@ -342,11 +431,74 @@ const createGallery = async (payload, userId) => {
 };
 
 const listGalleries = async (query) => {
-  return listEntities(Gallery, query, { publishedAt: -1, createdAt: -1 });
+  const filter = buildContentFilter(query);
+  const { page, limit, skip } = buildPagination(query);
+
+  // Sorting
+  const sortBy = query.sortBy || 'publishedAt';
+  const sortOrder = query.sortOrder === 'asc' ? 1 : -1;
+  const sort = { [sortBy]: sortOrder };
+
+  const [items, total] = await Promise.all([
+    Gallery.find(filter).sort(sort).skip(skip).limit(limit),
+    Gallery.countDocuments(filter)
+  ]);
+
+  // Optimize gallery items with thumbnails and responsive URLs
+  const optimizedItems = items.map((gallery) => ({
+    ...gallery.toObject(),
+    items: ImageService.optimizeGalleryItems(gallery.items || [])
+  }));
+
+  return {
+    items: optimizedItems,
+    page,
+    limit,
+    total
+  };
 };
 
 const getGalleryById = async (id) => {
-  return getEntityById(Gallery, id, 'Gallery');
+  const gallery = await getEntityById(Gallery, id, 'Gallery');
+  
+  // Optimize gallery items with thumbnails and responsive URLs
+  const galleryObj = gallery.toObject();
+  galleryObj.items = ImageService.optimizeGalleryItems(gallery.items || []);
+  
+  return galleryObj;
+};
+
+const getPublicGalleryById = async (id) => {
+  const gallery = await Gallery.findOne({ _id: id, status: 'published' });
+
+  if (!gallery) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Gallery not found');
+  }
+
+  // Optimize gallery items with thumbnails and responsive URLs
+  const galleryObj = gallery.toObject();
+  galleryObj.items = ImageService.optimizeGalleryItems(gallery.items || []);
+  
+  return galleryObj;
+};
+
+const getGalleryBySlug = async (slug, options = {}) => {
+  const filter = {
+    slug,
+    ...(options.includeDraft ? {} : { status: 'published' })
+  };
+
+  const gallery = await Gallery.findOne(filter);
+
+  if (!gallery) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Gallery not found');
+  }
+
+  // Optimize gallery items with thumbnails and responsive URLs
+  const galleryObj = gallery.toObject();
+  galleryObj.items = ImageService.optimizeGalleryItems(gallery.items || []);
+  
+  return galleryObj;
 };
 
 const updateGallery = async (id, payload, userId) => {
@@ -355,6 +507,21 @@ const updateGallery = async (id, payload, userId) => {
 
 const deleteGallery = async (id) => {
   return deleteEntity(Gallery, id, 'Gallery');
+};
+
+const bulkDelete = async (Model, ids, entityName) => {
+  const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+  const result = await Model.deleteMany({ _id: { $in: objectIds } });
+  return { deletedCount: result.deletedCount };
+};
+
+const bulkUpdateStatus = async (Model, ids, status, entityName) => {
+  const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+  const result = await Model.updateMany(
+    { _id: { $in: objectIds } },
+    { status }
+  );
+  return { modifiedCount: result.modifiedCount };
 };
 
 const createUploadSignature = async (payload) => {
@@ -382,6 +549,8 @@ module.exports = {
   createNewsPost,
   listNewsPosts,
   getNewsPostById,
+  getPublicNewsPostById,
+  getNewsPostBySlug,
   updateNewsPost,
   deleteNewsPost,
   createBlogPost,
@@ -393,7 +562,11 @@ module.exports = {
   createGallery,
   listGalleries,
   getGalleryById,
+  getPublicGalleryById,
+  getGalleryBySlug,
   updateGallery,
   deleteGallery,
-  createUploadSignature
+  createUploadSignature,
+  bulkDelete,
+  bulkUpdateStatus
 };

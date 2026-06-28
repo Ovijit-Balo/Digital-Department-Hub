@@ -1,7 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
+import RichTextPreview from '../../components/common/RichTextPreview';
 import useLanguage from '../../hooks/useLanguage';
+import usePageMeta from '../../hooks/usePageMeta';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
 import { toLocalizedText, toIsoDate } from '../../utils/localized';
@@ -14,50 +16,87 @@ function NewsDetailPage() {
   const [error, setError] = useState('');
   const [item, setItem] = useState(null);
 
-  useEffect(() => {
-    let mounted = true;
+  const loadNews = useCallback(async () => {
     setLoading(true);
     setError('');
 
-    (async () => {
-      try {
-        const res = await cmsApi.listNews({ status: 'published', limit: 100 });
-        const found = (res.data.items || []).find((n) => n._id === newsId || n.slug === newsId);
-        if (mounted) setItem(found || null);
-      } catch (apiError) {
-        if (mounted) setError(getApiErrorMessage(apiError, 'Failed to load news item.'));
-      } finally {
-        if (mounted) setLoading(false);
+    try {
+      let res;
+      // Try slug first, if it looks like a slug (contains letters/hyphens)
+      if (newsId && /^[a-z0-9-]+$/.test(newsId)) {
+        try {
+          res = await cmsApi.getNewsBySlug(newsId);
+          setItem(res.data.post || null);
+          return;
+        } catch (slugError) {
+          // If slug lookup fails, try ID lookup
+        }
       }
-    })();
-
-    return () => {
-      mounted = false;
-    };
+      // Fallback to ID lookup
+      res = await cmsApi.getNewsById(newsId);
+      setItem(res.data.post || null);
+    } catch (apiError) {
+      setError(getApiErrorMessage(apiError, 'Failed to load news item.'));
+    } finally {
+      setLoading(false);
+    }
   }, [newsId]);
 
-  const title = useMemo(() => (item ? toLocalizedText(item.title, language) : ''), [item, language]);
+  useEffect(() => {
+    loadNews();
+  }, [loadNews]);
 
-  if (loading) return <section className="page-wrap"><p>{ui('newsroom', 'loadingList', language)}</p></section>;
-  if (error) return <section className="page-wrap"><p className="error-text">{error}</p></section>;
-  if (!item) return (
-    <section className="page-wrap">
-      <p>{ui('newsroom', 'noNews', language) || 'News not found.'}</p>
-      <p><button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>Back</button></p>
-    </section>
+  const title = useMemo(() => (item ? toLocalizedText(item.title, language) : ''), [item, language]);
+  const summary = useMemo(
+    () => (item ? toLocalizedText(item.summary, language) : ''),
+    [item, language]
   );
+
+  usePageMeta({ title: title || undefined, description: summary || undefined });
+
+  if (loading) {
+    return (
+      <section className="page-wrap">
+        <p>{ui('newsroom', 'loadingList', language)}</p>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="page-wrap">
+        <p className="error-text">{error}</p>
+      </section>
+    );
+  }
+
+  if (!item) {
+    return (
+      <section className="page-wrap">
+        <p>{ui('newsroom', 'noNews', language) || 'News not found.'}</p>
+        <p>
+          <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>
+            Back
+          </button>
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="page-wrap">
       <div className="section-head">
         <h1>{title}</h1>
-        <Link to="/news" className="btn btn-ghost">Back to News</Link>
+        <Link to="/news" className="btn btn-ghost">
+          Back to News
+        </Link>
       </div>
 
       <p className="meta">Published {toIsoDate(item.publishedAt || item.createdAt)}</p>
+      {summary ? <p className="news-detail-summary">{summary}</p> : null}
       <article className="surface-card">
         <div className="newsroom-detail-panel__body">
-          <p>{toLocalizedText(item.body, language)}</p>
+          <RichTextPreview html={toLocalizedText(item.body, language)} />
         </div>
       </article>
     </section>

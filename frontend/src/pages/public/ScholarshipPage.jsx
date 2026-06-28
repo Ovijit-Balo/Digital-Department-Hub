@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import useLanguage from '../../hooks/useLanguage';
 import useRole from '../../hooks/useRole';
+import CollapsibleSection from '../../components/common/CollapsibleSection';
+import ReviewModal from '../../components/scholarship/ReviewModal';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalizedText } from '../../utils/localized';
@@ -57,9 +59,18 @@ function ScholarshipPage() {
 
   const canReview = useRole('admin', 'manager', 'reviewer');
   const canManageNotices = useRole('admin', 'manager', 'editor');
-  const canApply = useRole('student');
+  const canApply = useRole('student', 'reviewer');
   const canPostUpdates = useRole('admin', 'manager', 'editor', 'reviewer');
   const canViewManageNotices = canReview || canManageNotices;
+
+  const [reviewModal, setReviewModal] = useState({
+    isOpen: false,
+    applicationId: '',
+    currentStatus: 'submitted',
+    fallbackCategoryCode: '',
+    initialStatus: 'under_review',
+    categories: []
+  });
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -150,7 +161,20 @@ function ScholarshipPage() {
     [noticeUpdates]
   );
 
-  const currentStep = selectedNoticeId ? (orderedMyApplications.length ? 3 : 2) : 1;
+  const selectedNoticeApplication = useMemo(() => {
+    if (!selectedNoticeId) {
+      return null;
+    }
+
+    return (
+      myApplications.find((application) => {
+        const noticeId = application.notice?._id || application.notice;
+        return noticeId === selectedNoticeId;
+      }) || null
+    );
+  }, [myApplications, selectedNoticeId]);
+
+  const currentStep = !selectedNoticeId ? 1 : selectedNoticeApplication ? 3 : 2;
   const isSelectedNoticeClosed =
     selectedNotice && (selectedNotice.applicationState || selectedNotice.status) === 'closed';
 
@@ -200,15 +224,22 @@ function ScholarshipPage() {
       recipientCount: recipients.length,
       reviewCount: canReview
         ? applications.filter((item) => ['submitted', 'under_review'].includes(item.status)).length
-        : myApplications.length
+        : selectedNoticeApplication
+          ? 1
+          : myApplications.filter((item) => {
+              const noticeId = item.notice?._id || item.notice;
+              return noticeId === selectedNoticeId;
+            }).length
     }),
     [
       applications,
       canReview,
-      myApplications.length,
+      myApplications,
       notices,
       recipients.length,
-      selectedNoticeCategories.length
+      selectedNoticeApplication,
+      selectedNoticeCategories.length,
+      selectedNoticeId
     ]
   );
 
@@ -323,14 +354,17 @@ function ScholarshipPage() {
   }, [canViewManageNotices, selectedNoticeId]);
 
   const loadApplications = useCallback(async () => {
-    if (!canReview) {
+    if (!canReview || !selectedNoticeId) {
       setApplications([]);
       return;
     }
 
-    const response = await scholarshipApi.listApplications({ limit: 50 });
+    const response = await scholarshipApi.listApplications({
+      noticeId: selectedNoticeId,
+      limit: 50
+    });
     setApplications(response.data.items || []);
-  }, [canReview]);
+  }, [canReview, selectedNoticeId]);
 
   const loadMyApplications = useCallback(async () => {
     if (!isAuthenticated) {
@@ -363,9 +397,10 @@ function ScholarshipPage() {
       setRecipientInfo({ isPublished: false, recipientsPublishedAt: null, isRestricted: true });
 
       try {
-        const updatesResult = await scholarshipApi.listNoticeUpdates(selectedNoticeId, {
-          limit: 20
-        });
+        const updatesRequest = canPostUpdates
+          ? scholarshipApi.listManageNoticeUpdates(selectedNoticeId, { limit: 20 })
+          : scholarshipApi.listNoticeUpdates(selectedNoticeId, { limit: 20 });
+        const updatesResult = await updatesRequest;
         setNoticeUpdates(updatesResult.data.items || []);
       } catch (apiError) {
         setNoticeUpdates([]);
@@ -382,9 +417,13 @@ function ScholarshipPage() {
         ? scholarshipApi.listManageRecipients(selectedNoticeId, { limit: 100 })
         : scholarshipApi.listRecipients(selectedNoticeId, { limit: 100 });
 
+      const updatesRequest = canPostUpdates
+        ? scholarshipApi.listManageNoticeUpdates(selectedNoticeId, { limit: 20 })
+        : scholarshipApi.listNoticeUpdates(selectedNoticeId, { limit: 20 });
+
       const [recipientResult, updatesResult] = await Promise.allSettled([
         recipientsRequest,
-        scholarshipApi.listNoticeUpdates(selectedNoticeId, { limit: 20 })
+        updatesRequest
       ]);
 
       if (recipientResult.status === 'fulfilled') {
@@ -438,7 +477,11 @@ function ScholarshipPage() {
         );
       }
     }
-  }, [canReview, notices, selectedNoticeId]);
+  }, [canPostUpdates, canReview, notices, selectedNoticeId]);
+
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -659,39 +702,30 @@ function ScholarshipPage() {
     }
   };
 
-  const reviewApplication = async (applicationId, status, fallbackCategoryCode = '') => {
-    const decisionNote = window.prompt('Decision note (optional):', '') || '';
-    let awardedCategoryCode = '';
-    let awardedAmount;
+  const openReviewModal = (application, initialStatus = 'under_review') => {
+    const noticeCategories = application.notice?.categories || selectedNoticeCategories;
 
-    if (status === 'approved') {
-      awardedCategoryCode =
-        window.prompt(
-          'Award category code (optional, leave blank for non-category awards):',
-          fallbackCategoryCode || ''
-        ) || '';
+    setReviewModal({
+      isOpen: true,
+      applicationId: application._id,
+      currentStatus: application.status,
+      fallbackCategoryCode: application.selectedCategoryCode || '',
+      initialStatus,
+      categories: noticeCategories
+    });
+  };
 
-      const amountRaw = window.prompt('Award amount (optional):', '') || '';
-      if (amountRaw.trim()) {
-        const parsedAmount = Number(amountRaw);
-        if (Number.isNaN(parsedAmount) || parsedAmount < 0) {
-          setMessage('Award amount must be a positive number.');
-          return;
-        }
-        awardedAmount = parsedAmount;
-      }
-    }
+  const closeReviewModal = () => {
+    setReviewModal((prev) => ({ ...prev, isOpen: false }));
+  };
 
+  const handleReviewConfirm = async (payload) => {
     try {
-      await scholarshipApi.reviewApplication(applicationId, {
-        status,
-        decisionNote,
-        awardedCategoryCode: awardedCategoryCode || undefined,
-        awardedAmount
-      });
+      await scholarshipApi.reviewApplication(reviewModal.applicationId, payload);
 
       setMessage('Application review updated.');
-      success(`Application ${status}.`, { title: 'Review saved' });
+      success(`Application ${payload.status}.`, { title: 'Review saved' });
+      closeReviewModal();
       await loadApplications();
       await loadMyApplications();
       await loadNoticeDetails();
@@ -1038,6 +1072,32 @@ function ScholarshipPage() {
                 </div>
               )}
 
+              {selectedNoticeApplication && (
+                <article className="surface-card inner-card scholarship-application-status">
+                  <div className="section-head section-head-tight">
+                    <h4>Your Application</h4>
+                    <span className={`status-badge status-${selectedNoticeApplication.status}`}>
+                      {selectedNoticeApplication.status}
+                    </span>
+                  </div>
+                  <p className="meta">
+                    Submitted: {toIsoDate(selectedNoticeApplication.createdAt)} • GPA:{' '}
+                    {selectedNoticeApplication.gpa}
+                  </p>
+                  {selectedNoticeApplication.decisionNote && (
+                    <p>{selectedNoticeApplication.decisionNote}</p>
+                  )}
+                  {selectedNoticeApplication.awardedAmount && (
+                    <p className="meta">
+                      Award: {selectedNoticeApplication.awardedAmount}
+                      {selectedNoticeApplication.awardedCategoryCode
+                        ? ` (${selectedNoticeApplication.awardedCategoryCode})`
+                        : ''}
+                    </p>
+                  )}
+                </article>
+              )}
+
               <div className="notice-card-actions">
                 <button
                   type="button"
@@ -1127,9 +1187,9 @@ function ScholarshipPage() {
         )}
       </div>
 
-      {isAuthenticated && (
+      {isAuthenticated && (canApply || selectedNoticeApplication) && (
         <div className="workflow-grid workflow-grid-2">
-          {canApply && isAuthenticated && (
+          {canApply && !selectedNoticeApplication && (
             <article className="surface-card scholarship-apply-card">
               <p className="meta">{ui('scholarship', 'stepApply', language)}</p>
               <h3>{ui('scholarship', 'applyTitle', language)}</h3>
@@ -1206,13 +1266,10 @@ function ScholarshipPage() {
 
       {selectedNotice && (
         <div className="workflow-grid workflow-grid-2 scholarship-notice-panel-grid">
-          <article className="surface-card scholarship-recipient-card">
-            <div className="section-head section-head-tight">
-              <h3>Recipient List</h3>
-              {recipientInfo.recipientsPublishedAt && (
-                <p className="meta">Published: {toIsoDate(recipientInfo.recipientsPublishedAt)}</p>
-              )}
-            </div>
+          <CollapsibleSection title="Recipient List" defaultOpen={false}>
+            {recipientInfo.recipientsPublishedAt && (
+              <p className="meta">Published: {toIsoDate(recipientInfo.recipientsPublishedAt)}</p>
+            )}
 
             {!orderedRecipients.length && !recipientInfo.isRestricted && (
               <div className="empty-state empty-state--center">
@@ -1254,10 +1311,9 @@ function ScholarshipPage() {
                 })}
               </div>
             )}
-          </article>
+          </CollapsibleSection>
 
-          <article className="surface-card scholarship-timeline-card">
-            <h3>Notice Update Timeline</h3>
+          <CollapsibleSection title="Notice Update Timeline" defaultOpen={false}>
             {!orderedNoticeUpdates.length && <p>No updates for this notice yet.</p>}
             {!!orderedNoticeUpdates.length && (
               <div className="scholarship-timeline">
@@ -1270,6 +1326,9 @@ function ScholarshipPage() {
                         <span className={`status-badge scholarship-badge scholarship-badge--${item.kind}`}>
                           {item.kind}
                         </span>
+                        {item.visibility === 'internal' && (
+                          <span className="status-badge status-draft">internal</span>
+                        )}
                       </div>
                       <p>{toLocalizedText(item.body, language)}</p>
                       <p className="meta scholarship-timeline__meta">
@@ -1361,18 +1420,19 @@ function ScholarshipPage() {
                 </button>
               </form>
             )}
-          </article>
+          </CollapsibleSection>
         </div>
       )}
 
       {(canManageNotices || canReview) && (
-        <div className="workflow-grid workflow-grid-2">
-          {canManageNotices && (
-            <article className="surface-card">
-              <h3>Edit Selected Scholarship Notice</h3>
-              {!selectedNotice && <p>Select a notice to edit.</p>}
-              {selectedNotice && (
-                <form className="form-grid" onSubmit={submitNoticeEdit}>
+        <CollapsibleSection title="Admin Panel" defaultOpen={false}>
+          <div className="workflow-grid workflow-grid-2">
+            {canManageNotices && (
+              <article className="surface-card">
+                <h3>Edit Selected Scholarship Notice</h3>
+                {!selectedNotice && <p>Select a notice to edit.</p>}
+                {selectedNotice && (
+                  <form className="form-grid" onSubmit={submitNoticeEdit}>
                   <label>
                     Title (EN)
                     <input
@@ -1853,31 +1913,21 @@ function ScholarshipPage() {
                               <button
                                 type="button"
                                 className="btn btn-ghost"
-                                onClick={() =>
-                                  reviewApplication(
-                                    item._id,
-                                    'under_review',
-                                    item.selectedCategoryCode
-                                  )
-                                }
+                                onClick={() => openReviewModal(item, 'under_review')}
                               >
                                 Review
                               </button>
                               <button
                                 type="button"
                                 className="btn btn-ghost"
-                                onClick={() =>
-                                  reviewApplication(item._id, 'approved', item.selectedCategoryCode)
-                                }
+                                onClick={() => openReviewModal(item, 'approved')}
                               >
                                 Approve
                               </button>
                               <button
                                 type="button"
                                 className="btn btn-ghost"
-                                onClick={() =>
-                                  reviewApplication(item._id, 'rejected', item.selectedCategoryCode)
-                                }
+                                onClick={() => openReviewModal(item, 'rejected')}
                               >
                                 Reject
                               </button>
@@ -1891,8 +1941,19 @@ function ScholarshipPage() {
               )}
             </article>
           )}
-        </div>
+          </div>
+        </CollapsibleSection>
       )}
+
+      <ReviewModal
+        isOpen={reviewModal.isOpen}
+        onClose={closeReviewModal}
+        currentStatus={reviewModal.currentStatus}
+        fallbackCategoryCode={reviewModal.fallbackCategoryCode}
+        initialStatus={reviewModal.initialStatus}
+        categories={reviewModal.categories}
+        onConfirm={handleReviewConfirm}
+      />
     </section>
   );
 }

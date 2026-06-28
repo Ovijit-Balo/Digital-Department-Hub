@@ -46,7 +46,7 @@ router.patch(
 router.post(
   '/:eventId/registrations',
   authenticate,
-  authorize(ROLES.STUDENT, ROLES.ADMIN, ROLES.EDITOR, ROLES.MANAGER),
+  authorize(ROLES.STUDENT, ROLES.ADMIN, ROLES.EDITOR, ROLES.MANAGER, ROLES.REVIEWER),
   validate(eventValidation.registerForEvent),
   eventController.registerForEvent
 );

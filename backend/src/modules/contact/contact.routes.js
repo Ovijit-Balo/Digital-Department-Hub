@@ -4,6 +4,7 @@ const contactValidation = require('./contact.validation');
 const validate = require('../../middlewares/validate');
 const authenticate = require('../../middlewares/authMiddleware');
 const authorize = require('../../middlewares/roleMiddleware');
+const { contactLimiter } = require('../../middlewares/rateLimiters');
 const { ROLES } = require('../../config/roles');
 
 const router = express.Router();
@@ -12,6 +13,7 @@ const canManageInquiries = [ROLES.ADMIN, ROLES.MANAGER, ROLES.EDITOR];
 
 router.post(
   '/inquiries',
+  contactLimiter,
   validate(contactValidation.submitInquiry),
   contactController.submitInquiry
 );
