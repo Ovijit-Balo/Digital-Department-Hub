@@ -18,7 +18,7 @@ export function ProfilePage() {
   }
 
   return (
-    <section className="page-wrap">
+    <section className="page-wrap desk-page profile-page">
       <header className="page-title-bar">
         <div>
           <p className="eyebrow">{ui('profile', 'eyebrow', language)}</p>

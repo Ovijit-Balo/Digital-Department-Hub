@@ -270,6 +270,23 @@
   margin: 0;
 }
 
+/* ==========================================================================
+   CMS Studio — the authoring forms were pinched into a ~760px left column
+   (the --form-max cap on any card holding a form), leaving the right half of
+   each panel empty. desk-page removes that cap and pairs fields two-up; these
+   extra rules let the wide elements span both tracks so nothing looks squeezed:
+   the rich-text content editors, and the translation-workflow row (laid out as
+   its own responsive set of selects instead of a lone stacked column). */
+.cms-page .form-grid > label:has(.rich-editor-wrap) {
+  grid-column: 1 / -1;
+}
+
+.cms-page .form-grid > .workflow-grid {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: end;
+}
+
 /* ---- Responsive: single column forms on small viewports ------------------- */
 @media (max-width: 560px) {
   .desk-page .form-grid {
@@ -278,6 +295,139 @@
 
   .desk-page .surface-card {
     padding: 1.2rem 1.15rem 1.25rem;
+  }
+}
+
+/* ==========================================================================
+   Site header — de-cramp the top-right controls.
+   The utility toggles (theme + language) and the account controls (workspace
+   button, user chip, sign out) were all packed into one tight row, so the red
+   Workspace button, the identity chip, and Sign Out sat almost edge to edge.
+   Give the whole cluster more air and split the account controls into their own
+   group behind a hairline divider so the header reads in two clear zones. */
+.top-nav .auth-actions {
+  gap: 0.85rem;
+}
+
+.account-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding-left: 0.95rem;
+  border-left: 1px solid var(--stroke);
+}
+
+/* The identity chip should feel like a tappable pill, not a cramped tag. */
+.top-nav .user-chip {
+  padding: 0.42rem 0.8rem;
+  transition:
+    border-color 200ms var(--ease, ease),
+    background-color 200ms var(--ease, ease);
+}
+
+.top-nav .user-chip:hover {
+  border-color: rgba(140, 21, 21, 0.35);
+  background: rgba(140, 21, 21, 0.06);
+}
+
+@media (max-width: 768px) {
+  /* Once the header wraps to its own row, the vertical divider reads as clutter. */
+  .account-actions {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+/* The proper 3-column header grid only kicked in at >=900px, and the hamburger
+   menu only below 769px. In the 769-899px band the header fell back to a plain
+   block layout, so the primary nav detached into a loose, full-width, centered
+   two-row block. Start the grid right where the mobile menu ends so there is no
+   width at which the nav renders as that stray centered block. */
+@media (min-width: 769px) {
+  .top-nav.top-nav--public {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 2.1fr) auto;
+    align-items: center;
+    column-gap: 1rem;
+  }
+
+  .top-nav--public .brand-wrap {
+    min-width: 0;
+  }
+
+  .top-nav--public .public-nav-inner {
+    justify-content: flex-start;
+  }
+
+  .top-nav--public .auth-actions {
+    justify-content: flex-end;
+  }
+}
+
+/* Minimal header (Profile page): the account view doesn't need the full site
+   browsing nav, so hide the primary links + hamburger and rebalance the bar to
+   brand | account controls. display:none drops the nav from the grid entirely,
+   so the two remaining columns sit at the edges with no dead middle column. */
+.top-nav--minimal .public-nav,
+.top-nav--minimal .nav-toggle {
+  display: none;
+}
+
+@media (min-width: 769px) {
+  .top-nav.top-nav--public.top-nav--minimal {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+/* ==========================================================================
+   Profile page — turn the bare definition lists into a tidy spec sheet.
+   The account/session cards rendered as unstyled <dl>s: values hung on the
+   browser's default dd indent with no rhythm. Lay each entry out as a
+   label → value row with a hairline between, so the card reads like a record. */
+.profile-page .details-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.profile-page .details-list > div {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 0.5rem 1.1rem;
+  align-items: baseline;
+  padding: 0.72rem 0;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.profile-page .details-list > div:first-child {
+  padding-top: 0.15rem;
+}
+
+.profile-page .details-list > div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.profile-page .details-list dt {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.profile-page .details-list dd {
+  margin: 0;
+  color: var(--text);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .profile-page .details-list > div {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
   }
 }
 

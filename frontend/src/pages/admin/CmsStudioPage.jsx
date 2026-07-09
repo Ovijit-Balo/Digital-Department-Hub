@@ -597,7 +597,7 @@ function CmsStudioPage() {
   }
 
   return (
-    <section className="page-wrap">
+    <section className="page-wrap desk-page cms-page">
       <div className="section-head">
         <h1>CMS Studio</h1>
         <button type="button" className="btn btn-ghost" onClick={loadData}>
