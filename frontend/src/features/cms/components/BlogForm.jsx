@@ -1,7 +1,7 @@
-import RichTextEditor from '../common/RichTextEditor';
+import RichTextEditor from '../../../components/ui/RichTextEditor';
 import TranslationWorkflowFields from './TranslationWorkflowFields';
 
-export function PageForm({
+export function BlogForm({
   form,
   sourceLanguage,
   onFieldChange,
@@ -12,12 +12,12 @@ export function PageForm({
   return (
     <form className="form-grid" onSubmit={onSubmit}>
       <label>
-        Page Slug
+        Blog Slug
         <input
           value={form.slug}
           onChange={(event) => onFieldChange('slug', event.target.value)}
           onBlur={(event) => onFieldChange('slug', event.target.value)}
-          placeholder="about-department"
+          placeholder="student-research-highlights"
           required
         />
       </label>
@@ -41,20 +41,54 @@ export function PageForm({
       </label>
 
       <label>
-        Content (EN)
-        <RichTextEditor
-          value={form.content.en}
-          onChange={(value) => onLocalizedChange('content', 'en', value)}
-          placeholder="Write page content in English"
+        Excerpt (EN)
+        <textarea
+          value={form.excerpt.en}
+          onChange={(event) => onLocalizedChange('excerpt', 'en', event.target.value)}
+          required={sourceLanguage === 'en'}
         />
       </label>
 
       <label>
-        Content (BN)
+        Excerpt (BN)
+        <textarea
+          value={form.excerpt.bn}
+          onChange={(event) => onLocalizedChange('excerpt', 'bn', event.target.value)}
+          required={sourceLanguage === 'bn'}
+        />
+      </label>
+
+      <label>
+        Body (EN)
         <RichTextEditor
-          value={form.content.bn}
-          onChange={(value) => onLocalizedChange('content', 'bn', value)}
-          placeholder="Write page content in Bangla"
+          value={form.body.en}
+          onChange={(value) => onLocalizedChange('body', 'en', value)}
+          placeholder="Write blog body in English"
+        />
+      </label>
+
+      <label>
+        Body (BN)
+        <RichTextEditor
+          value={form.body.bn}
+          onChange={(value) => onLocalizedChange('body', 'bn', value)}
+          placeholder="Write blog body in Bangla"
+        />
+      </label>
+
+      <label>
+        Cover Image URL (optional)
+        <input
+          value={form.coverImageUrl}
+          onChange={(event) => onFieldChange('coverImageUrl', event.target.value)}
+        />
+      </label>
+
+      <label>
+        Tags (comma separated)
+        <input
+          value={form.tagsInput}
+          onChange={(event) => onFieldChange('tagsInput', event.target.value)}
         />
       </label>
 
@@ -72,10 +106,10 @@ export function PageForm({
       <TranslationWorkflowFields value={form.translationWorkflow} onChange={onWorkflowChange} />
 
       <button type="submit" className="btn btn-primary">
-        {form.id ? 'Update Page' : 'Create Page'}
+        {form.id ? 'Update Blog' : 'Create Blog'}
       </button>
     </form>
   );
 }
 
-export default PageForm;
+export default BlogForm;

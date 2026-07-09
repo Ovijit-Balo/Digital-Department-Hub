@@ -224,14 +224,29 @@ export const publicUi = {
   },
   nav: {
     home: { en: 'Home', bn: 'হোম' },
-    contentMedia: { en: 'Content & media', bn: 'কন্টেন্ট ও মিডিয়া' },
-    campusServices: { en: 'Campus services', bn: 'ক্যাম্পাস সেবা' },
+    about: { en: 'About', bn: 'পরিচিতি' },
+    contentMedia: { en: 'News & Media', bn: 'সংবাদ ও মিডিয়া' },
+    campusServices: { en: 'Services', bn: 'সেবা' },
     contact: { en: 'Contact', bn: 'যোগাযোগ' },
     portals: { en: 'Portals', bn: 'পোর্টাল' },
     connect: { en: 'Connect', bn: 'যোগাযোগ ও অ্যাকাউন্ট' }
   },
+  footer: {
+    address: { en: 'Dhaka 1000, Bangladesh', bn: 'ঢাকা ১০০০, বাংলাদেশ' },
+    contactCta: { en: 'Contact the office', bn: 'অফিসে যোগাযোগ করুন' },
+    rights: { en: 'All rights reserved.', bn: 'সর্বস্বত্ব সংরক্ষিত।' },
+    poweredBy: {
+      en: 'Powered by Digital Department Hub',
+      bn: 'ডিজিটাল ডিপার্টমেন্ট হাব দ্বারা পরিচালিত'
+    }
+  },
   brand: {
-    title: { en: 'Digital Department Hub', bn: 'ডিজিটাল ডিপার্টমেন্ট হাব' }
+    title: { en: 'Digital Department Hub', bn: 'ডিজিটাল ডিপার্টমেন্ট হাব' },
+    department: {
+      en: 'Department of Computer Science & Engineering',
+      bn: 'কম্পিউটার বিজ্ঞান ও প্রকৌশল বিভাগ'
+    },
+    university: { en: 'University of Dhaka', bn: 'ঢাকা বিশ্ববিদ্যালয়' }
   }
 };
 

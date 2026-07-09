@@ -1,4 +1,4 @@
-import RichTextEditor from '../common/RichTextEditor';
+import RichTextEditor from '../../../components/ui/RichTextEditor';
 import TranslationWorkflowFields from './TranslationWorkflowFields';
 
 export function NewsForm({

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Venue = require('./venue.model');
 const VenueBooking = require('./venueBooking.model');
 const ApiError = require('../../utils/ApiError');
+const { notifyBookingDecision } = require('../notification/notificationEvents');
 
 const buildPagination = ({ page, limit }) => {
   const parsedPage = Number(page || 1);
@@ -296,7 +297,7 @@ const listCalendar = async (query) => {
 };
 
 const reviewBooking = async ({ bookingId, approverId, status, decisionNote }) => {
-  return runInTransaction(async (session) => {
+  const booking = await runInTransaction(async (session) => {
     const booking = await VenueBooking.findById(bookingId).session(session);
     if (!booking) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Booking request not found');
@@ -340,6 +341,11 @@ const reviewBooking = async ({ bookingId, approverId, status, decisionNote }) =>
 
     return booking;
   });
+
+  const venue = await Venue.findById(booking.venue).select('name');
+  await notifyBookingDecision({ booking, venueName: venue ? venue.name : '' });
+
+  return booking;
 };
 
 module.exports = {

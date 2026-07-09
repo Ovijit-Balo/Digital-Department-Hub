@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { bookingApi } from '../../api/modules';
-import InlineAlert from '../../components/common/InlineAlert';
-import SkeletonList from '../../components/common/SkeletonList';
+import InlineAlert from '../../components/ui/InlineAlert';
+import SkeletonList from '../../components/ui/SkeletonList';
 import { useAuth } from '../../context/AuthContext';
 import useRole from '../../hooks/useRole';
 import { getApiErrorMessage } from '../../utils/http';
@@ -263,7 +263,7 @@ function BookingPage() {
   };
 
   return (
-    <section className="page-wrap">
+    <section className="page-wrap desk-page booking-page">
       <header className="page-title-bar">
         <div>
           <p className="eyebrow">Space Scheduling</p>
@@ -306,7 +306,7 @@ function BookingPage() {
       {message && <InlineAlert type="info">{message}</InlineAlert>}
       {loading && <SkeletonList count={3} showMedia lines={3} />}
 
-      <div className="workflow-grid workflow-grid-2">
+      <div className="workflow-grid booking-section">
         <article className="surface-card">
           <div className="section-head section-head-tight">
             <h3>Booking Calendar (Class / Event / Lab)</h3>
@@ -416,7 +416,7 @@ function BookingPage() {
         <article className="surface-card">
           <h3>Available Venues</h3>
           {!venues.length && <p>No venues available yet.</p>}
-          <div className="stack-list">
+          <div className="stack-list venue-grid">
             {venues.map((venue) => (
               <article key={venue._id} className="surface-card inner-card">
                 <h3>{venue.name}</h3>
@@ -431,7 +431,7 @@ function BookingPage() {
       </div>
 
       {isAuthenticated && (
-        <div className="workflow-grid workflow-grid-2">
+        <div className="workflow-grid booking-section">
           <article className="surface-card">
             <h3>Request Booking</h3>
             <form className="form-grid" onSubmit={submitBooking}>
@@ -654,7 +654,7 @@ function BookingPage() {
       )}
 
       {canApprove && (
-        <div className="workflow-grid workflow-grid-2">
+        <div className="workflow-grid booking-section">
           <article className="surface-card">
             <h3>Create Venue</h3>
             <form className="form-grid" onSubmit={createVenue}>

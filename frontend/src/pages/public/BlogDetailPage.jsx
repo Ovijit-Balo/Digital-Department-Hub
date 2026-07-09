@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
-import RichTextPreview from '../../components/common/RichTextPreview';
+import RichTextPreview from '../../components/ui/RichTextPreview';
 import useLanguage from '../../hooks/useLanguage';
 import usePageMeta from '../../hooks/usePageMeta';
 import { getApiErrorMessage } from '../../utils/http';

@@ -22,7 +22,7 @@
 }
 
 .gallery-item-card--button:focus-visible {
-  outline: 2px solid rgba(37, 99, 235, 0.55);
+  outline: 2px solid rgba(140, 21, 21, 0.55);
   outline-offset: 2px;
 }
 
@@ -30,7 +30,7 @@
   position: fixed;
   inset: 0;
   border: 0;
-  background: rgba(15, 23, 42, 0.72);
+  background: rgba(46, 45, 41, 0.72);
   padding: 1rem;
   display: grid;
   place-items: center;
@@ -38,7 +38,7 @@
 }
 
 .gallery-modal:focus-visible {
-  outline: 2px solid rgba(37, 99, 235, 0.55);
+  outline: 2px solid rgba(140, 21, 21, 0.55);
   outline-offset: 2px;
 }
 
@@ -47,7 +47,7 @@
   background: #fff;
   border-radius: 1rem;
   overflow: hidden;
-  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.32);
+  box-shadow: 0 28px 60px rgba(46, 45, 41, 0.32);
 }
 
 .gallery-modal__media {
@@ -55,7 +55,7 @@
   width: 100%;
   max-height: 72vh;
   object-fit: contain;
-  background: #0f172a;
+  background: #2e2d29;
 }
 
 .gallery-modal__copy {
@@ -94,12 +94,12 @@
   background:
     repeating-linear-gradient(
       135deg,
-      rgba(10, 88, 204, 0.06),
-      rgba(10, 88, 204, 0.06) 10px,
+      rgba(140, 21, 21, 0.06),
+      rgba(140, 21, 21, 0.06) 10px,
       transparent 10px,
       transparent 20px
     ),
-    #f3f6fb;
+    #f7f5f1;
   color: var(--muted);
   font-size: 0.82rem;
   text-align: center;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import useLanguage from '../../hooks/useLanguage';
-import { ui } from '../../i18n/publicUi';
+import useLanguage from '../../../hooks/useLanguage';
+import { ui } from '../../../i18n/publicUi';
 
 function ApplicationForm({
   notice,

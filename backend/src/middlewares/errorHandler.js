@@ -4,10 +4,16 @@ const logger = require('../config/logger');
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR;
 
-  if (err.details) {
-    logger.error(`${req.method} ${req.originalUrl} -> ${err.message} :: ${JSON.stringify(err.details)}`);
+  const detailSuffix = err.details ? ` :: ${JSON.stringify(err.details)}` : '';
+  const summary = `${req.method} ${req.originalUrl} -> ${statusCode} ${err.message}${detailSuffix}`;
+
+  if (statusCode >= StatusCodes.INTERNAL_SERVER_ERROR) {
+    // Genuine server faults: log the full stack for debugging.
+    logger.error(err.stack || summary);
   } else {
-    logger.error(err.stack || err.message);
+    // Expected client/operational errors (invalid token, validation, conflicts):
+    // log concisely at warn without a stack trace to avoid flooding the logs.
+    logger.warn(summary);
   }
 
   res.status(statusCode).json({

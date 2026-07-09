@@ -1,7 +1,7 @@
-import RichTextEditor from '../common/RichTextEditor';
+import RichTextEditor from '../../../components/ui/RichTextEditor';
 import TranslationWorkflowFields from './TranslationWorkflowFields';
 
-export function BlogForm({
+export function PageForm({
   form,
   sourceLanguage,
   onFieldChange,
@@ -12,12 +12,12 @@ export function BlogForm({
   return (
     <form className="form-grid" onSubmit={onSubmit}>
       <label>
-        Blog Slug
+        Page Slug
         <input
           value={form.slug}
           onChange={(event) => onFieldChange('slug', event.target.value)}
           onBlur={(event) => onFieldChange('slug', event.target.value)}
-          placeholder="student-research-highlights"
+          placeholder="about-department"
           required
         />
       </label>
@@ -41,54 +41,20 @@ export function BlogForm({
       </label>
 
       <label>
-        Excerpt (EN)
-        <textarea
-          value={form.excerpt.en}
-          onChange={(event) => onLocalizedChange('excerpt', 'en', event.target.value)}
-          required={sourceLanguage === 'en'}
-        />
-      </label>
-
-      <label>
-        Excerpt (BN)
-        <textarea
-          value={form.excerpt.bn}
-          onChange={(event) => onLocalizedChange('excerpt', 'bn', event.target.value)}
-          required={sourceLanguage === 'bn'}
-        />
-      </label>
-
-      <label>
-        Body (EN)
+        Content (EN)
         <RichTextEditor
-          value={form.body.en}
-          onChange={(value) => onLocalizedChange('body', 'en', value)}
-          placeholder="Write blog body in English"
+          value={form.content.en}
+          onChange={(value) => onLocalizedChange('content', 'en', value)}
+          placeholder="Write page content in English"
         />
       </label>
 
       <label>
-        Body (BN)
+        Content (BN)
         <RichTextEditor
-          value={form.body.bn}
-          onChange={(value) => onLocalizedChange('body', 'bn', value)}
-          placeholder="Write blog body in Bangla"
-        />
-      </label>
-
-      <label>
-        Cover Image URL (optional)
-        <input
-          value={form.coverImageUrl}
-          onChange={(event) => onFieldChange('coverImageUrl', event.target.value)}
-        />
-      </label>
-
-      <label>
-        Tags (comma separated)
-        <input
-          value={form.tagsInput}
-          onChange={(event) => onFieldChange('tagsInput', event.target.value)}
+          value={form.content.bn}
+          onChange={(value) => onLocalizedChange('content', 'bn', value)}
+          placeholder="Write page content in Bangla"
         />
       </label>
 
@@ -106,10 +72,10 @@ export function BlogForm({
       <TranslationWorkflowFields value={form.translationWorkflow} onChange={onWorkflowChange} />
 
       <button type="submit" className="btn btn-primary">
-        {form.id ? 'Update Blog' : 'Create Blog'}
+        {form.id ? 'Update Page' : 'Create Page'}
       </button>
     </form>
   );
 }
 
-export default BlogForm;
+export default PageForm;

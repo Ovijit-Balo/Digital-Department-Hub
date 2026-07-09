@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
-import RichTextPreview from '../../components/common/RichTextPreview';
+import RichTextPreview from '../../components/ui/RichTextPreview';
 import useLanguage from '../../hooks/useLanguage';
 import usePageMeta from '../../hooks/usePageMeta';
 import { ui } from '../../i18n/publicUi';

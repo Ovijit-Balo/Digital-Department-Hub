@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { cmsApi } from '../../api/modules';
-import InlineAlert from '../../components/common/InlineAlert';
-import SkeletonList from '../../components/common/SkeletonList';
+import InlineAlert from '../../components/ui/InlineAlert';
+import SkeletonList from '../../components/ui/SkeletonList';
 import useLanguage from '../../hooks/useLanguage';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalizedText } from '../../utils/localized';

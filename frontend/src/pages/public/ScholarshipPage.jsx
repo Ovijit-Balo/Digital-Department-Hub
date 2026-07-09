@@ -5,8 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import useLanguage from '../../hooks/useLanguage';
 import useRole from '../../hooks/useRole';
-import CollapsibleSection from '../../components/common/CollapsibleSection';
-import ReviewModal from '../../components/scholarship/ReviewModal';
+import CollapsibleSection from '../../components/ui/CollapsibleSection';
+import ReviewModal from '../../features/scholarship/components/ReviewModal';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalizedText } from '../../utils/localized';
@@ -916,7 +916,7 @@ function ScholarshipPage() {
   };
 
   return (
-    <section className="page-wrap">
+    <section className="page-wrap desk-page scholarship-page">
       <nav className="breadcrumb" aria-label="Breadcrumb">
         <Link to="/" className="breadcrumb-link">
           {ui('scholarship', 'breadcrumbHome', language)}

@@ -1,6 +1,8 @@
+import { Suspense, lazy } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import PublicLayout from '../components/layout/PublicLayout';
-import AdminLayout from '../components/layout/AdminLayout';
+import WorkspaceLayout from '../components/layout/WorkspaceLayout';
+import DeskLayout from '../components/layout/DeskLayout';
 import RoleGuard from '../components/layout/RoleGuard';
 import HomePage from '../pages/public/HomePage';
 import NewsPage from '../pages/public/NewsPage';
@@ -21,12 +23,13 @@ import PortalsPage from '../pages/public/PortalsPage';
 import StudentDashboardPage from '../pages/public/StudentDashboardPage';
 import LoginPage from '../pages/auth/LoginPage';
 import RegisterPage from '../pages/auth/RegisterPage';
-import AdminLandingPage from '../pages/admin/AdminLandingPage';
-import TeacherDashboardPage from '../pages/admin/TeacherDashboardPage';
-import StaffDashboardPage from '../pages/admin/StaffDashboardPage';
-import NotificationCenterPage from '../pages/admin/NotificationCenterPage';
-import AccessControlPage from '../pages/admin/AccessControlPage';
-import CmsStudioPage from '../pages/admin/CmsStudioPage';
+// Admin workspace pages are lazy-loaded so public visitors never download them.
+const AdminLandingPage = lazy(() => import('../pages/admin/AdminLandingPage'));
+const TeacherDashboardPage = lazy(() => import('../pages/admin/TeacherDashboardPage'));
+const StaffDashboardPage = lazy(() => import('../pages/admin/StaffDashboardPage'));
+const NotificationCenterPage = lazy(() => import('../pages/admin/NotificationCenterPage'));
+const AccessControlPage = lazy(() => import('../pages/admin/AccessControlPage'));
+const CmsStudioPage = lazy(() => import('../pages/admin/CmsStudioPage'));
 import {
   ACCESS_CONTROL_VIEW_ROLES,
   ADMIN_PANEL_ROLES,
@@ -40,7 +43,14 @@ import NotFoundPage from '../pages/NotFoundPage';
 
 function AppRouter() {
   return (
-    <Routes>
+    <Suspense
+      fallback={
+        <div className="route-loading" role="status" aria-live="polite">
+          Loading…
+        </div>
+      }
+    >
+      <Routes>
       <Route element={<PublicLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/news" element={<NewsPage />} />
@@ -52,19 +62,8 @@ function AppRouter() {
         <Route path="/gallery/:galleryId" element={<GalleryDetailPage />} />
         <Route path="/pages" element={<PagesPage />} />
         <Route path="/pages/:slug" element={<DynamicPageView />} />
-        <Route path="/scholarship" element={<ScholarshipPage />} />
-        <Route path="/events" element={<EventsPage />} />
-        <Route path="/booking" element={<BookingPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/portals" element={<PortalsPage />} />
-        <Route
-          path="/student"
-          element={
-            <RoleGuard roles={STUDENT_DASHBOARD_ROLES} loginPath="/login/student">
-              <StudentDashboardPage />
-            </RoleGuard>
-          }
-        />
         <Route
           path="/profile"
           element={
@@ -75,15 +74,32 @@ function AppRouter() {
         />
       </Route>
 
+      {/* Shared desks: public header for visitors, workspace bar when signed in. */}
+      <Route element={<DeskLayout />}>
+        <Route path="/scholarship" element={<ScholarshipPage />} />
+        <Route path="/events" element={<EventsPage />} />
+        <Route path="/booking" element={<BookingPage />} />
+      </Route>
+
       <Route path="/login" element={<LoginPage />} />
       <Route path="/login/:portal" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
       <Route
+        element={
+          <RoleGuard roles={STUDENT_DASHBOARD_ROLES} loginPath="/login/student">
+            <WorkspaceLayout />
+          </RoleGuard>
+        }
+      >
+        <Route path="/student" element={<StudentDashboardPage />} />
+      </Route>
+
+      <Route
         path="/admin"
         element={
           <RoleGuard roles={ADMIN_PANEL_ROLES} loginPath="/login/admin">
-            <AdminLayout />
+            <WorkspaceLayout />
           </RoleGuard>
         }
       >
@@ -130,8 +146,9 @@ function AppRouter() {
         />
       </Route>
 
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Suspense>
   );
 }
 

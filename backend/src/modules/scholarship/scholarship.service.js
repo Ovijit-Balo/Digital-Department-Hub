@@ -4,6 +4,10 @@ const ScholarshipApplication = require('./scholarshipApplication.model');
 const ScholarshipUpdate = require('./scholarshipUpdate.model');
 const ApiError = require('../../utils/ApiError');
 const toCsv = require('../../utils/csv');
+const {
+  notifyScholarshipSubmission,
+  notifyScholarshipDecision
+} = require('../notification/notificationEvents');
 
 const buildPagination = ({ page, limit }) => {
   const parsedPage = Number(page || 1);
@@ -231,12 +235,16 @@ const applyForScholarship = async ({ noticeId, userId, payload }) => {
     }
   }
 
-  return ScholarshipApplication.create({
+  const application = await ScholarshipApplication.create({
     ...payload,
     selectedCategoryCode: normalizedSelectedCategory || undefined,
     notice: noticeId,
     student: userId
   });
+
+  await notifyScholarshipSubmission({ application, notice });
+
+  return application;
 };
 
 const listApplications = async (query) => {
@@ -380,6 +388,8 @@ const reviewApplication = async ({
   application.reviewedBy = reviewerId;
   application.reviewedAt = new Date();
   await application.save();
+
+  await notifyScholarshipDecision({ application });
 
   return application;
 };

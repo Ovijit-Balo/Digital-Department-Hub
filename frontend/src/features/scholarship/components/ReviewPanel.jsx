@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { scholarshipApi } from '../../api/modules';
-import { useToast } from '../../context/ToastContext';
-import { getApiErrorMessage } from '../../utils/http';
+import { scholarshipApi } from '../../../api/modules';
+import { useToast } from '../../../context/ToastContext';
+import { getApiErrorMessage } from '../../../utils/http';
 import ReviewModal from './ReviewModal';
-import useLanguage from '../../hooks/useLanguage';
+import useLanguage from '../../../hooks/useLanguage';
 
 function ReviewPanel({ applications, onRefresh }) {
   const { success, error: toastError } = useToast();
@@ -33,6 +33,7 @@ function ReviewPanel({ applications, onRefresh }) {
     const styles = {
       submitted: 'status-badge status-badge--pending',
       under_review: 'status-badge status-badge--review',
+      shortlisted: 'status-badge status-badge--review',
       approved: 'status-badge status-badge--approved',
       rejected: 'status-badge status-badge--rejected'
     };

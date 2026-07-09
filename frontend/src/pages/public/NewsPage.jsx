@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
-import InlineAlert from '../../components/common/InlineAlert';
-import PaginationBar from '../../components/common/PaginationBar';
+import InlineAlert from '../../components/ui/InlineAlert';
+import PaginationBar from '../../components/ui/PaginationBar';
 import useRole from '../../hooks/useRole';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';

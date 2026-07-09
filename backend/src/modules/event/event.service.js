@@ -5,6 +5,7 @@ const QRCode = require('qrcode');
 const Event = require('./event.model');
 const EventRegistration = require('./eventRegistration.model');
 const ApiError = require('../../utils/ApiError');
+const { notifyEventRegistration } = require('../notification/notificationEvents');
 
 const runInTransaction = async (operation) => {
   const session = await mongoose.startSession();
@@ -140,12 +141,16 @@ const listEventCalendar = async (query, options = {}) => {
 };
 
 const registerForEvent = async ({ eventId, userId }) => {
-  return runInTransaction(async (session) => {
+  let eventTitle;
+
+  const registration = await runInTransaction(async (session) => {
     const event = await Event.findById(eventId).session(session);
 
     if (!event) {
       throw new ApiError(StatusCodes.NOT_FOUND, 'Event not found');
     }
+
+    eventTitle = event.title;
 
     if (event.status !== 'published') {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Event is not open for registration');
@@ -189,6 +194,10 @@ const registerForEvent = async ({ eventId, userId }) => {
 
     return registration;
   });
+
+  await notifyEventRegistration({ registration, eventTitle });
+
+  return registration;
 };
 
 const checkIn = async ({ eventId, qrToken }) => {
@@ -255,7 +264,7 @@ const listRegistrations = async ({ eventId, query }) => {
   };
 };
 
-const updateEvent = async (eventId, payload, userId) => {
+const updateEvent = async (eventId, payload) => {
   const event = await Event.findById(eventId);
 
   if (!event) {

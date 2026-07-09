@@ -1,0 +1,307 @@
+/* ==========================================================================
+   Student / portal dashboard — premium metric tiles + page header.
+   Decoupled from the shared .feature-card (which the homepage repurposed for
+   image cards), so dashboard tiles own their look. Display-only; no behavior.
+   ========================================================================== */
+
+.dashboard-page {
+  gap: 1.75rem;
+}
+
+/* ---- Page header ---- */
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.dashboard-header__intro {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.dashboard-eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.dashboard-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.9rem, 1.5rem + 1.6vw, 2.6rem);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+.dashboard-lead {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ---- Metric tiles ---- */
+.dash-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1.1rem;
+}
+
+.dash-metric {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.4rem 1.35rem 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform 200ms var(--ease),
+    box-shadow 200ms var(--ease),
+    border-color 200ms var(--ease);
+}
+
+.dash-metric:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(140, 21, 21, 0.3);
+}
+
+.dash-metric__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 0.35rem;
+  border-radius: 12px;
+  color: var(--primary);
+  background: rgba(140, 21, 21, 0.09);
+}
+
+.dash-metric__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.dash-metric__label {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.dash-metric__value {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(2.1rem, 1.7rem + 1.4vw, 2.9rem);
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--primary);
+}
+
+.dash-metric__sub {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-metric {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   Workspace shell — slim, sticky top bar for all signed-in roles (student,
+   admin, staff, teacher). No public mega-menus, no sidebar.
+   ========================================================================== */
+
+.workspace-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-top: 4px solid var(--primary);
+}
+
+.workspace-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.25rem;
+  padding: 0.7rem max(var(--gutter), calc((100% - var(--content-max)) / 2));
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom: 1px solid var(--stroke);
+  box-shadow: 0 6px 20px rgba(31, 41, 55, 0.05);
+}
+
+/* Two tidy rows: identity + account on top, navigation on its own row below. */
+.workspace-brand-wrap {
+  order: 1;
+}
+
+.workspace-actions {
+  order: 2;
+}
+
+.workspace-nav {
+  order: 3;
+}
+
+:root[data-theme='dark'] .workspace-topbar {
+  background: rgba(26, 25, 24, 0.97);
+}
+
+/* Brand + portal context */
+.workspace-brand {
+  display: grid;
+  gap: 0.05rem;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.workspace-brand__dept {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.workspace-brand__portal {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+/* Nav — full-width second row, so it stays one tidy line even for admin */
+.workspace-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex: 1 1 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  padding-top: 0.55rem;
+  margin-top: 0.15rem;
+  border-top: 1px solid var(--stroke);
+}
+
+.workspace-link {
+  position: relative;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 180ms var(--ease), background-color 180ms var(--ease);
+}
+
+.workspace-link:hover {
+  color: var(--primary);
+  background: rgba(140, 21, 21, 0.06);
+}
+
+.workspace-link.is-active {
+  color: var(--primary);
+  background: rgba(140, 21, 21, 0.1);
+  font-weight: 600;
+}
+
+.workspace-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Right-side account cluster */
+.workspace-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.workspace-toggle {
+  display: none;
+}
+
+/* Content area */
+.workspace-content {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding: clamp(1.5rem, 1rem + 1.5vw, 2.5rem) var(--gutter)
+    clamp(2rem, 1.5rem + 2vw, 3.5rem);
+}
+
+.workspace-content:focus {
+  outline: none;
+}
+
+/* The workspace pages were authored for the public container; neutralize the
+   full-bleed hero breakout if any workspace page uses .page-wrap width helpers. */
+.workspace-content > .page-wrap {
+  max-width: none;
+}
+
+/* ---- Responsive: collapse nav into a drawer ---- */
+@media (max-width: 900px) {
+  .workspace-topbar {
+    flex-wrap: wrap;
+  }
+
+  .workspace-toggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+
+  .workspace-nav {
+    order: 5;
+    flex: 1 1 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15rem;
+    display: none;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--stroke);
+  }
+
+  .workspace-topbar.is-drawer-open .workspace-nav {
+    display: flex;
+  }
+
+  .workspace-actions {
+    order: 4;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  .workspace-actions .user-chip {
+    margin-left: auto;
+  }
+}

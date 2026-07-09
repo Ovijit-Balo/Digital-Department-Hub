@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
-import InlineAlert from '../../components/common/InlineAlert';
-import PaginationBar from '../../components/common/PaginationBar';
-import SkeletonList from '../../components/common/SkeletonList';
+import InlineAlert from '../../components/ui/InlineAlert';
+import PaginationBar from '../../components/ui/PaginationBar';
+import SkeletonList from '../../components/ui/SkeletonList';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';

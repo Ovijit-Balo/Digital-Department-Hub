@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { eventApi } from '../../api/modules';
-import SkeletonCard from '../../components/common/SkeletonCard';
+import SkeletonCard from '../../components/ui/SkeletonCard';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import useRole from '../../hooks/useRole';
@@ -299,7 +299,7 @@ function EventsPage() {
   }
 
   return (
-    <section className="page-wrap">
+    <section className="page-wrap desk-page events-page">
       <header className="page-title-bar">
         <div>
           <p className="eyebrow">{ui('events', 'eyebrow', language)}</p>
@@ -573,7 +573,7 @@ function EventsPage() {
       </article>
 
       {showSecondaryPanels && (
-        <div className="workflow-grid workflow-grid-2">
+        <div className="workflow-grid events-section">
           {lastRegistration?.qrCodeDataUrl && (
             <article className="surface-card">
               <h3>Your Registration QR</h3>

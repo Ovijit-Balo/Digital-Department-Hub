@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { authApi, notificationApi } from '../../api/modules';
-import FilterBar from '../../components/common/FilterBar';
-import SkeletonList from '../../components/common/SkeletonList';
+import FilterBar from '../../components/ui/FilterBar';
+import SkeletonList from '../../components/ui/SkeletonList';
 import { useToast } from '../../context/ToastContext';
 import useDebounce from '../../hooks/useDebounce';
 import useRole from '../../hooks/useRole';
@@ -127,7 +127,7 @@ function NotificationCenterPage() {
   };
 
   return (
-    <section className="page-wrap">
+    <section className="page-wrap desk-page notifications-page">
       <div className="section-head">
         <div>
           <h1>Notification Center</h1>

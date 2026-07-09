@@ -1,6 +1,6 @@
-import { toLocalizedText, toIsoDate } from '../../utils/localized';
-import useLanguage from '../../hooks/useLanguage';
-import { ui } from '../../i18n/publicUi';
+import { toLocalizedText, toIsoDate } from '../../../utils/localized';
+import useLanguage from '../../../hooks/useLanguage';
+import { ui } from '../../../i18n/publicUi';
 
 function ScholarshipList({ notices, selectedNoticeId, onSelectNotice }) {
   const { language } = useLanguage();

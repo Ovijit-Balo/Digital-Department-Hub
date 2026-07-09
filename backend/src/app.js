@@ -20,8 +20,8 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 300,
+  windowMs: env.RATE_LIMIT_WINDOW_MIN * 60 * 1000,
+  limit: env.RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
