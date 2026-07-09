@@ -1,4 +1,4 @@
-import { sourceLanguageOptions, translationStatusOptions } from '../../data/cmsTranslations';
+import { sourceLanguageOptions, translationStatusOptions } from '../../../data/cmsTranslations';
 
 export function TranslationWorkflowFields({ value, onChange }) {
   return (

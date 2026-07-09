@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { cmsApi } from '../../api/modules';
-import InlineAlert from '../../components/common/InlineAlert';
+import InlineAlert from '../../components/ui/InlineAlert';
 import useLanguage from '../../hooks/useLanguage';
 import { getApiErrorMessage } from '../../utils/http';
 import { toLocalizedText } from '../../utils/localized';

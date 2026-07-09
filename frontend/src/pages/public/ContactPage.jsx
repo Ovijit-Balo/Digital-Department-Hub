@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { contactApi } from '../../api/modules';
-import InlineAlert from '../../components/common/InlineAlert';
-import SkeletonList from '../../components/common/SkeletonList';
+import InlineAlert from '../../components/ui/InlineAlert';
+import SkeletonList from '../../components/ui/SkeletonList';
 import { useAuth } from '../../context/AuthContext';
 import useRole from '../../hooks/useRole';
 import useLanguage from '../../hooks/useLanguage';

@@ -1,5 +1,5 @@
-import { toLocalizedText } from '../../utils/localized';
-import useLanguage from '../../hooks/useLanguage';
+import { toLocalizedText } from '../../../utils/localized';
+import useLanguage from '../../../hooks/useLanguage';
 
 function RecipientList({ recipients, notice, isPublished, onPublishToggle, canPublish }) {
   const { language } = useLanguage();

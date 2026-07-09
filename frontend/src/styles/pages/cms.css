@@ -51,7 +51,7 @@
 
 .qr-preview {
   border-color: var(--stroke);
-  box-shadow: 0 10px 22px rgba(14, 30, 56, 0.08);
+  box-shadow: 0 10px 22px rgba(46, 45, 41, 0.08);
 }
 
 :root[data-theme='dark'] .rich-editor-wrap {

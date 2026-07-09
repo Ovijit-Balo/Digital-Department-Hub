@@ -36,11 +36,11 @@ const translationWorkflowSchema = new mongoose.Schema(
 const newsPostSchema = new mongoose.Schema(
   {
     slug: {
+      // Uniqueness is declared once via newsPostSchema.index({ slug: 1 }, { unique: true, sparse: true })
+      // below — keeping it in a single place avoids Mongoose's duplicate-index warning.
       type: String,
       trim: true,
-      lowercase: true,
-      unique: true,
-      sparse: true // Allows multiple documents without the field
+      lowercase: true
     },
     title: {
       type: localizedTextSchema,

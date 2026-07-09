@@ -82,6 +82,7 @@ function ReviewModal({
               required
             >
               <option value="under_review">Under Review</option>
+              <option value="shortlisted">Shortlisted</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>

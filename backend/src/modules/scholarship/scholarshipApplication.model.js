@@ -53,7 +53,7 @@ const scholarshipApplicationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['submitted', 'under_review', 'approved', 'rejected'],
+      enum: ['submitted', 'under_review', 'shortlisted', 'approved', 'rejected'],
       default: 'submitted'
     },
     reviewedBy: {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { authApi } from '../../api/modules';
-import FilterBar from '../../components/common/FilterBar';
-import SkeletonList from '../../components/common/SkeletonList';
+import FilterBar from '../../components/ui/FilterBar';
+import SkeletonList from '../../components/ui/SkeletonList';
 import useRole from '../../hooks/useRole';
 import useDebounce from '../../hooks/useDebounce';
 import { ALL_ROLES, ROLES } from '../../constants/roles';

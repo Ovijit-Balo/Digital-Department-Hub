@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cmsApi } from '../../api/modules';
-import GalleryForm from '../../components/cms/GalleryForm';
-import NewsForm from '../../components/cms/NewsForm';
-import PageForm from '../../components/cms/PageForm';
+import BlogForm from '../../features/cms/components/BlogForm';
+import GalleryForm from '../../features/cms/components/GalleryForm';
+import NewsForm from '../../features/cms/components/NewsForm';
+import PageForm from '../../features/cms/components/PageForm';
 import useRole from '../../hooks/useRole';
 import useLanguage from '../../hooks/useLanguage';
 import { defaultTranslationWorkflow } from '../../data/cmsTranslations';
@@ -679,116 +680,14 @@ function CmsStudioPage() {
         )}
 
         {activeSection === 'blogs' && (
-          <form className="form-grid" onSubmit={submitBlog}>
-            <label>
-              Blog Slug
-              <input
-                value={blogForm.slug}
-                onChange={(event) => setBlogForm((prev) => ({ ...prev, slug: event.target.value }))}
-                onBlur={(event) =>
-                  setBlogForm((prev) => ({ ...prev, slug: toSlug(event.target.value) }))
-                }
-                placeholder="student-research-highlights"
-                required
-              />
-            </label>
-
-            <label>
-              Title (EN)
-              <input
-                value={blogForm.title.en}
-                onChange={(event) => onBlogLocalizedChange('title', 'en', event.target.value)}
-                required={blogSourceLanguage === 'en'}
-              />
-            </label>
-
-            <label>
-              Title (BN)
-              <input
-                value={blogForm.title.bn}
-                onChange={(event) => onBlogLocalizedChange('title', 'bn', event.target.value)}
-                required={blogSourceLanguage === 'bn'}
-              />
-            </label>
-
-            <label>
-              Excerpt (EN)
-              <textarea
-                value={blogForm.excerpt.en}
-                onChange={(event) => onBlogLocalizedChange('excerpt', 'en', event.target.value)}
-                required={blogSourceLanguage === 'en'}
-              />
-            </label>
-
-            <label>
-              Excerpt (BN)
-              <textarea
-                value={blogForm.excerpt.bn}
-                onChange={(event) => onBlogLocalizedChange('excerpt', 'bn', event.target.value)}
-                required={blogSourceLanguage === 'bn'}
-              />
-            </label>
-
-            <label>
-              Body (EN)
-              <RichTextEditor
-                value={blogForm.body.en}
-                onChange={(value) => onBlogLocalizedChange('body', 'en', value)}
-                placeholder="Write blog body in English"
-              />
-            </label>
-
-            <label>
-              Body (BN)
-              <RichTextEditor
-                value={blogForm.body.bn}
-                onChange={(value) => onBlogLocalizedChange('body', 'bn', value)}
-                placeholder="Write blog body in Bangla"
-              />
-            </label>
-
-            <label>
-              Cover Image URL (optional)
-              <input
-                value={blogForm.coverImageUrl}
-                onChange={(event) =>
-                  setBlogForm((prev) => ({ ...prev, coverImageUrl: event.target.value }))
-                }
-              />
-            </label>
-
-            <label>
-              Tags (comma separated)
-              <input
-                value={blogForm.tagsInput}
-                onChange={(event) =>
-                  setBlogForm((prev) => ({ ...prev, tagsInput: event.target.value }))
-                }
-              />
-            </label>
-
-            <label>
-              Publish Status
-              <select
-                value={blogForm.status}
-                onChange={(event) =>
-                  setBlogForm((prev) => ({ ...prev, status: event.target.value }))
-                }
-              >
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-              </select>
-            </label>
-
-            <TranslationWorkflowFields
-              value={blogForm.translationWorkflow}
-              onChange={onBlogWorkflowChange}
-            />
-
-            <button type="submit" className="btn btn-primary">
-              {blogForm.id ? 'Update Blog' : 'Create Blog'}
-            </button>
-          </form>
+          <BlogForm
+            form={blogForm}
+            sourceLanguage={blogSourceLanguage}
+            onFieldChange={(field, value) => setBlogForm((prev) => ({ ...prev, [field]: value }))}
+            onLocalizedChange={onBlogLocalizedChange}
+            onWorkflowChange={onBlogWorkflowChange}
+            onSubmit={submitBlog}
+          />
         )}
 
         {activeSection === 'gallery' && (

@@ -1,19 +1,28 @@
 {
   "brand": {
-    "title": "Digital Department Hub"
+    "title": "Digital Department Hub",
+    "department": "Department of Computer Science & Engineering",
+    "university": "University of Dhaka"
   },
   "nav": {
     "home": "Home",
-    "contentMedia": "Content & media",
-    "campusServices": "Campus services",
+    "about": "About",
+    "contentMedia": "News & Media",
+    "campusServices": "Services",
     "contact": "Contact",
     "portals": "Portals",
     "connect": "Connect & account"
   },
+  "footer": {
+    "address": "Dhaka 1000, Bangladesh",
+    "contactCta": "Contact the office",
+    "rights": "All rights reserved.",
+    "poweredBy": "Powered by Digital Department Hub"
+  },
   "home": {
-    "eyebrow": "Operational Digital Campus Platform",
-    "heroTitle": "Run your department with one interface, not five disconnected tools.",
-    "heroLead": "Publish updates, open scholarships, register events, approve venue requests, and handle inquiries from a unified, role-aware workflow.",
+    "eyebrow": "University of Dhaka",
+    "heroTitle": "Educating the next generation of computer scientists and engineers.",
+    "heroLead": "Official news, scholarships, events, and services from the Department of Computer Science & Engineering — in one place, in English and Bangla.",
     "signedInAs": "Signed in as",
     "refresh": "Refresh",
     "loadingHighlights": "Loading platform highlights...",
@@ -55,7 +64,32 @@
     "exploreHubSubtitle": "Content, services, and account tools—organized the same way as the menu above.",
     "exploreColContent": "Read & watch",
     "exploreColServices": "Apply & reserve",
-    "exploreColConnect": "Reach us"
+    "exploreColConnect": "Reach us",
+    "heroCtaScholarships": "View open scholarships",
+    "heroCtaEvents": "Upcoming events",
+    "heroCtaAbout": "About the department",
+    "qaHeading": "Frequently used services",
+    "qa1t": "Apply for a scholarship",
+    "qa1p": "Browse open notices and submit your application online.",
+    "qa2t": "Register for an event",
+    "qa2p": "Seminars, workshops, and department programs.",
+    "qa3t": "Book a venue",
+    "qa3p": "Request the auditorium, labs, or seminar rooms.",
+    "qa4t": "Contact the office",
+    "qa4p": "Send an inquiry and track its status.",
+    "aboutKicker": "About the department",
+    "aboutTitle": "A community of learning, research, and service.",
+    "aboutBody": "The Department of Computer Science & Engineering at the University of Dhaka serves students, researchers, and the wider community through quality education, open scholarship opportunities, and public programs. This hub is the department’s official channel for news, notices, and services.",
+    "aboutCta": "Learn more",
+    "glanceTitle": "The department at a glance",
+    "newsLead": "Announcements, notices, and stories from the department — published by the office, in English and Bangla.",
+    "readMore": "Read more",
+    "featCatScholarships": "Scholarships",
+    "featCatEvents": "Events",
+    "featCatFacilities": "Facilities",
+    "ctaTitle": "Ready to take the next step?",
+    "ctaLead": "Apply for scholarships, join department events, or reach the office — everything starts here.",
+    "ctaButton": "Explore scholarships"
   },
   "gallery": {
     "title": "Gallery",
@@ -165,8 +199,7 @@
     "goWorkspace": "Go to workspace",
     "switchPortal": "Open portal login",
     "notSet": "Not set"
-  }
-  ,
+  },
   "errors": {
     "notFoundTitle": "Page not found",
     "notFoundMessage": "We couldn't find the page you requested.",

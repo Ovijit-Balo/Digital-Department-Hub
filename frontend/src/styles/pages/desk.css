@@ -1,0 +1,291 @@
+/* ==========================================================================
+   Desk pages — Booking & Scholarship presentation polish.
+   Scoped under .desk-page so no other page is affected. Display-only: these
+   rules never change routes, handlers, or data flow. The goal is a calmer,
+   more "institutional" layout — denser two-column forms, quieter cards,
+   serif section headers, and refined KPI tiles + tables.
+   ========================================================================== */
+
+.desk-page {
+  gap: 1.5rem;
+}
+
+/* ---- Cards: quieter, more generous, consistent radius --------------------- */
+.desk-page .surface-card {
+  border-radius: var(--radius-lg);
+  padding: 1.5rem 1.5rem 1.6rem;
+  box-shadow: 0 12px 30px rgba(31, 41, 55, 0.06);
+}
+
+/* The red gradient wash on every card reads as "webby"; swap it for a single
+   hairline accent along the top edge — cleaner and more editorial. */
+.desk-page .surface-card::before {
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), rgba(140, 21, 21, 0.15));
+  opacity: 0;
+  transition: opacity 200ms var(--ease, ease);
+}
+
+.desk-page .surface-card:hover::before {
+  opacity: 1;
+}
+
+/* Nested cards (category matrix, venue tiles, application status) stay flat so
+   the visual hierarchy reads: page → panel → item. */
+.desk-page .inner-card {
+  border-radius: var(--radius);
+  padding: 1.1rem 1.15rem;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--card) 92%, var(--stroke));
+}
+
+.desk-page .inner-card::before {
+  display: none;
+}
+
+/* ---- Section headers: serif, with a structural hairline ------------------- */
+.desk-page .surface-card > h3:first-child,
+.desk-page .surface-card > .section-head:first-child {
+  padding-bottom: 0.7rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.desk-page .surface-card h3,
+.desk-page .section-head h3,
+.desk-page .collapsible-header h3,
+.desk-page .collapsible-header > span {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.desk-page .inner-card > h3:first-child,
+.desk-page .inner-card > .section-head:first-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+  margin-bottom: 0.6rem;
+}
+
+/* ---- Two-column forms — the biggest density win --------------------------
+   The default single-column form left a tall, sparse ribbon of white. Pair
+   fields side by side; let full-width elements (textareas, matrices, tables)
+   span both tracks; keep buttons content-sized and left-aligned so they read
+   as controls, not full-bleed bands. Collapses to one column on narrow panels. */
+.desk-page .surface-card:has(> form.form-grid) {
+  max-width: none;
+}
+
+.desk-page .form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem 1.25rem;
+  max-width: none;
+  align-items: end;
+}
+
+.desk-page .form-grid > label:has(textarea),
+.desk-page .form-grid > .surface-card,
+.desk-page .form-grid > .inner-card,
+.desk-page .form-grid > .table-wrap,
+.desk-page .form-grid > .stack-list,
+.desk-page .form-grid > .empty-state {
+  grid-column: 1 / -1;
+}
+
+.desk-page .form-grid > button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding-inline: 1.4rem;
+}
+
+/* When two actions sit together (Submit + Check Conflict), let them share a row
+   instead of stacking full-width. */
+.desk-page .form-grid > button + button {
+  grid-column: auto;
+}
+
+.desk-page .form-grid label {
+  gap: 0.4rem;
+  font-weight: 500;
+}
+
+.desk-page .form-grid input,
+.desk-page .form-grid select,
+.desk-page .form-grid textarea {
+  border-radius: var(--radius-sm, 0.5rem);
+  padding: 0.62rem 0.75rem;
+}
+
+.desk-page .form-grid input:focus,
+.desk-page .form-grid select:focus,
+.desk-page .form-grid textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(140, 21, 21, 0.12);
+}
+
+/* ---- KPI tiles: premium serif figures + top accent ------------------------ */
+.desk-page .kpi-strip {
+  gap: 1rem;
+}
+
+.desk-page .kpi-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  padding: 1.2rem 1.25rem 1.3rem;
+  box-shadow: 0 10px 24px rgba(31, 41, 55, 0.05);
+  transition:
+    transform 200ms var(--ease, ease),
+    box-shadow 200ms var(--ease, ease),
+    border-color 200ms var(--ease, ease);
+}
+
+.desk-page .kpi-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--primary);
+  opacity: 0.85;
+}
+
+.desk-page .kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px rgba(31, 41, 55, 0.09);
+  border-color: rgba(140, 21, 21, 0.28);
+}
+
+.desk-page .kpi-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+}
+
+.desk-page .kpi-value {
+  font-family: var(--font-serif);
+  font-size: clamp(1.9rem, 1.6rem + 1vw, 2.4rem);
+  font-weight: 600;
+  color: var(--primary);
+  margin-top: 0.35rem;
+}
+
+/* ---- Tables: bordered, rounded, quiet zebra ------------------------------- */
+.desk-page .table-wrap {
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  overflow: auto;
+}
+
+.desk-page .table-wrap table {
+  margin: 0;
+}
+
+.desk-page .table-wrap th {
+  background: color-mix(in srgb, var(--card) 88%, var(--stroke));
+  padding: 0.7rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.desk-page .table-wrap td {
+  padding: 0.7rem 0.75rem;
+}
+
+.desk-page .table-wrap tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* ---- Text safety: never let an unbroken string blow out a card -----------
+   A single long token (e.g. a pasted "aaaa…" description) has no wrap point,
+   so it forces the card wider than its column and clips the buttons + meta
+   line at the right edge. Break long words and let grid/flex children shrink
+   below their content width (min-width:0 defeats the default min-content floor). */
+.desk-page .surface-card,
+.desk-page .inner-card,
+.desk-page .scholarship-notice-card__body,
+.desk-page .stack-list,
+.desk-page .workflow-grid,
+.desk-page .workflow-grid-2 {
+  min-width: 0;
+}
+
+.desk-page .scholarship-notice-card__body > *,
+.desk-page .stack-list > * {
+  min-width: 0;
+}
+
+.desk-page .surface-card p,
+.desk-page .surface-card h3,
+.desk-page .surface-card h4,
+.desk-page .scholarship-notice-card__description,
+.desk-page .scholarship-notice-card__eligibility,
+.desk-page .scholarship-notice-card__meta,
+.desk-page .status-badge,
+.desk-page .code-pill {
+  overflow-wrap: anywhere;
+}
+
+/* ---- Action rows ---------------------------------------------------------- */
+.desk-page .inline-actions,
+.desk-page .notice-card-actions {
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Action buttons read as controls, not stretched full-width bands. */
+.desk-page .notice-card-actions .btn {
+  flex: 0 0 auto;
+}
+
+/* ---- Panel grid: a touch more air between the two columns ------------------ */
+.desk-page .workflow-grid {
+  gap: 1.5rem;
+}
+
+/* ---- Full-width stacked sections (Booking + Events admin) -----------------
+   The former 50/50 rows crammed every wide table (calendar, approval queue)
+   into a half column and left dead gaps next to short cards — e.g. the "Edit
+   Event" form sitting in the left half with the right half empty. Each section
+   is now a single full-width column so tables breathe and forms read as tidy
+   horizontal rows. These are plain `.workflow-grid` (grid, one implicit
+   column) — this just guarantees the single-column intent. */
+.booking-page .booking-section,
+.events-page .events-section {
+  grid-template-columns: 1fr;
+}
+
+/* Available Venues as a responsive card grid rather than a tall thin list. */
+.booking-page .venue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.9rem;
+  align-items: start;
+}
+
+.booking-page .venue-grid > .inner-card {
+  margin: 0;
+}
+
+/* ---- Responsive: single column forms on small viewports ------------------- */
+@media (max-width: 560px) {
+  .desk-page .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .desk-page .surface-card {
+    padding: 1.2rem 1.15rem 1.25rem;
+  }
+}
+
+/* ---- Dark theme: keep the accents legible --------------------------------- */
+:root[data-theme='dark'] .desk-page .table-wrap th {
+  background: color-mix(in srgb, var(--card) 80%, #000);
+}
+
+:root[data-theme='dark'] .desk-page .inner-card {
+  background: color-mix(in srgb, var(--card) 85%, #000);
+}

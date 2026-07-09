@@ -33,6 +33,11 @@ const envSchema = Joi.object({
   STORAGE_PROVIDER: Joi.string().valid('cloudinary', 's3').default('cloudinary'),
   FRONTEND_URL: Joi.string().default('http://localhost:5173'),
   LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'http', 'debug').default('info'),
+  // Global per-IP API rate limit. The default is sized for an authenticated admin SPA
+  // where a single dashboard view fans out into several requests; auth/contact endpoints
+  // keep their own stricter limiters.
+  RATE_LIMIT_WINDOW_MIN: Joi.number().default(15),
+  RATE_LIMIT_MAX: Joi.number().default(1000),
   EMAIL_FROM: Joi.string().default('no-reply@departmenthub.edu'),
   CLOUDINARY_CLOUD_NAME: Joi.string().allow('').optional(),
   CLOUDINARY_API_KEY: Joi.string().allow('').optional(),
@@ -59,6 +64,8 @@ module.exports = {
   ...value,
   PORT: Number(value.PORT),
   REDIS_PORT: Number(value.REDIS_PORT),
+  RATE_LIMIT_WINDOW_MIN: Number(value.RATE_LIMIT_WINDOW_MIN),
+  RATE_LIMIT_MAX: Number(value.RATE_LIMIT_MAX),
   RUN_WORKER_WITH_API: parseBoolean(value.RUN_WORKER_WITH_API),
   ENABLE_QUEUE: parseBoolean(value.ENABLE_QUEUE)
 };
