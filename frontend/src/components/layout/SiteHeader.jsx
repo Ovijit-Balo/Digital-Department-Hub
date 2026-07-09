@@ -40,6 +40,7 @@ function SiteHeader() {
   }, []);
 
   const pathname = location.pathname;
+  const isProfileRoute = pathname === '/profile';
 
   const contentGroupActive = useMemo(
     () => matchesNavPrefix(pathname, CONTENT_PREFIXES),
@@ -151,7 +152,7 @@ function SiteHeader() {
     <header
       className={`top-nav top-nav--public${mobileNavOpen ? ' is-mobile-nav-open' : ''}${
         isScrolled ? ' top-nav--scrolled' : ''
-      }`}
+      }${isProfileRoute ? ' top-nav--minimal' : ''}`}
     >
       <div className="brand-wrap">
         <Link to="/" className="brand-link brand-lockup" onClick={closeMobile}>
@@ -229,7 +230,7 @@ function SiteHeader() {
         </label>
 
         {user ? (
-          <>
+          <div className="account-actions">
             {primaryPortal && (
               <Link to={primaryPortal.workspacePath} className="btn btn-primary">
                 {workspaceLabel}
@@ -242,7 +243,7 @@ function SiteHeader() {
             <button type="button" className="btn btn-ghost" onClick={handleSignOut}>
               {toLocalizedText({ en: 'Sign Out', bn: 'সাইন আউট' }, language)}
             </button>
-          </>
+          </div>
         ) : (
           <div className="guest-auth-actions">
             <Link to="/register" className="btn btn-ghost">
