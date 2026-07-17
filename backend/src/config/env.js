@@ -39,6 +39,13 @@ const envSchema = Joi.object({
   RATE_LIMIT_WINDOW_MIN: Joi.number().default(15),
   RATE_LIMIT_MAX: Joi.number().default(1000),
   EMAIL_FROM: Joi.string().default('no-reply@departmenthub.edu'),
+  // SMTP is optional: when SMTP_USER + SMTP_PASS are set, emails are sent for real
+  // via nodemailer; otherwise the mailer falls back to logging (dev placeholder).
+  SMTP_HOST: Joi.string().default('smtp.gmail.com'),
+  SMTP_PORT: Joi.number().default(587),
+  SMTP_SECURE: Joi.boolean().default(false),
+  SMTP_USER: Joi.string().allow('').optional(),
+  SMTP_PASS: Joi.string().allow('').optional(),
   CLOUDINARY_CLOUD_NAME: Joi.string().allow('').optional(),
   CLOUDINARY_API_KEY: Joi.string().allow('').optional(),
   CLOUDINARY_API_SECRET: Joi.string().allow('').optional()
@@ -67,5 +74,7 @@ module.exports = {
   RATE_LIMIT_WINDOW_MIN: Number(value.RATE_LIMIT_WINDOW_MIN),
   RATE_LIMIT_MAX: Number(value.RATE_LIMIT_MAX),
   RUN_WORKER_WITH_API: parseBoolean(value.RUN_WORKER_WITH_API),
-  ENABLE_QUEUE: parseBoolean(value.ENABLE_QUEUE)
+  ENABLE_QUEUE: parseBoolean(value.ENABLE_QUEUE),
+  SMTP_PORT: Number(value.SMTP_PORT),
+  SMTP_SECURE: parseBoolean(value.SMTP_SECURE)
 };

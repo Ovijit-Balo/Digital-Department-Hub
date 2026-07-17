@@ -1,6 +1,10 @@
 const { StatusCodes } = require('http-status-codes');
 const asyncHandler = require('../../utils/asyncHandler');
 const cmsService = require('./cms.service');
+const Page = require('./page.model');
+const NewsPost = require('./newsPost.model');
+const BlogPost = require('./blogPost.model');
+const Gallery = require('./gallery.model');
 const AnalyticsService = require('../analytics/analytics.service');
 const logger = require('../../config/logger');
 
@@ -23,7 +27,7 @@ const listPages = asyncHandler(async (req, res) => {
 });
 
 const listPublicPages = asyncHandler(async (req, res) => {
-  const data = await cmsService.listPages({ ...req.query, status: 'published' });
+  const data = await cmsService.listPages({ ...req.query, status: 'published', onlyLive: true });
   res.status(StatusCodes.OK).json(data);
 });
 
@@ -93,7 +97,7 @@ const listNewsPosts = asyncHandler(async (req, res) => {
 });
 
 const listPublicNewsPosts = asyncHandler(async (req, res) => {
-  const data = await cmsService.listNewsPosts({ ...req.query, status: 'published' });
+  const data = await cmsService.listNewsPosts({ ...req.query, status: 'published', onlyLive: true });
   res.status(StatusCodes.OK).json(data);
 });
 
@@ -104,6 +108,19 @@ const getNewsPost = asyncHandler(async (req, res) => {
 
 const getPublicNewsPost = asyncHandler(async (req, res) => {
   const post = await cmsService.getPublicNewsPostById(req.params.id);
+
+  // Track view asynchronously — the by-id path serves the same public detail
+  // page as the slug path, so it must count views the same way.
+  AnalyticsService.trackView({
+    entityType: 'news',
+    entityId: post._id,
+    userId: req.user?._id || null,
+    sessionId: req.sessionID || null,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+    referrer: req.get('referrer')
+  }).catch((err) => logger.error('Analytics tracking error:', err));
+
   res.status(StatusCodes.OK).json({ post });
 });
 
@@ -168,7 +185,7 @@ const listBlogPosts = asyncHandler(async (req, res) => {
 });
 
 const listPublicBlogPosts = asyncHandler(async (req, res) => {
-  const data = await cmsService.listBlogPosts({ ...req.query, status: 'published' });
+  const data = await cmsService.listBlogPosts({ ...req.query, status: 'published', onlyLive: true });
   res.status(StatusCodes.OK).json(data);
 });
 
@@ -249,6 +266,18 @@ const getGallery = asyncHandler(async (req, res) => {
 
 const getPublicGallery = asyncHandler(async (req, res) => {
   const gallery = await cmsService.getPublicGalleryById(req.params.id);
+
+  // Track view asynchronously — mirrors the slug handler below.
+  AnalyticsService.trackView({
+    entityType: 'gallery',
+    entityId: gallery._id,
+    userId: req.user?._id || null,
+    sessionId: req.sessionID || null,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent'),
+    referrer: req.get('referrer')
+  }).catch((err) => logger.error('Analytics tracking error:', err));
+
   res.status(StatusCodes.OK).json({ gallery });
 });
 

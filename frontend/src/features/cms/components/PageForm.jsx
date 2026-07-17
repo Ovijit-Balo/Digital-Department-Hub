@@ -1,5 +1,7 @@
 import RichTextEditor from '../../../components/ui/RichTextEditor';
 import TranslationWorkflowFields from './TranslationWorkflowFields';
+import SeoScheduleFields from './SeoScheduleFields';
+import useCmsFormText from '../cmsFormText';
 
 export function PageForm({
   form,
@@ -7,12 +9,15 @@ export function PageForm({
   onFieldChange,
   onLocalizedChange,
   onWorkflowChange,
+  onSeoChange,
   onSubmit
 }) {
+  const t = useCmsFormText();
+
   return (
     <form className="form-grid" onSubmit={onSubmit}>
       <label>
-        Page Slug
+        {t('pageSlug')}
         <input
           value={form.slug}
           onChange={(event) => onFieldChange('slug', event.target.value)}
@@ -23,7 +28,7 @@ export function PageForm({
       </label>
 
       <label>
-        Title (EN)
+        {t('titleEn')}
         <input
           value={form.title.en}
           onChange={(event) => onLocalizedChange('title', 'en', event.target.value)}
@@ -32,7 +37,7 @@ export function PageForm({
       </label>
 
       <label>
-        Title (BN)
+        {t('titleBn')}
         <input
           value={form.title.bn}
           onChange={(event) => onLocalizedChange('title', 'bn', event.target.value)}
@@ -41,38 +46,45 @@ export function PageForm({
       </label>
 
       <label>
-        Content (EN)
+        {t('contentEn')}
         <RichTextEditor
           value={form.content.en}
           onChange={(value) => onLocalizedChange('content', 'en', value)}
-          placeholder="Write page content in English"
+          placeholder={t('writeContentEn')}
         />
       </label>
 
       <label>
-        Content (BN)
+        {t('contentBn')}
         <RichTextEditor
           value={form.content.bn}
           onChange={(value) => onLocalizedChange('content', 'bn', value)}
-          placeholder="Write page content in Bangla"
+          placeholder={t('writeContentBn')}
         />
       </label>
 
       <label>
-        Publish Status
+        {t('publishStatus')}
         <select
           value={form.status}
           onChange={(event) => onFieldChange('status', event.target.value)}
         >
-          <option value="draft">Draft</option>
-          <option value="published">Published</option>
+          <option value="draft">{t('draft')}</option>
+          <option value="published">{t('published')}</option>
         </select>
       </label>
 
       <TranslationWorkflowFields value={form.translationWorkflow} onChange={onWorkflowChange} />
 
+      <SeoScheduleFields
+        seo={form.seo}
+        scheduledAt={form.scheduledAt}
+        onSeoChange={onSeoChange}
+        onFieldChange={onFieldChange}
+      />
+
       <button type="submit" className="btn btn-primary">
-        {form.id ? 'Update Page' : 'Create Page'}
+        {form.id ? t('updatePage') : t('createPage')}
       </button>
     </form>
   );

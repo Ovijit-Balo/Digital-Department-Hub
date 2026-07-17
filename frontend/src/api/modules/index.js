@@ -6,3 +6,5 @@ export { bookingApi } from './bookingApi';
 export { contactApi } from './contactApi';
 export { notificationApi } from './notificationApi';
 export { auditApi } from './auditApi';
+export { searchApi } from './searchApi';
+export { analyticsApi } from './analyticsApi';

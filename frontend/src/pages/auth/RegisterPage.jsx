@@ -1,12 +1,54 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import useLanguage from '../../hooks/useLanguage';
+import { toLocalizedText } from '../../utils/localized';
 import { getDefaultWorkspaceForUser } from '../../constants/roles';
 import { validateRegisterForm } from '../../utils/formValidation';
 
+const STRENGTH_LABELS = {
+  'too-short': { en: 'Too short', bn: 'খুব ছোট' },
+  weak: { en: 'Weak', bn: 'দুর্বল' },
+  moderate: { en: 'Moderate', bn: 'মাঝারি' },
+  strong: { en: 'Strong', bn: 'শক্তিশালী' }
+};
+
+const T = {
+  title: { en: 'Create Account', bn: 'অ্যাকাউন্ট তৈরি করুন' },
+  lead: {
+    en: 'Student self-service account registration for the Digital Department Hub.',
+    bn: 'ডিজিটাল ডিপার্টমেন্ট হাবে শিক্ষার্থীদের নিজস্ব অ্যাকাউন্ট রেজিস্ট্রেশন।'
+  },
+  defaultRole: {
+    en: 'New registrations are assigned the Student role by default.',
+    bn: 'নতুন রেজিস্ট্রেশনে ডিফল্টভাবে শিক্ষার্থী ভূমিকা বরাদ্দ হয়।'
+  },
+  fullName: { en: 'Full Name', bn: 'পুরো নাম' },
+  email: { en: 'Email', bn: 'ইমেইল' },
+  password: { en: 'Password', bn: 'পাসওয়ার্ড' },
+  strength: { en: 'Password strength:', bn: 'পাসওয়ার্ডের শক্তি:' },
+  department: { en: 'Department (optional)', bn: 'বিভাগ (ঐচ্ছিক)' },
+  language: { en: 'Language', bn: 'ভাষা' },
+  english: { en: 'English', bn: 'ইংরেজি' },
+  bangla: { en: 'Bangla', bn: 'বাংলা' },
+  creating: { en: 'Creating Account...', bn: 'অ্যাকাউন্ট তৈরি হচ্ছে...' },
+  haveAccount: { en: 'Already have an account?', bn: 'ইতিমধ্যে অ্যাকাউন্ট আছে?' },
+  signIn: { en: 'Sign In', bn: 'সাইন ইন' },
+  staffAccount: { en: 'Admin, Teacher, or Staff account?', bn: 'অ্যাডমিন, শিক্ষক বা স্টাফ অ্যাকাউন্ট?' },
+  openGuide: { en: 'Open Portal Guide', bn: 'পোর্টাল গাইড খুলুন' },
+  fixFields: {
+    en: 'Please fix the highlighted registration fields.',
+    bn: 'অনুগ্রহ করে চিহ্নিত রেজিস্ট্রেশন ঘরগুলো ঠিক করুন।'
+  },
+  failed: {
+    en: 'Registration failed. Please try again.',
+    bn: 'রেজিস্ট্রেশন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।'
+  }
+};
+
 const getPasswordStrength = (password) => {
   if (!password) {
-    return { label: 'Too short', key: 'too-short', score: 0 };
+    return { key: 'too-short', score: 0 };
   }
 
   let score = 0;
@@ -17,16 +59,18 @@ const getPasswordStrength = (password) => {
   if (/[0-9]/.test(password)) score += 1;
   if (/[^A-Za-z0-9]/.test(password)) score += 1;
 
-  if (score <= 1) return { label: 'Weak', key: 'weak', score };
-  if (score <= 3) return { label: 'Moderate', key: 'moderate', score };
+  if (score <= 1) return { key: 'weak', score };
+  if (score <= 3) return { key: 'moderate', score };
 
-  return { label: 'Strong', key: 'strong', score };
+  return { key: 'strong', score };
 };
 
 function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { register } = useAuth();
+  const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
 
   const [form, setForm] = useState({
     fullName: '',
@@ -55,7 +99,7 @@ function RegisterPage() {
     const nextErrors = validateRegisterForm(form);
     setFormErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
-      setError('Please fix the highlighted registration fields.');
+      setError(t('fixFields'));
       return;
     }
 
@@ -73,7 +117,7 @@ function RegisterPage() {
       const user = await register(payload);
       navigate(location.state?.from || getDefaultWorkspaceForUser(user), { replace: true });
     } catch (apiError) {
-      setError(apiError?.response?.data?.message || 'Registration failed. Please try again.');
+      setError(apiError?.response?.data?.message || t('failed'));
     } finally {
       setLoading(false);
     }
@@ -82,11 +126,11 @@ function RegisterPage() {
   return (
     <section className="auth-screen">
       <form className="auth-card" onSubmit={onSubmit}>
-        <h1>Create Account</h1>
-        <p>Student self-service account registration for the Digital Department Hub.</p>
-        <p className="meta">New registrations are assigned the Student role by default.</p>
+        <h1>{t('title')}</h1>
+        <p>{t('lead')}</p>
+        <p className="meta">{t('defaultRole')}</p>
 
-        <label htmlFor="fullName">Full Name</label>
+        <label htmlFor="fullName">{t('fullName')}</label>
         <input
           id="fullName"
           type="text"
@@ -100,7 +144,7 @@ function RegisterPage() {
         />
         {formErrors.fullName && <p className="error-text">{formErrors.fullName}</p>}
 
-        <label htmlFor="email">Email</label>
+        <label htmlFor="email">{t('email')}</label>
         <input
           id="email"
           type="email"
@@ -112,7 +156,7 @@ function RegisterPage() {
         />
         {formErrors.email && <p className="error-text">{formErrors.email}</p>}
 
-        <label htmlFor="password">Password</label>
+        <label htmlFor="password">{t('password')}</label>
         <input
           id="password"
           type="password"
@@ -132,10 +176,12 @@ function RegisterPage() {
               style={{ width: `${Math.max(passwordStrength.score, 1) * 20}%` }}
             />
           </div>
-          <p className="meta">Password strength: {passwordStrength.label}</p>
+          <p className="meta">
+            {t('strength')} {toLocalizedText(STRENGTH_LABELS[passwordStrength.key], language)}
+          </p>
         </div>
 
-        <label htmlFor="department">Department (optional)</label>
+        <label htmlFor="department">{t('department')}</label>
         <input
           id="department"
           type="text"
@@ -146,29 +192,29 @@ function RegisterPage() {
         />
         {formErrors.department && <p className="error-text">{formErrors.department}</p>}
 
-        <label htmlFor="languagePreference">Language</label>
+        <label htmlFor="languagePreference">{t('language')}</label>
         <select
           id="languagePreference"
           name="languagePreference"
           value={form.languagePreference}
           onChange={onChange}
         >
-          <option value="en">English</option>
-          <option value="bn">Bangla</option>
+          <option value="en">{t('english')}</option>
+          <option value="bn">{t('bangla')}</option>
         </select>
 
         {error && <p className="error-text">{error}</p>}
 
         <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? 'Creating Account...' : 'Create Account'}
+          {loading ? t('creating') : t('title')}
         </button>
 
         <p>
-          Already have an account? <Link to="/login/student">Sign In</Link>
+          {t('haveAccount')} <Link to="/login/student">{t('signIn')}</Link>
         </p>
 
         <p>
-          Admin, Teacher, or Staff account? <Link to="/portals">Open Portal Guide</Link>
+          {t('staffAccount')} <Link to="/portals">{t('openGuide')}</Link>
         </p>
       </form>
     </section>

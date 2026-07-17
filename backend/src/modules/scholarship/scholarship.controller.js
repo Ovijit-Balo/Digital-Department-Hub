@@ -189,6 +189,19 @@ const exportApplications = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).send(csv);
 });
 
+const exportApplicationsPdf = asyncHandler(async (req, res) => {
+  const { buffer, filename } = await scholarshipService.exportApplicationsPdf(req.query);
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.status(StatusCodes.OK).send(buffer);
+});
+
+const applicationStats = asyncHandler(async (req, res) => {
+  const stats = await scholarshipService.getApplicationStatusStats(req.query);
+  res.status(StatusCodes.OK).json(stats);
+});
+
 module.exports = {
   createNotice,
   listNotices,
@@ -205,5 +218,7 @@ module.exports = {
   listNoticeUpdates,
   listUpdates,
   listManageNoticeUpdates,
-  exportApplications
+  exportApplications,
+  exportApplicationsPdf,
+  applicationStats
 };

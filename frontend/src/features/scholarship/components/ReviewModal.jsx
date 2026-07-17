@@ -1,4 +1,26 @@
 import { useState, useEffect } from 'react';
+import Modal from '../../../components/ui/Modal';
+import useLanguage from '../../../hooks/useLanguage';
+import { toLocalizedText } from '../../../utils/localized';
+
+const T = {
+  selectAwardErr: { en: 'Select an award category before approving.', bn: 'অনুমোদনের আগে একটি পুরস্কার বিভাগ নির্বাচন করুন।' },
+  amountErr: { en: 'Award amount must be a positive number', bn: 'পুরস্কারের পরিমাণ একটি ধনাত্মক সংখ্যা হতে হবে' },
+  title: { en: 'Review Application', bn: 'আবেদন পর্যালোচনা' },
+  decision: { en: 'Decision *', bn: 'সিদ্ধান্ত *' },
+  underReview: { en: 'Under Review', bn: 'পর্যালোচনাধীন' },
+  shortlisted: { en: 'Shortlisted', bn: 'সংক্ষিপ্ত তালিকাভুক্ত' },
+  approved: { en: 'Approved', bn: 'অনুমোদিত' },
+  rejected: { en: 'Rejected', bn: 'প্রত্যাখ্যাত' },
+  decisionNote: { en: 'Decision Note', bn: 'সিদ্ধান্ত নোট' },
+  notePlaceholder: { en: 'Add notes about this decision...', bn: 'এই সিদ্ধান্ত সম্পর্কে নোট যোগ করুন...' },
+  awardCategoryReq: { en: 'Award Category *', bn: 'পুরস্কার বিভাগ *' },
+  selectCategory: { en: 'Select category', bn: 'বিভাগ নির্বাচন করুন' },
+  awardCategoryOptional: { en: 'Award Category (optional)', bn: 'পুরস্কার বিভাগ (ঐচ্ছিক)' },
+  awardAmountOptional: { en: 'Award Amount (optional)', bn: 'পুরস্কারের পরিমাণ (ঐচ্ছিক)' },
+  cancel: { en: 'Cancel', bn: 'বাতিল' },
+  saveDecision: { en: 'Save Decision', bn: 'সিদ্ধান্ত সংরক্ষণ' }
+};
 
 function ReviewModal({
   isOpen,
@@ -9,6 +31,8 @@ function ReviewModal({
   categories = [],
   onConfirm
 }) {
+  const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
   const [status, setStatus] = useState('');
   const [decisionNote, setDecisionNote] = useState('');
   const [awardedCategoryCode, setAwardedCategoryCode] = useState('');
@@ -29,11 +53,11 @@ function ReviewModal({
     const newErrors = {};
 
     if (status === 'approved' && categories.length && !awardedCategoryCode) {
-      newErrors.awardedCategoryCode = 'Select an award category before approving.';
+      newErrors.awardedCategoryCode = t('selectAwardErr');
     }
 
     if (awardedAmount && (Number(awardedAmount) < 0 || Number.isNaN(Number(awardedAmount)))) {
-      newErrors.awardedAmount = 'Award amount must be a positive number';
+      newErrors.awardedAmount = t('amountErr');
     }
 
     setErrors(newErrors);
@@ -52,49 +76,31 @@ function ReviewModal({
     }
   };
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <div className="modal-overlay" onClick={onClose} role="presentation">
-      <div
-        className="modal-content"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="review-modal-title"
-      >
-        <div className="modal-header">
-          <h2 id="review-modal-title">Review Application</h2>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="Close modal">
-            ×
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="modal-body form-grid">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('title')}>
+      <form onSubmit={handleSubmit} className="modal-form form-grid">
           <label htmlFor="review-status">
-            Decision *
+            {t('decision')}
             <select
               id="review-status"
               value={status}
               onChange={(event) => setStatus(event.target.value)}
               required
             >
-              <option value="under_review">Under Review</option>
-              <option value="shortlisted">Shortlisted</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
+              <option value="under_review">{t('underReview')}</option>
+              <option value="shortlisted">{t('shortlisted')}</option>
+              <option value="approved">{t('approved')}</option>
+              <option value="rejected">{t('rejected')}</option>
             </select>
           </label>
 
           <label htmlFor="decision-note">
-            Decision Note
+            {t('decisionNote')}
             <textarea
               id="decision-note"
               value={decisionNote}
               onChange={(event) => setDecisionNote(event.target.value)}
-              placeholder="Add notes about this decision..."
+              placeholder={t('notePlaceholder')}
               rows={3}
               maxLength={1000}
             />
@@ -104,7 +110,7 @@ function ReviewModal({
             <>
               {categories.length ? (
                 <label htmlFor="awarded-category">
-                  Award Category *
+                  {t('awardCategoryReq')}
                   <select
                     id="awarded-category"
                     value={awardedCategoryCode}
@@ -112,10 +118,10 @@ function ReviewModal({
                     required
                     aria-invalid={errors.awardedCategoryCode ? 'true' : 'false'}
                   >
-                    <option value="">Select category</option>
+                    <option value="">{t('selectCategory')}</option>
                     {categories.map((category) => (
                       <option key={category.code} value={category.code}>
-                        {category.name?.en || category.code} ({category.amount})
+                        {category.name?.[language] || category.name?.en || category.code} ({category.amount})
                       </option>
                     ))}
                   </select>
@@ -127,7 +133,7 @@ function ReviewModal({
                 </label>
               ) : (
                 <label htmlFor="awarded-category">
-                  Award Category (optional)
+                  {t('awardCategoryOptional')}
                   <input
                     id="awarded-category"
                     type="text"
@@ -139,7 +145,7 @@ function ReviewModal({
               )}
 
               <label htmlFor="awarded-amount">
-                Award Amount (optional)
+                {t('awardAmountOptional')}
                 <input
                   id="awarded-amount"
                   type="number"
@@ -159,17 +165,16 @@ function ReviewModal({
             </>
           )}
 
-          <div className="modal-footer inline-actions">
+          <div className="modal-form__actions">
             <button type="button" className="btn btn-ghost" onClick={onClose}>
-              Cancel
+              {t('cancel')}
             </button>
             <button type="submit" className="btn btn-primary">
-              Save Decision
+              {t('saveDecision')}
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

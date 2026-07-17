@@ -128,4 +128,20 @@ router.get(
   scholarshipController.exportApplications
 );
 
+router.get(
+  '/applications/export/pdf',
+  authenticate,
+  authorize(...canReviewScholarship),
+  validate(scholarshipValidation.exportApplications),
+  scholarshipController.exportApplicationsPdf
+);
+
+router.get(
+  '/applications/stats',
+  authenticate,
+  authorize(...canReviewScholarship),
+  validate(scholarshipValidation.applicationStats),
+  scholarshipController.applicationStats
+);
+
 module.exports = router;

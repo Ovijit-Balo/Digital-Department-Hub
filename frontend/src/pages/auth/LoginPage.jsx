@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import useLanguage from '../../hooks/useLanguage';
+import { toLocalizedText } from '../../utils/localized';
 import { validateLoginForm } from '../../utils/formValidation';
 import {
   PORTAL_DEFINITIONS,
@@ -11,11 +13,57 @@ import {
   userCanAccessPortal
 } from '../../constants/roles';
 
+const T = {
+  back: { en: '← Back to portal guide', bn: '← পোর্টাল গাইডে ফিরুন' },
+  signIn: { en: 'Sign In', bn: 'সাইন ইন' },
+  signInSuffix: { en: 'Sign In', bn: 'সাইন ইন' },
+  genericLead: {
+    en: 'Use your institutional account to access the Digital Department Hub.',
+    bn: 'ডিজিটাল ডিপার্টমেন্ট হাব ব্যবহার করতে আপনার প্রাতিষ্ঠানিক অ্যাকাউন্ট ব্যবহার করুন।'
+  },
+  choosePortal: { en: 'Choose portal', bn: 'পোর্টাল নির্বাচন করুন' },
+  email: { en: 'Email', bn: 'ইমেইল' },
+  password: { en: 'Password', bn: 'পাসওয়ার্ড' },
+  keepSignedIn: {
+    en: 'Keep me signed in on this device',
+    bn: 'এই ডিভাইসে আমাকে সাইন ইন রাখুন'
+  },
+  tempHint: {
+    en: 'Prefer a temporary session? Uncheck the box above.',
+    bn: 'অস্থায়ী সেশন চান? উপরের বক্সটি আনচেক করুন।'
+  },
+  forgot: { en: 'Forgot password?', bn: 'পাসওয়ার্ড ভুলে গেছেন?' },
+  signingIn: { en: 'Signing In...', bn: 'সাইন ইন হচ্ছে...' },
+  postLogin: { en: 'Post-login workspace:', bn: 'সাইন ইন পরবর্তী ওয়ার্কস্পেস:' },
+  needStudent: { en: 'Need a student account?', bn: 'শিক্ষার্থী অ্যাকাউন্ট প্রয়োজন?' },
+  createOne: { en: 'Create one', bn: 'তৈরি করুন' },
+  provisioned: {
+    en: 'Admin, Teacher, and Staff accounts are provisioned by system administrators.',
+    bn: 'অ্যাডমিন, শিক্ষক ও স্টাফ অ্যাকাউন্ট সিস্টেম প্রশাসকগণ তৈরি করেন।'
+  },
+  needHelp: { en: 'Need help choosing?', bn: 'নির্বাচনে সাহায্য প্রয়োজন?' },
+  openGuide: { en: 'Open Portal Guide', bn: 'পোর্টাল গাইড খুলুন' },
+  fixFields: {
+    en: 'Please fix the highlighted sign-in fields.',
+    bn: 'অনুগ্রহ করে চিহ্নিত সাইন-ইন ঘরগুলো ঠিক করুন।'
+  },
+  noPortal: {
+    en: 'This account has no eligible portal assignment. Contact an administrator.',
+    bn: 'এই অ্যাকাউন্টের কোনো যোগ্য পোর্টাল বরাদ্দ নেই। প্রশাসকের সাথে যোগাযোগ করুন।'
+  },
+  loginFailed: {
+    en: 'Login failed. Please verify your credentials.',
+    bn: 'সাইন ইন ব্যর্থ হয়েছে। আপনার তথ্য যাচাই করুন।'
+  }
+};
+
 function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { portal } = useParams();
   const { login, logout } = useAuth();
+  const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
 
   const [form, setForm] = useState({ email: '', password: '', rememberMe: true });
   const [error, setError] = useState('');
@@ -42,7 +90,7 @@ function LoginPage() {
     const nextErrors = validateLoginForm(form);
     setFormErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
-      setError('Please fix the highlighted sign-in fields.');
+      setError(t('fixFields'));
       return;
     }
 
@@ -57,17 +105,21 @@ function LoginPage() {
         logout();
         setError(
           assignedPortal
-            ? `This account is assigned to the ${assignedPortal.label} portal. Use ${assignedPortal.loginPath} to continue.`
-            : 'This account has no eligible portal assignment. Contact an administrator.'
+            ? toLocalizedText(
+                {
+                  en: `This account is assigned to the ${assignedPortal.label} portal. Use ${assignedPortal.loginPath} to continue.`,
+                  bn: `এই অ্যাকাউন্টটি ${assignedPortal.label} পোর্টালে বরাদ্দ। চালিয়ে যেতে ${assignedPortal.loginPath} ব্যবহার করুন।`
+                },
+                language
+              )
+            : t('noPortal')
         );
         return;
       }
 
       navigate(location.state?.from || getDefaultWorkspaceForUser(user), { replace: true });
     } catch (apiError) {
-      setError(
-        apiError?.response?.data?.message || 'Login failed. Please verify your credentials.'
-      );
+      setError(apiError?.response?.data?.message || t('loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -78,19 +130,15 @@ function LoginPage() {
       <form className="auth-card" onSubmit={onSubmit}>
         <div className="auth-card__topbar">
           <Link to="/portals" className="auth-card__back-link">
-            ← Back to portal guide
+            {t('back')}
           </Link>
         </div>
 
-        <h1>{selectedPortal ? `${selectedPortal.label} Sign In` : 'Sign In'}</h1>
-        <p>
-          {selectedPortal
-            ? selectedPortal.description
-            : 'Use your institutional account to access the Digital Department Hub.'}
-        </p>
+        <h1>{selectedPortal ? `${selectedPortal.label} ${t('signInSuffix')}` : t('signIn')}</h1>
+        <p>{selectedPortal ? selectedPortal.description : t('genericLead')}</p>
 
         <div className="portal-switch-wrap">
-          <p className="meta">Choose portal</p>
+          <p className="meta">{t('choosePortal')}</p>
           <div className="portal-pill-row">
             {portalLinks.map((portalItem) => (
               <Link
@@ -104,7 +152,7 @@ function LoginPage() {
           </div>
         </div>
 
-        <label htmlFor="email">Email</label>
+        <label htmlFor="email">{t('email')}</label>
         <input
           id="email"
           type="email"
@@ -116,7 +164,7 @@ function LoginPage() {
         />
         {formErrors.email && <p className="error-text">{formErrors.email}</p>}
 
-        <label htmlFor="password">Password</label>
+        <label htmlFor="password">{t('password')}</label>
         <input
           id="password"
           type="password"
@@ -135,38 +183,38 @@ function LoginPage() {
             checked={form.rememberMe}
             onChange={(event) => setForm((prev) => ({ ...prev, rememberMe: event.target.checked }))}
           />
-          <span>Keep me signed in on this device</span>
+          <span>{t('keepSignedIn')}</span>
         </label>
 
         <div className="auth-inline-actions">
-          <span className="meta">Prefer a temporary session? Uncheck the box above.</span>
-          <Link to="/contact" className="home-inline-link">
-            Forgot password?
+          <span className="meta">{t('tempHint')}</span>
+          <Link to="/forgot-password" className="home-inline-link">
+            {t('forgot')}
           </Link>
         </div>
 
         {error && <p className="error-text">{error}</p>}
 
         <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? 'Signing In...' : 'Sign In'}
+          {loading ? t('signingIn') : t('signIn')}
         </button>
 
         {selectedPortal && (
-          <p className="meta">Post-login workspace: {selectedPortal.workspaceLabel}</p>
+          <p className="meta">
+            {t('postLogin')} {selectedPortal.workspaceLabel}
+          </p>
         )}
 
         {selectedPortal?.key === 'student' || !selectedPortal ? (
           <p>
-            Need a student account? <Link to="/register">Create one</Link>
+            {t('needStudent')} <Link to="/register">{t('createOne')}</Link>
           </p>
         ) : (
-          <p className="meta">
-            Admin, Teacher, and Staff accounts are provisioned by system administrators.
-          </p>
+          <p className="meta">{t('provisioned')}</p>
         )}
 
         <p>
-          Need help choosing? <Link to="/portals">Open Portal Guide</Link>
+          {t('needHelp')} <Link to="/portals">{t('openGuide')}</Link>
         </p>
       </form>
     </section>

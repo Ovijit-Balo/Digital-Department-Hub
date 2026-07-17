@@ -8,7 +8,19 @@ import { getApiErrorMessage } from '../../utils/http';
 import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import { toLocalizedText } from '../../utils/localized';
 
-function GalleryMediaItem({ item, language, onPreview, onOpenDetail }) {
+const T = {
+  loadFailed: { en: 'Failed to load galleries.', bn: 'গ্যালারি লোড করতে ব্যর্থ।' },
+  eyebrow: { en: 'Media Collections', bn: 'মিডিয়া সংগ্রহ' },
+  subtitle: {
+    en: 'Photo galleries and media from department events',
+    bn: 'বিভাগীয় ইভেন্টের ছবি গ্যালারি ও মিডিয়া'
+  },
+  emptyText: { en: 'No gallery collections published yet.', bn: 'এখনও কোনো গ্যালারি সংগ্রহ প্রকাশিত হয়নি।' },
+  items: { en: 'items', bn: 'আইটেম' },
+  closePreview: { en: 'Close image preview', bn: 'ছবির প্রিভিউ বন্ধ করুন' }
+};
+
+function GalleryMediaItem({ item, language, onOpenDetail }) {
   const [failed, setFailed] = useState(false);
   const src = resolveMediaUrl(item.mediaUrl);
   const caption = toLocalizedText(item.caption, language) || ui('gallery', 'untitled', language);
@@ -53,6 +65,7 @@ function GalleryMediaItem({ item, language, onPreview, onOpenDetail }) {
 
 function GalleryPage() {
   const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [collections, setCollections] = useState([]);
@@ -67,11 +80,12 @@ function GalleryPage() {
       const response = await cmsApi.listGalleries({ status: 'published', limit: 40 });
       setCollections(response.data.items || []);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load galleries.'));
+      setError(getApiErrorMessage(apiError, t('loadFailed')));
     } finally {
       setLoading(false);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   const skeletonCollections = useMemo(() => Array.from({ length: 2 }, (_, index) => index), []);
 
@@ -83,9 +97,9 @@ function GalleryPage() {
     <section className="page-wrap">
       <header className="page-title-bar">
         <div>
-          <p className="eyebrow">Media Collections</p>
+          <p className="eyebrow">{t('eyebrow')}</p>
           <h1>{ui('gallery', 'title', language)}</h1>
-          <p className="page-title-subtitle">Photo galleries and media from department events</p>
+          <p className="page-title-subtitle">{t('subtitle')}</p>
         </div>
         <button type="button" className="btn btn-ghost" onClick={loadCollections}>
           {ui('home', 'refresh', language)}
@@ -115,7 +129,7 @@ function GalleryPage() {
         <div className="empty-state empty-state--center">
           <div className="empty-state__icon" aria-hidden="true">🖼️</div>
           <p className="empty-state__title">{ui('gallery', 'empty', language)}</p>
-          <p className="empty-state__text">No gallery collections published yet.</p>
+          <p className="empty-state__text">{t('emptyText')}</p>
         </div>
       )}
 
@@ -129,7 +143,7 @@ function GalleryPage() {
                 </button>
               </h3>
               <span className="content-card__badge content-card__badge--research">
-                {collection.items?.length || 0} items
+                {collection.items?.length || 0} {t('items')}
               </span>
             </div>
             <p className="content-card__excerpt">
@@ -145,7 +159,6 @@ function GalleryPage() {
                     key={`${item.mediaUrl}-${item.order}`}
                     item={item}
                     language={language}
-                    onPreview={setPreviewItem}
                     onOpenDetail={() => navigate(`/gallery/${collection._id}`)}
                   />
                 ))}
@@ -158,7 +171,7 @@ function GalleryPage() {
         <button
           type="button"
           className="gallery-modal"
-          aria-label="Close image preview"
+          aria-label={t('closePreview')}
           onClick={() => setPreviewItem(null)}
         >
           <div className="gallery-modal__dialog" onClick={(event) => event.stopPropagation()}>

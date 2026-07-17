@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { eventApi } from '../../api/modules';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import SkeletonCard from '../../components/ui/SkeletonCard';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -7,10 +8,113 @@ import useRole from '../../hooks/useRole';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
-import { toIsoDate, toLocalDateTime } from '../../utils/localized';
+import { toIsoDate, toLocalDateTime, toLocalizedText } from '../../utils/localized';
+
+const T = {
+  publishedEvents: { en: 'Published Events', bn: 'প্রকাশিত ইভেন্ট' },
+  visibleRecords: { en: 'Current visible event records', bn: 'বর্তমানে দৃশ্যমান ইভেন্ট রেকর্ড' },
+  calendarEntries: { en: 'Calendar Entries', bn: 'ক্যালেন্ডার এন্ট্রি' },
+  inDateRange: { en: 'In selected date range', bn: 'নির্বাচিত তারিখ সীমায়' },
+  registrations: { en: 'Registrations', bn: 'নিবন্ধন' },
+  acrossCalendar: { en: 'Across loaded calendar items', bn: 'লোড করা ক্যালেন্ডার আইটেম জুড়ে' },
+  checkedIn: { en: 'Checked In', bn: 'চেক-ইন হয়েছে' },
+  seatsLeft: { en: 'Available seats left:', bn: 'অবশিষ্ট আসন:' },
+  eventPrograms: { en: 'EVENT PROGRAMS', bn: 'ইভেন্ট প্রোগ্রাম' },
+  publicCalendar: { en: 'Public Event Calendar', bn: 'পাবলিক ইভেন্ট ক্যালেন্ডার' },
+  filterByDate: { en: 'Filter by date range', bn: 'তারিখ সীমা দিয়ে ফিল্টার' },
+  apply: { en: 'Apply', bn: 'প্রয়োগ' },
+  reset: { en: 'Reset', bn: 'রিসেট' },
+  noEventsRange: { en: 'No events in this range', bn: 'এই সীমায় কোনো ইভেন্ট নেই' },
+  adjustRange: { en: 'Try adjusting the date range above.', bn: 'উপরের তারিখ সীমা পরিবর্তন করে দেখুন।' },
+  date: { en: 'Date', bn: 'তারিখ' },
+  event: { en: 'Event', bn: 'ইভেন্ট' },
+  location: { en: 'Location', bn: 'অবস্থান' },
+  registered: { en: 'Registered', bn: 'নিবন্ধিত' },
+  availableSeats: { en: 'Available Seats', bn: 'উপলব্ধ আসন' },
+  eventsCount: { en: 'events', bn: 'ইভেন্ট' },
+  seatInsights: { en: 'Registration and seat insights update from the event calendar.', bn: 'নিবন্ধন ও আসন তথ্য ইভেন্ট ক্যালেন্ডার থেকে আপডেট হয়।' },
+  noEventsPublished: { en: 'No events published yet.', bn: 'এখনও কোনো ইভেন্ট প্রকাশিত হয়নি।' },
+  upcoming: { en: 'Upcoming', bn: 'আসন্ন' },
+  past: { en: 'Past', bn: 'বিগত' },
+  seats: { en: 'seats', bn: 'আসন' },
+  deadlinePassed: { en: 'Deadline passed', bn: 'শেষ তারিখ পেরিয়েছে' },
+  registeredLabel: { en: 'Registered:', bn: 'নিবন্ধিত:' },
+  checkedInLabel: { en: 'Checked in:', bn: 'চেক-ইন:' },
+  remaining: { en: 'Remaining:', bn: 'অবশিষ্ট:' },
+  register: { en: 'Register', bn: 'নিবন্ধন করুন' },
+  manage: { en: 'Manage', bn: 'পরিচালনা' },
+  showMorePast: { en: 'Show more past events ↓', bn: 'আরও বিগত ইভেন্ট দেখুন ↓' },
+  myPasses: { en: 'My Event Passes', bn: 'আমার ইভেন্ট পাস' },
+  passesHint: { en: 'Your registrations across all events. Re-open a QR pass any time for check-in.', bn: 'সব ইভেন্টে আপনার নিবন্ধন। চেক-ইনের জন্য যেকোনো সময় QR পাস খুলুন।' },
+  when: { en: 'When', bn: 'কখন' },
+  status: { en: 'Status', bn: 'অবস্থা' },
+  actions: { en: 'Actions', bn: 'পদক্ষেপ' },
+  eventFallback: { en: 'Event', bn: 'ইভেন্ট' },
+  feedbackLabel: { en: 'Feedback:', bn: 'মতামত:' },
+  showQr: { en: 'Show QR', bn: 'QR দেখুন' },
+  cancel: { en: 'Cancel', bn: 'বাতিল' },
+  yourQr: { en: 'Your Registration QR', bn: 'আপনার নিবন্ধন QR' },
+  useQrHint: { en: 'Use this QR token for event check-in.', bn: 'ইভেন্ট চেক-ইনের জন্য এই QR টোকেন ব্যবহার করুন।' },
+  qrAlt: { en: 'Event registration QR code', bn: 'ইভেন্ট নিবন্ধন QR কোড' },
+  token: { en: 'Token:', bn: 'টোকেন:' },
+  feedbackRating: { en: 'Feedback Rating', bn: 'মতামত রেটিং' },
+  rate5: { en: '5 - Excellent', bn: '৫ - চমৎকার' },
+  rate4: { en: '4 - Good', bn: '৪ - ভালো' },
+  rate3: { en: '3 - Average', bn: '৩ - মাঝারি' },
+  rate2: { en: '2 - Needs Improvement', bn: '২ - উন্নতি প্রয়োজন' },
+  rate1: { en: '1 - Poor', bn: '১ - খারাপ' },
+  comment: { en: 'Comment', bn: 'মন্তব্য' },
+  submitFeedback: { en: 'Submit Feedback', bn: 'মতামত জমা দিন' },
+  editEvent: { en: 'Edit Event', bn: 'ইভেন্ট সম্পাদনা' },
+  createEvent: { en: 'Create Event', bn: 'ইভেন্ট তৈরি' },
+  title: { en: 'Title', bn: 'শিরোনাম' },
+  description: { en: 'Description', bn: 'বিবরণ' },
+  startTime: { en: 'Start Time', bn: 'শুরুর সময়' },
+  endTime: { en: 'End Time', bn: 'শেষ সময়' },
+  regDeadline: { en: 'Registration Deadline', bn: 'নিবন্ধনের শেষ তারিখ' },
+  capacity: { en: 'Capacity', bn: 'ধারণক্ষমতা' },
+  updateEvent: { en: 'Update Event', bn: 'ইভেন্ট আপডেট' },
+  publishEvent: { en: 'Publish Event', bn: 'ইভেন্ট প্রকাশ' },
+  checkInHeading: { en: 'Event Check-in', bn: 'ইভেন্ট চেক-ইন' },
+  selectEvent: { en: 'Select event', bn: 'ইভেন্ট নির্বাচন করুন' },
+  qrToken: { en: 'QR Token', bn: 'QR টোকেন' },
+  confirmCheckIn: { en: 'Confirm Check-in', bn: 'চেক-ইন নিশ্চিত করুন' },
+  attendee: { en: 'Attendee', bn: 'অংশগ্রহণকারী' },
+  registeredAt: { en: 'Registered At', bn: 'নিবন্ধনের সময়' },
+  unknown: { en: 'Unknown', bn: 'অজানা' },
+  noRegsForEvent: { en: 'No registrations yet for this event.', bn: 'এই ইভেন্টে এখনও কোনো নিবন্ধন নেই।' },
+  cancelRegTitle: { en: 'Cancel registration', bn: 'নিবন্ধন বাতিল' },
+  cancelRegLabel: { en: 'Cancel registration', bn: 'নিবন্ধন বাতিল করুন' },
+  // messages / toasts
+  msgLoadFailed: { en: 'Failed to load events.', bn: 'ইভেন্ট লোড করতে ব্যর্থ।' },
+  msgRegistered: { en: 'Registration completed. QR code generated for check-in.', bn: 'নিবন্ধন সম্পন্ন। চেক-ইনের জন্য QR কোড তৈরি হয়েছে।' },
+  titleRegistered: { en: 'Event registered', bn: 'ইভেন্ট নিবন্ধিত' },
+  msgRegisterFailed: { en: 'Failed to register for event.', bn: 'ইভেন্টে নিবন্ধন করতে ব্যর্থ।' },
+  titleRegisterFailed: { en: 'Registration failed', bn: 'নিবন্ধন ব্যর্থ' },
+  msgCheckInDone: { en: 'Check-in completed successfully.', bn: 'চেক-ইন সফলভাবে সম্পন্ন।' },
+  titleCheckedIn: { en: 'Attendee checked in', bn: 'অংশগ্রহণকারী চেক-ইন হয়েছে' },
+  msgCheckInFailed: { en: 'Check-in failed.', bn: 'চেক-ইন ব্যর্থ।' },
+  titleCheckInFailed: { en: 'Check-in failed', bn: 'চেক-ইন ব্যর্থ' },
+  msgRegisterFirst: { en: 'Register for an event first to submit feedback.', bn: 'মতামত জমা দিতে প্রথমে একটি ইভেন্টে নিবন্ধন করুন।' },
+  msgFeedbackDone: { en: 'Feedback submitted successfully.', bn: 'মতামত সফলভাবে জমা হয়েছে।' },
+  titleFeedbackSaved: { en: 'Feedback saved', bn: 'মতামত সংরক্ষিত' },
+  msgFeedbackFailed: { en: 'Feedback submission failed.', bn: 'মতামত জমা ব্যর্থ।' },
+  titleFeedbackFailed: { en: 'Feedback failed', bn: 'মতামত ব্যর্থ' },
+  msgRegCancelled: { en: 'Registration cancelled. Your seat has been released.', bn: 'নিবন্ধন বাতিল হয়েছে। আপনার আসন মুক্ত হয়েছে।' },
+  titleRegCancelled: { en: 'Registration cancelled', bn: 'নিবন্ধন বাতিল' },
+  msgCancelFailed: { en: 'Failed to cancel registration.', bn: 'নিবন্ধন বাতিল করতে ব্যর্থ।' },
+  titleCancelFailed: { en: 'Cancellation failed', bn: 'বাতিল ব্যর্থ' },
+  msgEventUpdated: { en: 'Event updated successfully.', bn: 'ইভেন্ট সফলভাবে আপডেট হয়েছে।' },
+  titleEventUpdated: { en: 'Event updated', bn: 'ইভেন্ট আপডেট হয়েছে' },
+  msgEventPublished: { en: 'Event published successfully.', bn: 'ইভেন্ট সফলভাবে প্রকাশিত হয়েছে।' },
+  titleEventCreated: { en: 'Event created', bn: 'ইভেন্ট তৈরি হয়েছে' },
+  msgEventSaveFailed: { en: 'Failed to create/update event.', bn: 'ইভেন্ট তৈরি/আপডেট করতে ব্যর্থ।' },
+  titleEventSaveFailed: { en: 'Event save failed', bn: 'ইভেন্ট সংরক্ষণ ব্যর্থ' }
+};
 
 function EventsPage() {
   const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
   const { isAuthenticated } = useAuth();
   const { success, error: toastError } = useToast();
   const canCheckIn = useRole('admin', 'manager');
@@ -28,6 +132,10 @@ function EventsPage() {
   const [lastRegistration, setLastRegistration] = useState(null);
   const [selectedEventId, setSelectedEventId] = useState('');
   const [registrations, setRegistrations] = useState([]);
+  // The signed-in user's own registrations (QR passes), retrievable any time.
+  const [myRegistrations, setMyRegistrations] = useState([]);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
   const [calendarItems, setCalendarItems] = useState([]);
   function getDefaultCalendarRange() {
     const start = new Date();
@@ -97,7 +205,19 @@ function EventsPage() {
     };
   }, [calendarItems, events.length]);
 
-  const showSecondaryPanels = Boolean(lastRegistration?.qrCodeDataUrl) || canManageEvents;
+  const showSecondaryPanels =
+    Boolean(lastRegistration?.qrCodeDataUrl) || canManageEvents || myRegistrations.length > 0;
+
+  // Events the user already holds an active pass for (blocks duplicate registration).
+  const registeredEventIds = useMemo(() => {
+    const ids = new Set();
+    for (const registration of myRegistrations) {
+      if (registration.status !== 'cancelled') {
+        ids.add(String(registration.event?._id || registration.event));
+      }
+    }
+    return ids;
+  }, [myRegistrations]);
 
   const loadEvents = useCallback(async () => {
     const response = canAccessEventOps
@@ -122,6 +242,16 @@ function EventsPage() {
     setRegistrations(response.data.items || []);
   }, [canCheckIn, selectedEventId]);
 
+  const loadMyRegistrations = useCallback(async () => {
+    if (!isAuthenticated) {
+      setMyRegistrations([]);
+      return;
+    }
+
+    const response = await eventApi.listMyRegistrations({ limit: 50 });
+    setMyRegistrations(response.data.items || []);
+  }, [isAuthenticated]);
+
   const loadCalendar = useCallback(async () => {
     const response = canAccessEventOps
       ? await eventApi.listManageCalendar({
@@ -143,13 +273,14 @@ function EventsPage() {
     setError('');
 
     try {
-      await Promise.all([loadEvents(), loadCalendar()]);
+      await Promise.all([loadEvents(), loadCalendar(), loadMyRegistrations()]);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load events.'));
+      setError(getApiErrorMessage(apiError, t('msgLoadFailed')));
     } finally {
       setLoading(false);
     }
-  }, [loadCalendar, loadEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadCalendar, loadEvents, loadMyRegistrations]);
 
   useEffect(() => {
     loadData();
@@ -182,15 +313,13 @@ function EventsPage() {
     try {
       const response = await eventApi.register(eventId);
       setLastRegistration(response.data.registration);
-      setMessage('Registration completed. QR code generated for check-in.');
-      success('Registration completed. QR code generated for check-in.', {
-        title: 'Event registered'
-      });
-      await Promise.all([loadRegistrations(), loadCalendar()]);
+      setMessage(t('msgRegistered'));
+      success(t('msgRegistered'), { title: t('titleRegistered') });
+      await Promise.all([loadRegistrations(), loadCalendar(), loadMyRegistrations()]);
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(apiError, 'Failed to register for event.');
+      const nextMessage = getApiErrorMessage(apiError, t('msgRegisterFailed'));
       setMessage(nextMessage);
-      toastError(nextMessage, { title: 'Registration failed' });
+      toastError(nextMessage, { title: t('titleRegisterFailed') });
     }
   };
 
@@ -200,14 +329,14 @@ function EventsPage() {
 
     try {
       await eventApi.checkIn(checkInForm);
-      setMessage('Check-in completed successfully.');
-      success('Check-in completed successfully.', { title: 'Attendee checked in' });
+      setMessage(t('msgCheckInDone'));
+      success(t('msgCheckInDone'), { title: t('titleCheckedIn') });
       setCheckInForm((prev) => ({ ...prev, qrToken: '' }));
       await Promise.all([loadRegistrations(), loadCalendar()]);
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(apiError, 'Check-in failed.');
+      const nextMessage = getApiErrorMessage(apiError, t('msgCheckInFailed'));
       setMessage(nextMessage);
-      toastError(nextMessage, { title: 'Check-in failed' });
+      toastError(nextMessage, { title: t('titleCheckInFailed') });
     }
   };
 
@@ -216,7 +345,7 @@ function EventsPage() {
     setMessage('');
 
     if (!lastRegistration?._id) {
-      setMessage('Register for an event first to submit feedback.');
+      setMessage(t('msgRegisterFirst'));
       return;
     }
 
@@ -225,13 +354,39 @@ function EventsPage() {
         rating: Number(feedbackForm.rating),
         comment: feedbackForm.comment
       });
-      setMessage('Feedback submitted successfully.');
-      success('Feedback submitted successfully.', { title: 'Feedback saved' });
+      setMessage(t('msgFeedbackDone'));
+      success(t('msgFeedbackDone'), { title: t('titleFeedbackSaved') });
       setFeedbackForm({ rating: 5, comment: '' });
+      await loadMyRegistrations();
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(apiError, 'Feedback submission failed.');
+      const nextMessage = getApiErrorMessage(apiError, t('msgFeedbackFailed'));
       setMessage(nextMessage);
-      toastError(nextMessage, { title: 'Feedback failed' });
+      toastError(nextMessage, { title: t('titleFeedbackFailed') });
+    }
+  };
+
+  const confirmCancelRegistration = async () => {
+    if (!cancelTarget) {
+      return;
+    }
+
+    setCancelBusy(true);
+
+    try {
+      await eventApi.cancelRegistration(cancelTarget._id);
+      success(t('msgRegCancelled'), { title: t('titleRegCancelled') });
+      if (lastRegistration?._id === cancelTarget._id) {
+        setLastRegistration(null);
+      }
+      setCancelTarget(null);
+      await Promise.all([loadMyRegistrations(), loadCalendar(), loadRegistrations()]);
+    } catch (apiError) {
+      const nextMessage = getApiErrorMessage(apiError, t('msgCancelFailed'));
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: t('titleCancelFailed') });
+      setCancelTarget(null);
+    } finally {
+      setCancelBusy(false);
     }
   };
 
@@ -249,8 +404,8 @@ function EventsPage() {
           capacity: Number(createEventForm.capacity)
         });
 
-        setMessage('Event updated successfully.');
-        success('Event updated successfully.', { title: 'Event updated' });
+        setMessage(t('msgEventUpdated'));
+        success(t('msgEventUpdated'), { title: t('titleEventUpdated') });
         // clear edit state
         setSelectedEventId('');
       } else {
@@ -262,8 +417,8 @@ function EventsPage() {
           capacity: Number(createEventForm.capacity)
         });
 
-        setMessage('Event published successfully.');
-        success('Event published successfully.', { title: 'Event created' });
+        setMessage(t('msgEventPublished'));
+        success(t('msgEventPublished'), { title: t('titleEventCreated') });
       }
 
       setCreateEventForm({
@@ -278,9 +433,9 @@ function EventsPage() {
       });
       await Promise.all([loadEvents(), loadCalendar()]);
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(apiError, 'Failed to create/update event.');
+      const nextMessage = getApiErrorMessage(apiError, t('msgEventSaveFailed'));
       setMessage(nextMessage);
-      toastError(nextMessage, { title: 'Event save failed' });
+      toastError(nextMessage, { title: t('titleEventSaveFailed') });
     }
   };
 
@@ -316,33 +471,33 @@ function EventsPage() {
           <div className="kpi-icon" aria-hidden>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
           </div>
-          <p className="kpi-label">Published Events</p>
+          <p className="kpi-label">{t('publishedEvents')}</p>
           <p className="kpi-value">{dashboardStats.publishedEvents}</p>
-          <p className="kpi-note">Current visible event records</p>
+          <p className="kpi-note">{t('visibleRecords')}</p>
         </article>
         <article className="kpi-card kpi-small">
           <div className="kpi-icon" aria-hidden>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M8 7h8M8 12h8M8 17h8"/></svg>
           </div>
-          <p className="kpi-label">Calendar Entries</p>
+          <p className="kpi-label">{t('calendarEntries')}</p>
           <p className="kpi-value">{dashboardStats.calendarCount}</p>
-          <p className="kpi-note">In selected date range</p>
+          <p className="kpi-note">{t('inDateRange')}</p>
         </article>
         <article className="kpi-card kpi-small">
           <div className="kpi-icon" aria-hidden>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
           </div>
-          <p className="kpi-label">Registrations</p>
+          <p className="kpi-label">{t('registrations')}</p>
           <p className="kpi-value">{dashboardStats.totalRegistered}</p>
-          <p className="kpi-note">Across loaded calendar items</p>
+          <p className="kpi-note">{t('acrossCalendar')}</p>
         </article>
         <article className="kpi-card kpi-small">
           <div className="kpi-icon" aria-hidden>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
           </div>
-          <p className="kpi-label">Checked In</p>
+          <p className="kpi-label">{t('checkedIn')}</p>
           <p className="kpi-value">{dashboardStats.totalCheckedIn}</p>
-          <p className="kpi-note">Available seats left: {dashboardStats.totalOpenSeats}</p>
+          <p className="kpi-note">{t('seatsLeft')} {dashboardStats.totalOpenSeats}</p>
         </article>
       </section>
 
@@ -359,8 +514,8 @@ function EventsPage() {
       <article className="surface-card">
         <div className="section-head section-head-tight">
           <div>
-            <p className="eyebrow">EVENT PROGRAMS</p>
-            <h3>Public Event Calendar</h3>
+            <p className="eyebrow">{t('eventPrograms')}</p>
+            <h3>{t('publicCalendar')}</h3>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <button type="button" className="icon-button" onClick={loadCalendar} aria-label="Refresh calendar">
@@ -374,7 +529,7 @@ function EventsPage() {
         </div>
 
         <div className="date-filter" style={{ position: 'relative' }}>
-          <label className="date-filter__label">Filter by date range</label>
+          <label className="date-filter__label">{t('filterByDate')}</label>
           <div className="date-filter__controls">
             <button type="button" className="icon-button" onClick={() => setDatePopoverOpen((s) => !s)} aria-expanded={datePopoverOpen} aria-haspopup="dialog" aria-controls="date-popover">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
@@ -391,8 +546,8 @@ function EventsPage() {
                 <input type="date" value={calendarRange.endDate} onChange={(event) => setCalendarRange((prev) => ({ ...prev, endDate: event.target.value }))} required />
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
-                <button type="button" className="btn btn-primary" onClick={() => { setDatePopoverOpen(false); loadCalendar(); }}>Apply</button>
-                <button type="button" className="btn btn-ghost" onClick={() => { setCalendarRange(getDefaultCalendarRange()); setDatePopoverOpen(false); }}>Reset</button>
+                <button type="button" className="btn btn-primary" onClick={() => { setDatePopoverOpen(false); loadCalendar(); }}>{t('apply')}</button>
+                <button type="button" className="btn btn-ghost" onClick={() => { setCalendarRange(getDefaultCalendarRange()); setDatePopoverOpen(false); }}>{t('reset')}</button>
               </div>
             </div>
           )}
@@ -401,8 +556,8 @@ function EventsPage() {
         {!calendarItems.length && (
           <div className="empty-state empty-state--center" style={{ padding: '1.6rem', marginTop: '0.8rem' }}>
             <div className="empty-state__icon" style={{ fontSize: '36px' }}>📆</div>
-            <h4 className="empty-state__title">No events in this range</h4>
-            <p className="empty-state__text">Try adjusting the date range above.</p>
+            <h4 className="empty-state__title">{t('noEventsRange')}</h4>
+            <p className="empty-state__text">{t('adjustRange')}</p>
           </div>
         )}
         {!!calendarItems.length && (
@@ -410,12 +565,12 @@ function EventsPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Event</th>
-                  <th>Location</th>
-                  <th>Registered</th>
-                  <th>Checked In</th>
-                  <th>Available Seats</th>
+                  <th>{t('date')}</th>
+                  <th>{t('event')}</th>
+                  <th>{t('location')}</th>
+                  <th>{t('registered')}</th>
+                  <th>{t('checkedIn')}</th>
+                  <th>{t('availableSeats')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -437,11 +592,11 @@ function EventsPage() {
 
       <article className="surface-card">
         <div className="section-head section-head-tight">
-          <h3>Published Events <span className="count-badge">{events.length} events</span></h3>
-          <p className="meta">Registration and seat insights update from the event calendar.</p>
+          <h3>{t('publishedEvents')} <span className="count-badge">{events.length} {t('eventsCount')}</span></h3>
+          <p className="meta">{t('seatInsights')}</p>
         </div>
 
-        {!events.length && !loading && <p className="meta">No events published yet.</p>}
+        {!events.length && !loading && <p className="meta">{t('noEventsPublished')}</p>}
 
         {!!events.length && (() => {
           const now = Date.now();
@@ -461,14 +616,14 @@ function EventsPage() {
             <div className={`events-list ${viewType === 'grid' ? 'events-grid' : 'events-list-vertical'}`}>
               {upcoming.length > 0 && (
                 <section className="events-group">
-                  <div className="events-group__label">Upcoming</div>
+                  <div className="events-group__label">{t('upcoming')}</div>
                   <div className="events-group__items">
                     {upcoming.map((item) => {
                       const summary = calendarSummaryByEvent.get(item._id);
                       const deadlinePassed = item.registrationDeadline && new Date(item.registrationDeadline).getTime() < Date.now();
                       const isFull = typeof summary?.availableSeats === 'number' && summary.availableSeats <= 0;
-                      const isJustRegistered = lastRegistration?.event === item._id;
-                      const canRegister = isAuthenticated && item.status === 'published' && !deadlinePassed && !isFull && !isJustRegistered;
+                      const alreadyRegistered = registeredEventIds.has(String(item._id));
+                      const canRegister = isAuthenticated && item.status === 'published' && !deadlinePassed && !isFull && !alreadyRegistered;
 
                       return (
                         <article key={item._id} className={`event-card ${item.status === 'published' ? 'event--upcoming' : ''}`}>
@@ -484,12 +639,12 @@ function EventsPage() {
                               <div className="event-card__meta">
                                 <span className="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 6-9 12-9 12S3 16 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="2"/></svg>{item.location}</span>
                                 <span className="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 6v6l4 2"/></svg>{formatTimeOnly(item.startTime)}</span>
-                                <span className="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M7 21h10"/><path d="M12 3v18"/></svg>{item.capacity} seats</span>
+                                <span className="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M7 21h10"/><path d="M12 3v18"/></svg>{item.capacity} {t('seats')}</span>
                               </div>
                             </div>
 
                             <div className="event-card__controls">
-                              <span className={`status-badge ${deadlinePassed ? 'status-deadline' : 'status-open'}`}>{deadlinePassed ? 'Deadline passed' : 'Upcoming'}</span>
+                              <span className={`status-badge ${deadlinePassed ? 'status-deadline' : 'status-open'}`}>{deadlinePassed ? t('deadlinePassed') : t('upcoming')}</span>
                               <button type="button" className="icon-button" aria-label="View details">›</button>
                             </div>
                           </button>
@@ -499,13 +654,13 @@ function EventsPage() {
                               <p className="meta">{item.description}</p>
                               <p className="meta">{item.location} • {new Date(item.startTime).toLocaleDateString()} • {formatTimeOnly(item.startTime)}</p>
                               {summary ? (
-                                <p className="meta">Registered: {summary.registrationCount} • Checked in: {summary.checkedInCount} • Remaining: {summary.availableSeats}</p>
+                                <p className="meta">{t('registeredLabel')} {summary.registrationCount} • {t('checkedInLabel')} {summary.checkedInCount} • {t('remaining')} {summary.availableSeats}</p>
                               ) : null}
                               <div style={{ marginTop: '0.6rem', display: 'flex', gap: '0.5rem' }}>
                                 {isAuthenticated && item.status === 'published' && (
-                                  <button type="button" className="btn btn-primary" onClick={() => registerForEvent(item._id)} disabled={!canRegister}>Register</button>
+                                  <button type="button" className="btn btn-primary" onClick={() => registerForEvent(item._id)} disabled={!canRegister}>{t('register')}</button>
                                 )}
-                                {canManageEvents && <button type="button" className="btn btn-ghost" onClick={() => setSelectedEventId(item._id)}>Manage</button>}
+                                {canManageEvents && <button type="button" className="btn btn-ghost" onClick={() => setSelectedEventId(item._id)}>{t('manage')}</button>}
                               </div>
                             </div>
                           )}
@@ -518,7 +673,7 @@ function EventsPage() {
 
               {past.length > 0 && (
                 <section className="events-group">
-                  <div className="events-group__label">Past</div>
+                  <div className="events-group__label">{t('past')}</div>
                   <div className="events-group__items">
                     {past.map((item) => {
                       const summary = calendarSummaryByEvent.get(item._id);
@@ -536,12 +691,12 @@ function EventsPage() {
                               <div className="event-card__meta">
                                 <span className="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 6-9 12-9 12S3 16 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="2"/></svg>{item.location}</span>
                                 <span className="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 6v6l4 2"/></svg>{formatTimeOnly(item.startTime)}</span>
-                                <span className="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M7 21h10"/><path d="M12 3v18"/></svg>{item.capacity} seats</span>
+                                <span className="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M7 21h10"/><path d="M12 3v18"/></svg>{item.capacity} {t('seats')}</span>
                               </div>
                             </div>
 
                             <div className="event-card__controls">
-                              <span className="status-badge status-closed">Past</span>
+                              <span className="status-badge status-closed">{t('past')}</span>
                               <button type="button" className="icon-button" aria-label="View details">›</button>
                             </div>
                           </button>
@@ -551,7 +706,7 @@ function EventsPage() {
                               <p className="meta">{item.description}</p>
                               <p className="meta">{item.location} • {new Date(item.startTime).toLocaleDateString()} • {formatTimeOnly(item.startTime)}</p>
                               {summary ? (
-                                <p className="meta">Registered: {summary.registrationCount} • Checked in: {summary.checkedInCount} • Remaining: {summary.availableSeats}</p>
+                                <p className="meta">{t('registeredLabel')} {summary.registrationCount} • {t('checkedInLabel')} {summary.checkedInCount} • {t('remaining')} {summary.availableSeats}</p>
                               ) : null}
                             </div>
                           )}
@@ -561,7 +716,7 @@ function EventsPage() {
 
                     {past.length > 6 && (
                       <div style={{ marginTop: '0.6rem' }}>
-                        <button type="button" className="btn btn-ghost" style={{ width: '100%' }}>Show more past events ↓</button>
+                        <button type="button" className="btn btn-ghost" style={{ width: '100%' }}>{t('showMorePast')}</button>
                       </div>
                     )}
                   </div>
@@ -574,36 +729,108 @@ function EventsPage() {
 
       {showSecondaryPanels && (
         <div className="workflow-grid events-section">
+          {isAuthenticated && myRegistrations.length > 0 && (
+            <article className="surface-card">
+              <h3>{t('myPasses')}</h3>
+              <p className="meta">{t('passesHint')}</p>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t('event')}</th>
+                      <th>{t('when')}</th>
+                      <th>{t('status')}</th>
+                      <th>{t('actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {myRegistrations.map((item) => {
+                      const eventStarted =
+                        item.event?.startTime &&
+                        new Date(item.event.startTime).getTime() <= Date.now();
+                      return (
+                        <tr key={item._id}>
+                          <td>
+                            <strong>{item.event?.title || t('eventFallback')}</strong>
+                            <br />
+                            <span className="meta">{item.event?.location || ''}</span>
+                          </td>
+                          <td>{toLocalDateTime(item.event?.startTime)}</td>
+                          <td>
+                            <span className={`status-badge status-${item.status}`}>
+                              {item.status.replace('_', ' ')}
+                            </span>
+                            {item.feedback?.rating ? (
+                              <>
+                                <br />
+                                <span className="meta">{t('feedbackLabel')} {item.feedback.rating}/5</span>
+                              </>
+                            ) : null}
+                          </td>
+                          <td>
+                            <div className="inline-actions">
+                              {item.status !== 'cancelled' && (
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  onClick={() => setLastRegistration(item)}
+                                >
+                                  {t('showQr')}
+                                </button>
+                              )}
+                              {item.status === 'registered' && !eventStarted && (
+                                <button
+                                  type="button"
+                                  className="btn btn-danger btn-sm"
+                                  onClick={() => setCancelTarget(item)}
+                                >
+                                  {t('cancel')}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          )}
+
           {lastRegistration?.qrCodeDataUrl && (
             <article className="surface-card">
-              <h3>Your Registration QR</h3>
-              <p className="meta">Use this QR token for event check-in.</p>
+              <h3>
+                {t('yourQr')}
+                {lastRegistration.event?.title ? ` — ${lastRegistration.event.title}` : ''}
+              </h3>
+              <p className="meta">{t('useQrHint')}</p>
               <img
                 src={lastRegistration.qrCodeDataUrl}
-                alt="Event registration QR code"
+                alt={t('qrAlt')}
                 className="qr-preview"
               />
-              <p className="meta">Token: {lastRegistration.qrToken}</p>
+              <p className="meta">{t('token')} {lastRegistration.qrToken}</p>
 
               <form className="form-grid" onSubmit={submitFeedback}>
                 <label>
-                  Feedback Rating
+                  {t('feedbackRating')}
                   <select
                     value={feedbackForm.rating}
                     onChange={(event) =>
                       setFeedbackForm((prev) => ({ ...prev, rating: event.target.value }))
                     }
                   >
-                    <option value="5">5 - Excellent</option>
-                    <option value="4">4 - Good</option>
-                    <option value="3">3 - Average</option>
-                    <option value="2">2 - Needs Improvement</option>
-                    <option value="1">1 - Poor</option>
+                    <option value="5">{t('rate5')}</option>
+                    <option value="4">{t('rate4')}</option>
+                    <option value="3">{t('rate3')}</option>
+                    <option value="2">{t('rate2')}</option>
+                    <option value="1">{t('rate1')}</option>
                   </select>
                 </label>
 
                 <label>
-                  Comment
+                  {t('comment')}
                   <textarea
                     value={feedbackForm.comment}
                     onChange={(event) =>
@@ -613,7 +840,7 @@ function EventsPage() {
                 </label>
 
                 <button type="submit" className="btn btn-ghost">
-                  Submit Feedback
+                  {t('submitFeedback')}
                 </button>
               </form>
             </article>
@@ -621,10 +848,10 @@ function EventsPage() {
 
           {canManageEvents && (
             <article className="surface-card">
-              <h3>{selectedEventId ? 'Edit Event' : 'Create Event'}</h3>
+              <h3>{selectedEventId ? t('editEvent') : t('createEvent')}</h3>
               <form className="form-grid" onSubmit={submitEvent}>
                 <label>
-                  Title
+                  {t('title')}
                   <input
                     value={createEventForm.title}
                     onChange={(event) =>
@@ -635,7 +862,7 @@ function EventsPage() {
                 </label>
 
                 <label>
-                  Location
+                  {t('location')}
                   <input
                     value={createEventForm.location}
                     onChange={(event) =>
@@ -646,7 +873,7 @@ function EventsPage() {
                 </label>
 
                 <label>
-                  Description
+                  {t('description')}
                   <textarea
                     value={createEventForm.description}
                     minLength={20}
@@ -658,7 +885,7 @@ function EventsPage() {
                 </label>
 
                 <label>
-                  Start Time
+                  {t('startTime')}
                   <input
                     type="datetime-local"
                     value={createEventForm.startTime}
@@ -670,7 +897,7 @@ function EventsPage() {
                 </label>
 
                 <label>
-                  End Time
+                  {t('endTime')}
                   <input
                     type="datetime-local"
                     value={createEventForm.endTime}
@@ -682,7 +909,7 @@ function EventsPage() {
                 </label>
 
                 <label>
-                  Registration Deadline
+                  {t('regDeadline')}
                   <input
                     type="datetime-local"
                     value={createEventForm.registrationDeadline}
@@ -697,7 +924,7 @@ function EventsPage() {
                 </label>
 
                 <label>
-                  Capacity
+                  {t('capacity')}
                   <input
                     type="number"
                     min="1"
@@ -711,7 +938,7 @@ function EventsPage() {
 
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                   <button type="submit" className="btn btn-primary">
-                    {selectedEventId ? 'Update Event' : 'Publish Event'}
+                    {selectedEventId ? t('updateEvent') : t('publishEvent')}
                   </button>
                   {selectedEventId && (
                     <button
@@ -731,7 +958,7 @@ function EventsPage() {
                         });
                       }}
                     >
-                      Cancel
+                      {t('cancel')}
                     </button>
                   )}
                 </div>
@@ -743,10 +970,10 @@ function EventsPage() {
 
       {canCheckIn && (
         <article className="surface-card">
-          <h3>Event Check-in</h3>
+          <h3>{t('checkInHeading')}</h3>
           <form className="form-grid" onSubmit={submitCheckIn}>
             <label>
-              Event
+              {t('event')}
               <select
                 value={checkInForm.eventId}
                 onChange={(event) => {
@@ -755,7 +982,7 @@ function EventsPage() {
                 }}
                 required
               >
-                <option value="">Select event</option>
+                <option value="">{t('selectEvent')}</option>
                 {events.map((item) => (
                   <option key={item._id} value={item._id}>
                     {item.title}
@@ -764,7 +991,7 @@ function EventsPage() {
               </select>
             </label>
             <label>
-              QR Token
+              {t('qrToken')}
               <input
                 value={checkInForm.qrToken}
                 onChange={(event) =>
@@ -775,7 +1002,7 @@ function EventsPage() {
             </label>
 
             <button type="submit" className="btn btn-primary">
-              Confirm Check-in
+              {t('confirmCheckIn')}
             </button>
           </form>
 
@@ -784,22 +1011,22 @@ function EventsPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Attendee</th>
-                    <th>Status</th>
-                    <th>Registered At</th>
+                    <th>{t('attendee')}</th>
+                    <th>{t('status')}</th>
+                    <th>{t('registeredAt')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {registrations.map((item) => (
                     <tr key={item._id}>
-                      <td>{item.attendee?.fullName || 'Unknown'}</td>
+                      <td>{item.attendee?.fullName || t('unknown')}</td>
                       <td>{item.status}</td>
                       <td>{toLocalDateTime(item.createdAt)}</td>
                     </tr>
                   ))}
                   {!registrations.length && (
                     <tr>
-                      <td colSpan="3">No registrations yet for this event.</td>
+                      <td colSpan="3">{t('noRegsForEvent')}</td>
                     </tr>
                   )}
                 </tbody>
@@ -808,6 +1035,27 @@ function EventsPage() {
           )}
         </article>
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(cancelTarget)}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={confirmCancelRegistration}
+        title={t('cancelRegTitle')}
+        message={toLocalizedText(
+          {
+            en: `Cancel your registration for "${
+              cancelTarget?.event?.title || 'this event'
+            }"? Your seat will be released to other attendees and your QR pass will no longer work.`,
+            bn: `"${
+              cancelTarget?.event?.title || 'এই ইভেন্ট'
+            }"-এর জন্য আপনার নিবন্ধন বাতিল করবেন? আপনার আসন অন্যদের জন্য মুক্ত হবে এবং QR পাস আর কাজ করবে না।`
+          },
+          language
+        )}
+        confirmLabel={t('cancelRegLabel')}
+        tone="danger"
+        busy={cancelBusy}
+      />
     </section>
   );
 }

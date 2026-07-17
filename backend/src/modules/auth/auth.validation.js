@@ -33,6 +33,19 @@ const resetPassword = {
   })
 };
 
+const forgotPassword = {
+  body: Joi.object({
+    email: Joi.string().email().required()
+  })
+};
+
+const confirmPasswordReset = {
+  body: Joi.object({
+    token: Joi.string().required(),
+    newPassword: Joi.string().min(8).max(128).required()
+  })
+};
+
 const listUsers = {
   query: Joi.object({
     search: Joi.string().max(120).optional(),
@@ -71,6 +84,8 @@ module.exports = {
   login,
   refresh,
   resetPassword,
+  forgotPassword,
+  confirmPasswordReset,
   listUsers,
   updateUserRoles,
   updateUserStatus

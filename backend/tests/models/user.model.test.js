@@ -5,16 +5,11 @@ const { setupMongoTest, cleanupMongoTest } = require('../helpers/mongoTest');
 
 let mongoServer;
 
-const canRunDbTest = Boolean(process.env.TEST_MONGODB_URI);
-const describeDb = canRunDbTest ? describe : describe.skip;
-
 beforeAll(async () => {
-  if (canRunDbTest) {
-    mongoServer = await setupMongoTest();
-  }
+  mongoServer = await setupMongoTest();
 });
 
-describeDb('User model', () => {
+describe('User model', () => {
   afterEach(async () => {
     const collections = mongoose.connection.collections;
     await Promise.all(Object.values(collections).map((collection) => collection.deleteMany({})));

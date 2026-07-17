@@ -15,6 +15,19 @@ const createVenue = asyncHandler(async (req, res) => {
   res.status(StatusCodes.CREATED).json({ venue });
 });
 
+const updateVenue = asyncHandler(async (req, res) => {
+  const venue = await bookingService.updateVenue(req.params.venueId, req.body);
+
+  res.locals.auditMeta = {
+    action: 'UPDATE_VENUE',
+    entityType: 'Venue',
+    entityId: venue._id.toString(),
+    after: venue
+  };
+
+  res.status(StatusCodes.OK).json({ venue });
+});
+
 const listVenues = asyncHandler(async (req, res) => {
   const data = await bookingService.listVenues(req.query);
   res.status(StatusCodes.OK).json(data);
@@ -34,6 +47,22 @@ const requestBooking = asyncHandler(async (req, res) => {
   };
 
   res.status(StatusCodes.CREATED).json({ booking });
+});
+
+const cancelMyBooking = asyncHandler(async (req, res) => {
+  const booking = await bookingService.cancelMyBooking({
+    bookingId: req.params.bookingId,
+    requesterId: req.user._id
+  });
+
+  res.locals.auditMeta = {
+    action: 'CANCEL_VENUE_BOOKING',
+    entityType: 'VenueBooking',
+    entityId: booking._id.toString(),
+    after: { status: booking.status }
+  };
+
+  res.status(StatusCodes.OK).json({ booking });
 });
 
 const listBookings = asyncHandler(async (req, res) => {
@@ -88,8 +117,10 @@ const checkConflicts = asyncHandler(async (req, res) => {
 
 module.exports = {
   createVenue,
+  updateVenue,
   listVenues,
   requestBooking,
+  cancelMyBooking,
   listBookings,
   listMyBookings,
   listCalendar,

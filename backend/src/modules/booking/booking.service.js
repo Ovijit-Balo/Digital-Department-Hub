@@ -82,6 +82,21 @@ const createVenue = async (payload) => {
   return Venue.create(payload);
 };
 
+const updateVenue = async (venueId, payload) => {
+  const venue = await Venue.findById(venueId);
+
+  if (!venue) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Venue not found');
+  }
+
+  // Deactivating a venue only blocks NEW booking requests; existing approved
+  // bookings remain on the calendar.
+  Object.assign(venue, payload);
+  await venue.save();
+
+  return venue.populate('manager', 'fullName email');
+};
+
 const listVenues = async (query) => {
   const filter = {};
   if (query.isActive !== undefined) {
@@ -168,6 +183,29 @@ const requestBooking = async ({ payload, userId }) => {
 
     return booking;
   });
+};
+
+// Requesters may withdraw their own booking while it is still pending —
+// approved/rejected requests are already decided and stay in the record.
+const cancelMyBooking = async ({ bookingId, requesterId }) => {
+  const booking = await VenueBooking.findById(bookingId);
+
+  if (!booking) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Booking request not found');
+  }
+
+  if (booking.requester.toString() !== requesterId.toString()) {
+    throw new ApiError(StatusCodes.FORBIDDEN, 'You can only cancel your own booking requests');
+  }
+
+  if (booking.status !== 'pending') {
+    throw new ApiError(StatusCodes.CONFLICT, 'Only pending requests can be cancelled');
+  }
+
+  booking.status = 'cancelled';
+  await booking.save();
+
+  return booking;
 };
 
 const listBookings = async (query) => {
@@ -350,8 +388,10 @@ const reviewBooking = async ({ bookingId, approverId, status, decisionNote }) =>
 
 module.exports = {
   createVenue,
+  updateVenue,
   listVenues,
   requestBooking,
+  cancelMyBooking,
   listBookings,
   listMyBookings,
   listCalendar,

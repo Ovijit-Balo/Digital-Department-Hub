@@ -76,6 +76,18 @@
   border-color: rgba(140, 21, 21, 0.3);
 }
 
+/* Metric cards rendered as links keep the card look, not link styling. */
+a.dash-metric--link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Unread in-app notifications get a subtle accent edge. */
+.notification-unread {
+  border-left: 3px solid var(--primary);
+}
+
 .dash-metric__icon {
   display: inline-flex;
   align-items: center;
@@ -147,7 +159,9 @@
   gap: 0.6rem 1.25rem;
   padding: 0.7rem max(var(--gutter), calc((100% - var(--content-max)) / 2));
   background: rgba(255, 255, 255, 0.97);
-  border-bottom: 1px solid var(--stroke);
+  /* Cardinal frame — match the public navbar's red top & bottom hairlines */
+  border-top: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
   box-shadow: 0 6px 20px rgba(31, 41, 55, 0.05);
 }
 

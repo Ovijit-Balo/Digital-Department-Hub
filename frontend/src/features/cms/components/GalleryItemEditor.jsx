@@ -1,37 +1,43 @@
+import ImageUploadField from '../../../components/ui/ImageUploadField';
+import useCmsFormText from '../cmsFormText';
+
 export function GalleryItemEditor({ index, item, onRemove, onChange, onCaptionChange }) {
+  const t = useCmsFormText();
+
   return (
     <article className="surface-card inner-card">
       <div className="section-head section-head-tight">
-        <h4>Item {index + 1}</h4>
+        <h4>
+          {t('itemPrefix')} {index + 1}
+        </h4>
         <button type="button" className="btn btn-ghost" onClick={() => onRemove(index)}>
-          Remove
+          {t('remove')}
         </button>
       </div>
 
       <div className="form-grid">
         <label>
-          Media Type
+          {t('mediaType')}
           <select
             value={item.mediaType}
             onChange={(event) => onChange(index, 'mediaType', event.target.value)}
           >
-            <option value="image">Image</option>
-            <option value="video">Video</option>
+            <option value="image">{t('image')}</option>
+            <option value="video">{t('video')}</option>
           </select>
         </label>
 
-        <label>
-          Media URL
-          <input
-            value={item.mediaUrl}
-            onChange={(event) => onChange(index, 'mediaUrl', event.target.value)}
-            placeholder="https://..."
-            required
-          />
-        </label>
+        <ImageUploadField
+          label={t('mediaUploadLabel')}
+          value={item.mediaUrl}
+          onChange={(url) => onChange(index, 'mediaUrl', url)}
+          folder="digital-department-hub/gallery"
+          accept={item.mediaType === 'video' ? 'video/*' : 'image/*'}
+          resourceType={item.mediaType === 'video' ? 'video' : 'image'}
+        />
 
         <label>
-          Thumbnail URL (optional)
+          {t('thumbnailUrl')}
           <input
             value={item.thumbnailUrl}
             onChange={(event) => onChange(index, 'thumbnailUrl', event.target.value)}
@@ -40,7 +46,7 @@ export function GalleryItemEditor({ index, item, onRemove, onChange, onCaptionCh
         </label>
 
         <label>
-          Caption (EN)
+          {t('captionEn')}
           <input
             value={item.caption?.en || ''}
             onChange={(event) => onCaptionChange(index, 'en', event.target.value)}
@@ -48,7 +54,7 @@ export function GalleryItemEditor({ index, item, onRemove, onChange, onCaptionCh
         </label>
 
         <label>
-          Caption (BN)
+          {t('captionBn')}
           <input
             value={item.caption?.bn || ''}
             onChange={(event) => onCaptionChange(index, 'bn', event.target.value)}
@@ -56,7 +62,7 @@ export function GalleryItemEditor({ index, item, onRemove, onChange, onCaptionCh
         </label>
 
         <label>
-          Order
+          {t('order')}
           <input
             type="number"
             min="0"

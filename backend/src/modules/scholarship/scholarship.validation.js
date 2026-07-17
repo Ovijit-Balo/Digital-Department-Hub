@@ -146,6 +146,12 @@ const exportApplications = {
   })
 };
 
+const applicationStats = {
+  query: Joi.object({
+    noticeId: objectId.optional()
+  })
+};
+
 const publishRecipients = {
   params: Joi.object({ noticeId: objectId.required() }),
   body: Joi.object({
@@ -205,6 +211,7 @@ module.exports = {
   listApplications,
   listMyApplications,
   exportApplications,
+  applicationStats,
   publishRecipients,
   listRecipients,
   createNoticeUpdate,

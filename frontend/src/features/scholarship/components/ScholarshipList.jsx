@@ -1,15 +1,23 @@
 import { toLocalizedText, toIsoDate } from '../../../utils/localized';
 import useLanguage from '../../../hooks/useLanguage';
-import { ui } from '../../../i18n/publicUi';
+
+const T = {
+  heading: { en: 'Scholarship Notices', bn: 'বৃত্তি বিজ্ঞপ্তি' },
+  empty: { en: 'No scholarship notices available.', bn: 'কোনো বৃত্তি বিজ্ঞপ্তি নেই।' },
+  deadline: { en: 'Deadline:', bn: 'শেষ তারিখ:' },
+  category: { en: 'category', bn: 'বিভাগ' },
+  categories: { en: 'categories', bn: 'বিভাগ' }
+};
 
 function ScholarshipList({ notices, selectedNoticeId, onSelectNotice }) {
   const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
 
   return (
     <div className="scholarship-list">
-      <h3 className="section-header">Scholarship Notices</h3>
+      <h3 className="section-header">{t('heading')}</h3>
       {notices.length === 0 ? (
-        <p className="empty-state">No scholarship notices available.</p>
+        <p className="empty-state">{t('empty')}</p>
       ) : (
         <div className="notice-cards">
           {notices.map((notice) => {
@@ -36,13 +44,14 @@ function ScholarshipList({ notices, selectedNoticeId, onSelectNotice }) {
                   {toLocalizedText(notice.title, language)}
                 </h4>
                 <p className="notice-deadline">
-                  Deadline: {toIsoDate(notice.deadline)}
+                  {t('deadline')} {toIsoDate(notice.deadline)}
                 </p>
                 <div className="notice-meta">
                   <span className="notice-type">{notice.scholarshipType}</span>
                   {notice.categories?.length > 0 && (
                     <span className="notice-categories">
-                      {notice.categories.length} {notice.categories.length === 1 ? 'category' : 'categories'}
+                      {notice.categories.length}{' '}
+                      {notice.categories.length === 1 ? t('category') : t('categories')}
                     </span>
                   )}
                 </div>

@@ -28,11 +28,14 @@ function GalleryDetailPage() {
         : await cmsApi.getGalleryBySlug(galleryId);
       setGallery(response.data.gallery || null);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load gallery.'));
+      setError(getApiErrorMessage(apiError, toLocalizedText(
+        { en: 'Failed to load gallery.', bn: 'গ্যালারি লোড করতে ব্যর্থ।' },
+        language
+      )));
     } finally {
       setLoading(false);
     }
-  }, [galleryId]);
+  }, [galleryId, language]);
 
   useEffect(() => {
     loadGallery();
@@ -71,7 +74,7 @@ function GalleryDetailPage() {
         <p>{ui('gallery', 'noGallery', language)}</p>
         <p>
           <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>
-            Back
+            {ui('home', 'back', language) || 'Back'}
           </button>
         </p>
       </section>

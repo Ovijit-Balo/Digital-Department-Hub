@@ -1,5 +1,52 @@
 import { useState } from 'react';
 import useLanguage from '../../../hooks/useLanguage';
+import { toLocalizedText } from '../../../utils/localized';
+
+const T = {
+  titleEnReq: { en: 'English title is required', bn: 'ইংরেজি শিরোনাম আবশ্যক' },
+  titleBnReq: { en: 'Bangla title is required', bn: 'বাংলা শিরোনাম আবশ্যক' },
+  descEnReq: { en: 'English description is required', bn: 'ইংরেজি বিবরণ আবশ্যক' },
+  descBnReq: { en: 'Bangla description is required', bn: 'বাংলা বিবরণ আবশ্যক' },
+  eligEnReq: { en: 'English eligibility is required', bn: 'ইংরেজি যোগ্যতা আবশ্যক' },
+  eligBnReq: { en: 'Bangla eligibility is required', bn: 'বাংলা যোগ্যতা আবশ্যক' },
+  windowStartReq: { en: 'Window start is required', bn: 'সময়সীমার শুরু আবশ্যক' },
+  windowEndReq: { en: 'Window end is required', bn: 'সময়সীমার শেষ আবশ্যক' },
+  deadlineReq: { en: 'Deadline is required', bn: 'শেষ তারিখ আবশ্যক' },
+  windowEndAfter: { en: 'Window end must be after window start', bn: 'সময়সীমার শেষ শুরুর পরে হতে হবে' },
+  deadlineAfter: { en: 'Deadline must be after window end', bn: 'শেষ তারিখ সময়সীমার শেষের পরে হতে হবে' },
+  uniqueCodes: { en: 'Category codes must be unique.', bn: 'বিভাগ কোড অনন্য হতে হবে।' },
+  editHeading: { en: 'Edit Scholarship Notice', bn: 'বৃত্তি বিজ্ঞপ্তি সম্পাদনা' },
+  createHeading: { en: 'Create Scholarship Notice', bn: 'বৃত্তি বিজ্ঞপ্তি তৈরি' },
+  cancel: { en: 'Cancel', bn: 'বাতিল' },
+  update: { en: 'Update', bn: 'আপডেট' },
+  create: { en: 'Create', bn: 'তৈরি' },
+  basicInfo: { en: 'Basic Information', bn: 'মৌলিক তথ্য' },
+  titleEn: { en: 'Title (English) *', bn: 'শিরোনাম (ইংরেজি) *' },
+  titleBn: { en: 'Title (Bangla) *', bn: 'শিরোনাম (বাংলা) *' },
+  descEn: { en: 'Description (English) *', bn: 'বিবরণ (ইংরেজি) *' },
+  descBn: { en: 'Description (Bangla) *', bn: 'বিবরণ (বাংলা) *' },
+  eligEn: { en: 'Eligibility (English) *', bn: 'যোগ্যতা (ইংরেজি) *' },
+  eligBn: { en: 'Eligibility (Bangla) *', bn: 'যোগ্যতা (বাংলা) *' },
+  timingStatus: { en: 'Timing & Status', bn: 'সময় ও অবস্থা' },
+  scholarshipType: { en: 'Scholarship Type', bn: 'বৃত্তির ধরন' },
+  oneTime: { en: 'One-time', bn: 'এককালীন' },
+  monthly: { en: 'Monthly', bn: 'মাসিক' },
+  status: { en: 'Status', bn: 'অবস্থা' },
+  draft: { en: 'Draft', bn: 'খসড়া' },
+  open: { en: 'Open', bn: 'খোলা' },
+  closed: { en: 'Closed', bn: 'বন্ধ' },
+  windowStart: { en: 'Application Window Start *', bn: 'আবেদন সময়সীমার শুরু *' },
+  windowEnd: { en: 'Application Window End *', bn: 'আবেদন সময়সীমার শেষ *' },
+  deadline: { en: 'Deadline *', bn: 'শেষ তারিখ *' },
+  categories: { en: 'Categories', bn: 'বিভাগসমূহ' },
+  addCategory: { en: '+ Add Category', bn: '+ বিভাগ যোগ করুন' },
+  code: { en: 'Code', bn: 'কোড' },
+  amount: { en: 'Amount', bn: 'পরিমাণ' },
+  slots: { en: 'Slots', bn: 'স্লট' },
+  nameEn: { en: 'Name (English)', bn: 'নাম (ইংরেজি)' },
+  nameBn: { en: 'Name (Bangla)', bn: 'নাম (বাংলা)' },
+  remove: { en: 'Remove', bn: 'সরান' }
+};
 
 const createEmptyCategory = () => ({
   code: '',
@@ -11,6 +58,7 @@ const createEmptyCategory = () => ({
 
 function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
   const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
   const [form, setForm] = useState(
     notice
       ? {
@@ -106,7 +154,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
     const codes = new Set();
     for (const item of normalized) {
       if (codes.has(item.code)) {
-        throw new Error('Category codes must be unique.');
+        throw new Error(t('uniqueCodes'));
       }
       codes.add(item.code);
     }
@@ -117,22 +165,22 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
   const validate = () => {
     const newErrors = {};
 
-    if (!form.title.en.trim()) newErrors.titleEn = 'English title is required';
-    if (!form.title.bn.trim()) newErrors.titleBn = 'Bangla title is required';
-    if (!form.description.en.trim()) newErrors.descriptionEn = 'English description is required';
-    if (!form.description.bn.trim()) newErrors.descriptionBn = 'Bangla description is required';
-    if (!form.eligibility.en.trim()) newErrors.eligibilityEn = 'English eligibility is required';
-    if (!form.eligibility.bn.trim()) newErrors.eligibilityBn = 'Bangla eligibility is required';
-    if (!form.applicationWindowStart) newErrors.applicationWindowStart = 'Window start is required';
-    if (!form.applicationWindowEnd) newErrors.applicationWindowEnd = 'Window end is required';
-    if (!form.deadline) newErrors.deadline = 'Deadline is required';
+    if (!form.title.en.trim()) newErrors.titleEn = t('titleEnReq');
+    if (!form.title.bn.trim()) newErrors.titleBn = t('titleBnReq');
+    if (!form.description.en.trim()) newErrors.descriptionEn = t('descEnReq');
+    if (!form.description.bn.trim()) newErrors.descriptionBn = t('descBnReq');
+    if (!form.eligibility.en.trim()) newErrors.eligibilityEn = t('eligEnReq');
+    if (!form.eligibility.bn.trim()) newErrors.eligibilityBn = t('eligBnReq');
+    if (!form.applicationWindowStart) newErrors.applicationWindowStart = t('windowStartReq');
+    if (!form.applicationWindowEnd) newErrors.applicationWindowEnd = t('windowEndReq');
+    if (!form.deadline) newErrors.deadline = t('deadlineReq');
 
     if (form.applicationWindowStart >= form.applicationWindowEnd) {
-      newErrors.applicationWindowEnd = 'Window end must be after window start';
+      newErrors.applicationWindowEnd = t('windowEndAfter');
     }
 
     if (form.applicationWindowEnd > form.deadline) {
-      newErrors.deadline = 'Deadline must be after window end';
+      newErrors.deadline = t('deadlineAfter');
     }
 
     setErrors(newErrors);
@@ -161,13 +209,13 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
   return (
     <form className="notice-editor" onSubmit={handleSubmit}>
       <div className="editor-header">
-        <h3>{isEdit ? 'Edit Scholarship Notice' : 'Create Scholarship Notice'}</h3>
+        <h3>{isEdit ? t('editHeading') : t('createHeading')}</h3>
         <div className="editor-actions">
           <button type="button" className="btn btn-ghost" onClick={onCancel}>
-            Cancel
+            {t('cancel')}
           </button>
           <button type="submit" className="btn btn-primary">
-            {isEdit ? 'Update' : 'Create'}
+            {isEdit ? t('update') : t('create')}
           </button>
         </div>
       </div>
@@ -175,10 +223,10 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
       {errors.general && <p className="form-error form-error--block">{errors.general}</p>}
 
       <div className="form-section">
-        <h4>Basic Information</h4>
-        
+        <h4>{t('basicInfo')}</h4>
+
         <div className="form-group">
-          <label>Title (English) *</label>
+          <label>{t('titleEn')}</label>
           <input
             type="text"
             value={form.title.en}
@@ -189,7 +237,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
         </div>
 
         <div className="form-group">
-          <label>Title (Bangla) *</label>
+          <label>{t('titleBn')}</label>
           <input
             type="text"
             value={form.title.bn}
@@ -200,7 +248,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
         </div>
 
         <div className="form-group">
-          <label>Description (English) *</label>
+          <label>{t('descEn')}</label>
           <textarea
             value={form.description.en}
             onChange={(e) => updateLocalized('description', 'en', e.target.value)}
@@ -211,7 +259,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
         </div>
 
         <div className="form-group">
-          <label>Description (Bangla) *</label>
+          <label>{t('descBn')}</label>
           <textarea
             value={form.description.bn}
             onChange={(e) => updateLocalized('description', 'bn', e.target.value)}
@@ -222,7 +270,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
         </div>
 
         <div className="form-group">
-          <label>Eligibility (English) *</label>
+          <label>{t('eligEn')}</label>
           <textarea
             value={form.eligibility.en}
             onChange={(e) => updateLocalized('eligibility', 'en', e.target.value)}
@@ -233,7 +281,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
         </div>
 
         <div className="form-group">
-          <label>Eligibility (Bangla) *</label>
+          <label>{t('eligBn')}</label>
           <textarea
             value={form.eligibility.bn}
             onChange={(e) => updateLocalized('eligibility', 'bn', e.target.value)}
@@ -245,36 +293,36 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
       </div>
 
       <div className="form-section">
-        <h4>Timing & Status</h4>
-        
+        <h4>{t('timingStatus')}</h4>
+
         <div className="form-row">
           <div className="form-group">
-            <label>Scholarship Type</label>
+            <label>{t('scholarshipType')}</label>
             <select
               value={form.scholarshipType}
               onChange={(e) => setForm({ ...form, scholarshipType: e.target.value })}
             >
-              <option value="one_off">One-time</option>
-              <option value="monthly">Monthly</option>
+              <option value="one_off">{t('oneTime')}</option>
+              <option value="monthly">{t('monthly')}</option>
             </select>
           </div>
 
           <div className="form-group">
-            <label>Status</label>
+            <label>{t('status')}</label>
             <select
               value={form.status}
               onChange={(e) => setForm({ ...form, status: e.target.value })}
             >
-              <option value="draft">Draft</option>
-              <option value="open">Open</option>
-              <option value="closed">Closed</option>
+              <option value="draft">{t('draft')}</option>
+              <option value="open">{t('open')}</option>
+              <option value="closed">{t('closed')}</option>
             </select>
           </div>
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Application Window Start *</label>
+            <label>{t('windowStart')}</label>
             <input
               type="date"
               value={form.applicationWindowStart}
@@ -285,7 +333,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
           </div>
 
           <div className="form-group">
-            <label>Application Window End *</label>
+            <label>{t('windowEnd')}</label>
             <input
               type="date"
               value={form.applicationWindowEnd}
@@ -297,7 +345,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
         </div>
 
         <div className="form-group">
-          <label>Deadline *</label>
+          <label>{t('deadline')}</label>
           <input
             type="date"
             value={form.deadline}
@@ -310,9 +358,9 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
 
       <div className="form-section">
         <div className="section-header-with-action">
-          <h4>Categories</h4>
+          <h4>{t('categories')}</h4>
           <button type="button" className="btn btn-sm btn-outline" onClick={addCategoryRow}>
-            + Add Category
+            {t('addCategory')}
           </button>
         </div>
 
@@ -320,7 +368,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
           <div key={index} className="category-row">
             <div className="form-row">
               <div className="form-group">
-                <label>Code</label>
+                <label>{t('code')}</label>
                 <input
                   type="text"
                   value={category.code}
@@ -331,7 +379,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
               </div>
 
               <div className="form-group">
-                <label>Amount</label>
+                <label>{t('amount')}</label>
                 <input
                   type="number"
                   min="0"
@@ -343,7 +391,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
               </div>
 
               <div className="form-group">
-                <label>Slots</label>
+                <label>{t('slots')}</label>
                 <input
                   type="number"
                   min="1"
@@ -355,7 +403,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
 
             <div className="form-row">
               <div className="form-group">
-                <label>Name (English)</label>
+                <label>{t('nameEn')}</label>
                 <input
                   type="text"
                   value={category.nameEn}
@@ -364,7 +412,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
               </div>
 
               <div className="form-group">
-                <label>Name (Bangla)</label>
+                <label>{t('nameBn')}</label>
                 <input
                   type="text"
                   value={category.nameBn}
@@ -379,7 +427,7 @@ function NoticeEditor({ notice, onSave, onCancel, isEdit = false }) {
                 className="btn btn-sm btn-danger btn-ghost"
                 onClick={() => removeCategoryRow(index)}
               >
-                Remove
+                {t('remove')}
               </button>
             )}
           </div>

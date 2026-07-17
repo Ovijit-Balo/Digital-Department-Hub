@@ -13,11 +13,11 @@ router.post('/track/:entityType/:entityId/:eventType', analyticsController.track
 // Get view count (public)
 router.get('/views/:entityType/:entityId', analyticsController.getViewCount);
 
-// Admin-only analytics endpoints
+// Content-view summary is editorial data, so editors may read it too.
 router.get(
   '/summary',
   authenticate,
-  authorize(ROLES.ADMIN),
+  authorize(ROLES.ADMIN, ROLES.EDITOR),
   analyticsController.getSummary
 );
 

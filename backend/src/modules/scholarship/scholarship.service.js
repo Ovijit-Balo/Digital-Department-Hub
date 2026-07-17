@@ -1,9 +1,19 @@
+const mongoose = require('mongoose');
 const { StatusCodes } = require('http-status-codes');
 const ScholarshipNotice = require('./scholarshipNotice.model');
 const ScholarshipApplication = require('./scholarshipApplication.model');
 const ScholarshipUpdate = require('./scholarshipUpdate.model');
 const ApiError = require('../../utils/ApiError');
 const toCsv = require('../../utils/csv');
+const { renderTablePdf } = require('../../utils/pdf');
+
+const APPLICATION_STATUSES = [
+  'submitted',
+  'under_review',
+  'shortlisted',
+  'approved',
+  'rejected'
+];
 const {
   notifyScholarshipSubmission,
   notifyScholarshipDecision
@@ -523,6 +533,89 @@ const exportApplicationsCsv = async ({ noticeId, status }) => {
   return toCsv(rows);
 };
 
+const exportApplicationsPdf = async ({ noticeId, status }) => {
+  const notice = await ScholarshipNotice.findById(noticeId).select('title scholarshipType');
+  if (!notice) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Scholarship notice not found');
+  }
+
+  const filter = { notice: noticeId };
+  if (status) {
+    filter.status = status;
+  }
+
+  const items = await ScholarshipApplication.find(filter)
+    .populate('student', 'fullName email department')
+    .populate('reviewedBy', 'fullName email')
+    .sort({ createdAt: -1 });
+
+  const approvedCount = items.filter((item) => item.status === 'approved').length;
+
+  const rows = items.map((item, index) => ({
+    idx: index + 1,
+    student: item.student ? item.student.fullName : 'Unknown',
+    email: item.student ? item.student.email : '',
+    department: item.department,
+    gpa: item.gpa,
+    category: item.awardedCategoryCode || item.selectedCategoryCode || '—',
+    amount: item.awardedAmount || '',
+    status: item.status,
+    submitted: item.createdAt.toISOString().slice(0, 10)
+  }));
+
+  const buffer = await renderTablePdf({
+    title: notice.title.en,
+    subtitle: status
+      ? `Scholarship applications report — status: ${status}`
+      : 'Scholarship applications report',
+    meta: [
+      { label: 'Total applications', value: String(items.length) },
+      { label: 'Approved', value: String(approvedCount) },
+      { label: 'Scholarship type', value: notice.scholarshipType }
+    ],
+    columns: [
+      { key: 'idx', label: '#', width: 22 },
+      { key: 'student', label: 'Applicant', width: 92 },
+      { key: 'email', label: 'Email', width: 118 },
+      { key: 'department', label: 'Department', width: 70 },
+      { key: 'gpa', label: 'GPA', width: 32 },
+      { key: 'category', label: 'Category', width: 66 },
+      { key: 'amount', label: 'Amount', width: 50 },
+      { key: 'status', label: 'Status', width: 62 },
+      { key: 'submitted', label: 'Submitted', width: 58 }
+    ],
+    rows
+  });
+
+  return { buffer, filename: `scholarship-applications-${noticeId}.pdf` };
+};
+
+const getApplicationStatusStats = async ({ noticeId } = {}) => {
+  const match = {};
+  if (noticeId) {
+    match.notice = new mongoose.Types.ObjectId(noticeId);
+  }
+
+  const grouped = await ScholarshipApplication.aggregate([
+    { $match: match },
+    { $group: { _id: '$status', count: { $sum: 1 } } }
+  ]);
+
+  const byStatus = APPLICATION_STATUSES.reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
+  let total = 0;
+
+  grouped.forEach((row) => {
+    if (row._id in byStatus) {
+      byStatus[row._id] = row.count;
+    }
+    total += row.count;
+  });
+
+  const pending = byStatus.submitted + byStatus.under_review + byStatus.shortlisted;
+
+  return { total, pending, byStatus };
+};
+
 module.exports = {
   createNotice,
   listNotices,
@@ -535,5 +628,7 @@ module.exports = {
   listRecipients,
   createUpdate,
   listUpdates,
-  exportApplicationsCsv
+  exportApplicationsCsv,
+  exportApplicationsPdf,
+  getApplicationStatusStats
 };

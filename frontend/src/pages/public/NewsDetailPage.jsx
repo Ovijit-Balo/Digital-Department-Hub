@@ -6,12 +6,22 @@ import useLanguage from '../../hooks/useLanguage';
 import usePageMeta from '../../hooks/usePageMeta';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
+import { resolveSeoMeta } from '../../utils/seo';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 import { toLocalizedText, toIsoDate } from '../../utils/localized';
+
+const T = {
+  loadFailed: { en: 'Failed to load news item.', bn: 'সংবাদ আইটেম লোড করতে ব্যর্থ।' },
+  back: { en: 'Back', bn: 'ফিরে যান' },
+  backToNews: { en: 'Back to News', bn: 'সংবাদে ফিরুন' },
+  published: { en: 'Published', bn: 'প্রকাশিত' }
+};
 
 function NewsDetailPage() {
   const { newsId } = useParams();
   const navigate = useNavigate();
   const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [item, setItem] = useState(null);
@@ -28,7 +38,7 @@ function NewsDetailPage() {
           res = await cmsApi.getNewsBySlug(newsId);
           setItem(res.data.post || null);
           return;
-        } catch (slugError) {
+        } catch {
           // If slug lookup fails, try ID lookup
         }
       }
@@ -36,11 +46,12 @@ function NewsDetailPage() {
       res = await cmsApi.getNewsById(newsId);
       setItem(res.data.post || null);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load news item.'));
+      setError(getApiErrorMessage(apiError, t('loadFailed')));
     } finally {
       setLoading(false);
     }
-  }, [newsId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newsId, language]);
 
   useEffect(() => {
     loadNews();
@@ -52,7 +63,7 @@ function NewsDetailPage() {
     [item, language]
   );
 
-  usePageMeta({ title: title || undefined, description: summary || undefined });
+  usePageMeta(resolveSeoMeta(item, { language, bodyField: 'body' }));
 
   if (loading) {
     return (
@@ -76,7 +87,7 @@ function NewsDetailPage() {
         <p>{ui('newsroom', 'noNews', language) || 'News not found.'}</p>
         <p>
           <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>
-            Back
+            {t('back')}
           </button>
         </p>
       </section>
@@ -88,12 +99,15 @@ function NewsDetailPage() {
       <div className="section-head">
         <h1>{title}</h1>
         <Link to="/news" className="btn btn-ghost">
-          Back to News
+          {t('backToNews')}
         </Link>
       </div>
 
-      <p className="meta">Published {toIsoDate(item.publishedAt || item.createdAt)}</p>
+      <p className="meta">{t('published')} {toIsoDate(item.publishedAt || item.createdAt)}</p>
       {summary ? <p className="news-detail-summary">{summary}</p> : null}
+      {item.coverImageUrl ? (
+        <img src={resolveMediaUrl(item.coverImageUrl)} alt={title} className="content-detail__cover" />
+      ) : null}
       <article className="surface-card">
         <div className="newsroom-detail-panel__body">
           <RichTextPreview html={toLocalizedText(item.body, language)} />

@@ -6,6 +6,9 @@ import { useToast } from '../../context/ToastContext';
 import useLanguage from '../../hooks/useLanguage';
 import useRole from '../../hooks/useRole';
 import CollapsibleSection from '../../components/ui/CollapsibleSection';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import InlineAlert from '../../components/ui/InlineAlert';
+import Modal from '../../components/ui/Modal';
 import ReviewModal from '../../features/scholarship/components/ReviewModal';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
@@ -18,6 +21,205 @@ const createEmptyCategory = () => ({
   amount: '',
   slots: 1
 });
+
+// Human-friendly labels + badge classes for the computed application state.
+const STATE_META = {
+  open: { label: { en: 'Open', bn: 'খোলা' }, badge: 'status-open' },
+  closed: { label: { en: 'Closed', bn: 'বন্ধ' }, badge: 'status-closed' },
+  scheduled: { label: { en: 'Scheduled', bn: 'নির্ধারিত' }, badge: 'status-scheduled' },
+  draft: { label: { en: 'Draft', bn: 'খসড়া' }, badge: 'status-draft' }
+};
+
+const stateLabel = (state, language) =>
+  STATE_META[state]?.label ? toLocalizedText(STATE_META[state].label, language) : state || '—';
+const stateBadgeClass = (state) => STATE_META[state]?.badge || 'status-draft';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Explains to an applicant why the form is disabled for a non-open notice.
+const applyBlockedMessage = (state, startDate, language) => {
+  if (state === 'scheduled') {
+    return toLocalizedText(
+      {
+        en: `Applications for this notice open on ${toIsoDate(startDate)}.`,
+        bn: `এই বিজ্ঞপ্তির আবেদন ${toIsoDate(startDate)} তারিখে খুলবে।`
+      },
+      language
+    );
+  }
+  if (state === 'draft') {
+    return toLocalizedText(
+      {
+        en: 'This notice is still a draft and is not accepting applications yet.',
+        bn: 'এই বিজ্ঞপ্তিটি এখনও খসড়া এবং আবেদন গ্রহণ করছে না।'
+      },
+      language
+    );
+  }
+  return toLocalizedText(
+    {
+      en: 'The application window for this notice is closed.',
+      bn: 'এই বিজ্ঞপ্তির আবেদন সময়সীমা বন্ধ।'
+    },
+    language
+  );
+};
+
+const T = {
+  step1: { en: 'Choose a notice', bn: 'একটি বিজ্ঞপ্তি নির্বাচন করুন' },
+  step2: { en: 'Review & Apply', bn: 'পর্যালোচনা ও আবেদন' },
+  step3: { en: 'Confirmation', bn: 'নিশ্চিতকরণ' },
+  openNotices: { en: 'Open Notices', bn: 'খোলা বিজ্ঞপ্তি' },
+  openNoticesNote: { en: 'Active window-aware opportunities', bn: 'সক্রিয় সময়সীমা-সচেতন সুযোগ' },
+  noticeCategories: { en: 'Notice Categories', bn: 'বিজ্ঞপ্তির বিভাগ' },
+  noticeCategoriesNote: { en: 'Configured for selected notice', bn: 'নির্বাচিত বিজ্ঞপ্তির জন্য নির্ধারিত' },
+  recipientsListed: { en: 'Recipients Listed', bn: 'তালিকাভুক্ত প্রাপক' },
+  recipientsNote: { en: 'Visible in current selection', bn: 'বর্তমান নির্বাচনে দৃশ্যমান' },
+  pendingReviews: { en: 'Pending Reviews', bn: 'অপেক্ষমাণ পর্যালোচনা' },
+  myApplications: { en: 'My Applications', bn: 'আমার আবেদন' },
+  submittedOrReview: { en: 'Submitted or under review', bn: 'জমা দেওয়া বা পর্যালোচনাধীন' },
+  submittedInAccount: { en: 'Submitted in your account', bn: 'আপনার অ্যাকাউন্টে জমা দেওয়া' },
+  type: { en: 'Type', bn: 'ধরন' },
+  applicationWindow: { en: 'Application Window', bn: 'আবেদন সময়সীমা' },
+  decisionDate: { en: 'Decision Date', bn: 'সিদ্ধান্তের তারিখ' },
+  category: { en: 'Category', bn: 'বিভাগ' },
+  code: { en: 'Code', bn: 'কোড' },
+  amount: { en: 'Amount', bn: 'পরিমাণ' },
+  slots: { en: 'Slots', bn: 'স্লট' },
+  yourApplication: { en: 'Your Application', bn: 'আপনার আবেদন' },
+  submitted: { en: 'Submitted:', bn: 'জমা দেওয়া:' },
+  award: { en: 'Award:', bn: 'পুরস্কার:' },
+  openFormHint: { en: 'Open the application form.', bn: 'আবেদন ফর্ম খুলুন।' },
+  applyNow: { en: 'Apply Now', bn: 'এখনই আবেদন করুন' },
+  viewDetails: { en: 'View Details', bn: 'বিস্তারিত দেখুন' },
+  downloadInfo: { en: 'Download Info', bn: 'তথ্য ডাউনলোড' },
+  openWindow: { en: 'Open Window', bn: 'উইন্ডো খুলুন' },
+  closeWindow: { en: 'Close Window', bn: 'উইন্ডো বন্ধ' },
+  moveToDraft: { en: 'Move to Draft', bn: 'খসড়ায় নিন' },
+  unpublishRecipients: { en: 'Unpublish Recipient List', bn: 'প্রাপক তালিকা অপ্রকাশ' },
+  publishRecipientsLabel: { en: 'Publish Recipient List', bn: 'প্রাপক তালিকা প্রকাশ' },
+  feedTitle: { en: 'Scholarship Update Feed', bn: 'বৃত্তি আপডেট ফিড' },
+  notice: { en: 'Notice:', bn: 'বিজ্ঞপ্তি:' },
+  posted: { en: 'Posted:', bn: 'পোস্ট করা:' },
+  selectNoticeAbove: { en: 'Select a scholarship notice above to apply.', bn: 'আবেদন করতে উপরে একটি বৃত্তি বিজ্ঞপ্তি নির্বাচন করুন।' },
+  cancel: { en: 'Cancel', bn: 'বাতিল' },
+  submitApplication: { en: 'Submit Application', bn: 'আবেদন জমা দিন' },
+  submitHint: { en: 'Submit your application', bn: 'আপনার আবেদন জমা দিন' },
+  notAcceptingHint: { en: 'This notice is not accepting applications right now.', bn: 'এই বিজ্ঞপ্তি এই মুহূর্তে আবেদন গ্রহণ করছে না।' },
+  recipientList: { en: 'Recipient List', bn: 'প্রাপক তালিকা' },
+  published: { en: 'Published:', bn: 'প্রকাশিত:' },
+  noRecipientsYet: { en: 'No recipients listed yet.', bn: 'এখনও কোনো প্রাপক তালিকাভুক্ত নয়।' },
+  recipientsAfterPub: { en: 'Recipients will appear here after publication.', bn: 'প্রকাশের পর প্রাপকরা এখানে দেখা যাবে।' },
+  recipientNotPublished: { en: 'Recipient list is not published yet.', bn: 'প্রাপক তালিকা এখনও প্রকাশিত হয়নি।' },
+  updateTimeline: { en: 'Notice Update Timeline', bn: 'বিজ্ঞপ্তি আপডেট টাইমলাইন' },
+  general: { en: 'General', bn: 'সাধারণ' },
+  deadline: { en: 'Deadline', bn: 'শেষ তারিখ' },
+  recipient: { en: 'Recipient', bn: 'প্রাপক' },
+  announcement: { en: 'Announcement', bn: 'ঘোষণা' },
+  publicVis: { en: 'Public', bn: 'সর্বজনীন' },
+  internalVis: { en: 'Internal', bn: 'অভ্যন্তরীণ' },
+  adminPanel: { en: 'Admin Panel', bn: 'অ্যাডমিন প্যানেল' },
+  editSelectedNotice: { en: 'Edit Selected Scholarship Notice', bn: 'নির্বাচিত বৃত্তি বিজ্ঞপ্তি সম্পাদনা' },
+  monthly: { en: 'Monthly', bn: 'মাসিক' },
+  oneOff: { en: 'One-time', bn: 'এককালীন' },
+  draftOpt: { en: 'Draft', bn: 'খসড়া' },
+  openOpt: { en: 'Open', bn: 'খোলা' },
+  closedOpt: { en: 'Closed', bn: 'বন্ধ' },
+  categoryMatrix: { en: 'Category Amount Matrix', bn: 'বিভাগ পরিমাণ ম্যাট্রিক্স' },
+  publishNotice: { en: 'Publish Scholarship Notice', bn: 'বৃত্তি বিজ্ঞপ্তি প্রকাশ' },
+  unknown: { en: 'Unknown', bn: 'অজানা' },
+  awarded: { en: 'Awarded', bn: 'প্রদত্ত' },
+  noUpdatesYet: { en: 'No updates for this notice yet.', bn: 'এই বিজ্ঞপ্তির জন্য এখনও কোনো আপডেট নেই।' },
+  postedBy: { en: 'Posted by', bn: 'পোস্ট করেছেন' },
+  systemFallback: { en: 'System', bn: 'সিস্টেম' },
+  internalBadge: { en: 'internal', bn: 'অভ্যন্তরীণ' },
+  updateType: { en: 'Update Type', bn: 'আপডেটের ধরন' },
+  visibility: { en: 'Visibility', bn: 'দৃশ্যমানতা' },
+  titleEn: { en: 'Title (EN)', bn: 'শিরোনাম (ইংরেজি)' },
+  titleBn: { en: 'Title (BN)', bn: 'শিরোনাম (বাংলা)' },
+  descEn: { en: 'Description (EN)', bn: 'বিবরণ (ইংরেজি)' },
+  descBn: { en: 'Description (BN)', bn: 'বিবরণ (বাংলা)' },
+  eligEn: { en: 'Eligibility (EN)', bn: 'যোগ্যতা (ইংরেজি)' },
+  eligBn: { en: 'Eligibility (BN)', bn: 'যোগ্যতা (বাংলা)' },
+  bodyEn: { en: 'Body (EN)', bn: 'মূল অংশ (ইংরেজি)' },
+  bodyBn: { en: 'Body (BN)', bn: 'মূল অংশ (বাংলা)' },
+  publishUpdate: { en: 'Publish Update', bn: 'আপডেট প্রকাশ' },
+  selectNoticeToEdit: { en: 'Select a notice to edit.', bn: 'সম্পাদনার জন্য একটি বিজ্ঞপ্তি নির্বাচন করুন।' },
+  scholarshipTypeLabel: { en: 'Scholarship Type', bn: 'বৃত্তির ধরন' },
+  windowStartLabel: { en: 'Application Window Start', bn: 'আবেদন সময়সীমার শুরু' },
+  windowEndLabel: { en: 'Application Window End', bn: 'আবেদন সময়সীমার শেষ' },
+  decisionDateLabel: { en: 'Decision Date', bn: 'সিদ্ধান্তের তারিখ' },
+  statusLabel: { en: 'Status', bn: 'অবস্থা' },
+  addCategoryBtn: { en: 'Add Category', bn: 'বিভাগ যোগ করুন' },
+  nameEn: { en: 'Name (EN)', bn: 'নাম (ইংরেজি)' },
+  nameBn: { en: 'Name (BN)', bn: 'নাম (বাংলা)' },
+  removeCategory: { en: 'Remove Category', bn: 'বিভাগ সরান' },
+  updateNoticeBtn: { en: 'Update Notice', bn: 'বিজ্ঞপ্তি আপডেট' },
+  initialStatus: { en: 'Initial Status', bn: 'প্রাথমিক অবস্থা' },
+  publishNoticeBtn: { en: 'Publish Notice', bn: 'বিজ্ঞপ্তি প্রকাশ' },
+  reviewQueue: { en: 'Review Queue', bn: 'পর্যালোচনা সারি' },
+  exportCsv: { en: 'Export CSV', bn: 'CSV রপ্তানি' },
+  exportPdf: { en: 'Export PDF', bn: 'PDF রপ্তানি' },
+  noApplicationsReview: { en: 'No applications to review.', bn: 'পর্যালোচনার জন্য কোনো আবেদন নেই।' },
+  student: { en: 'Student', bn: 'শিক্ষার্থী' },
+  action: { en: 'Action', bn: 'পদক্ষেপ' },
+  reviewBtn: { en: 'Review', bn: 'পর্যালোচনা' },
+  approve: { en: 'Approve', bn: 'অনুমোদন' },
+  reject: { en: 'Reject', bn: 'প্রত্যাখ্যান' },
+  reopenTitle: { en: 'Reopen application window', bn: 'আবেদন সময়সীমা পুনরায় খুলুন' },
+  reopenLabel: { en: 'Reopen window', bn: 'উইন্ডো পুনরায় খুলুন' },
+  noticeCol: { en: 'Notice', bn: 'বিজ্ঞপ্তি' },
+  // messages / toasts
+  msgSelectNotice: { en: 'Select a scholarship notice first.', bn: 'প্রথমে একটি বৃত্তি বিজ্ঞপ্তি নির্বাচন করুন।' },
+  msgSelectCategory: { en: 'Select a scholarship category before submitting.', bn: 'জমা দেওয়ার আগে একটি বৃত্তি বিভাগ নির্বাচন করুন।' },
+  msgNoticeNotFound: { en: 'Selected scholarship notice not found.', bn: 'নির্বাচিত বৃত্তি বিজ্ঞপ্তি পাওয়া যায়নি।' },
+  msgWindowClosed: { en: 'Application window has closed', bn: 'আবেদন সময়সীমা বন্ধ হয়েছে' },
+  msgWindowNotOpen: { en: 'Application window has not opened yet', bn: 'আবেদন সময়সীমা এখনও খোলেনি' },
+  msgAppSubmitted: { en: 'Application submitted successfully.', bn: 'আবেদন সফলভাবে জমা হয়েছে।' },
+  titleAppSent: { en: 'Scholarship application sent', bn: 'বৃত্তি আবেদন পাঠানো হয়েছে' },
+  msgAppFailed: { en: 'Failed to submit application.', bn: 'আবেদন জমা দিতে ব্যর্থ।' },
+  titleAppFailed: { en: 'Application failed', bn: 'আবেদন ব্যর্থ' },
+  msgUniqueCodes: { en: 'Category codes must be unique.', bn: 'বিভাগ কোড অনন্য হতে হবে।' },
+  msgNoticeCreated: { en: 'Scholarship notice created successfully.', bn: 'বৃত্তি বিজ্ঞপ্তি সফলভাবে তৈরি হয়েছে।' },
+  titleNoticeCreated: { en: 'Notice created', bn: 'বিজ্ঞপ্তি তৈরি হয়েছে' },
+  msgNoticeCreateFailed: { en: 'Failed to create scholarship notice.', bn: 'বৃত্তি বিজ্ঞপ্তি তৈরি করতে ব্যর্থ।' },
+  titleNoticeCreateFailed: { en: 'Notice creation failed', bn: 'বিজ্ঞপ্তি তৈরি ব্যর্থ' },
+  msgNoticeUpdated: { en: 'Scholarship notice updated successfully.', bn: 'বৃত্তি বিজ্ঞপ্তি সফলভাবে আপডেট হয়েছে।' },
+  titleNoticeUpdated: { en: 'Notice updated', bn: 'বিজ্ঞপ্তি আপডেট হয়েছে' },
+  msgNoticeUpdateFailed: { en: 'Failed to update scholarship notice.', bn: 'বৃত্তি বিজ্ঞপ্তি আপডেট করতে ব্যর্থ।' },
+  titleNoticeUpdateFailed: { en: 'Notice update failed', bn: 'বিজ্ঞপ্তি আপডেট ব্যর্থ' },
+  msgReviewUpdated: { en: 'Application review updated.', bn: 'আবেদন পর্যালোচনা আপডেট হয়েছে।' },
+  msgReviewed: { en: 'Application reviewed.', bn: 'আবেদন পর্যালোচিত।' },
+  titleReviewSaved: { en: 'Review saved', bn: 'পর্যালোচনা সংরক্ষিত' },
+  msgReviewFailed: { en: 'Failed to update review status.', bn: 'পর্যালোচনার অবস্থা আপডেট করতে ব্যর্থ।' },
+  titleReviewFailed: { en: 'Review failed', bn: 'পর্যালোচনা ব্যর্থ' },
+  msgSelectBeforeExport: { en: 'Select a notice before export.', bn: 'রপ্তানির আগে একটি বিজ্ঞপ্তি নির্বাচন করুন।' },
+  msgCsvDownloaded: { en: 'CSV export downloaded.', bn: 'CSV রপ্তানি ডাউনলোড হয়েছে।' },
+  msgPdfDownloaded: { en: 'PDF export downloaded.', bn: 'PDF রপ্তানি ডাউনলোড হয়েছে।' },
+  titleExportComplete: { en: 'Export complete', bn: 'রপ্তানি সম্পন্ন' },
+  msgCsvFailed: { en: 'Failed to export applications.', bn: 'আবেদন রপ্তানি করতে ব্যর্থ।' },
+  msgPdfFailed: { en: 'Failed to export applications as PDF.', bn: 'আবেদন PDF হিসেবে রপ্তানি করতে ব্যর্থ।' },
+  titleExportFailed: { en: 'Export failed', bn: 'রপ্তানি ব্যর্থ' },
+  msgNoticeMarked: { en: 'Notice marked as', bn: 'বিজ্ঞপ্তি চিহ্নিত হয়েছে:' },
+  titleScholarshipUpdated: { en: 'Scholarship notice updated', bn: 'বৃত্তি বিজ্ঞপ্তি আপডেট হয়েছে' },
+  msgStatusFailed: { en: 'Failed to update scholarship notice status.', bn: 'বৃত্তি বিজ্ঞপ্তির অবস্থা আপডেট করতে ব্যর্থ।' },
+  msgWindowOpened: { en: 'Application window opened.', bn: 'আবেদন সময়সীমা খোলা হয়েছে।' },
+  msgWindowNowOpen: { en: 'Application window is now open.', bn: 'আবেদন সময়সীমা এখন খোলা।' },
+  msgWindowOpenFailed: { en: 'Failed to open the application window.', bn: 'আবেদন সময়সীমা খুলতে ব্যর্থ।' },
+  msgRecipientsPublished: { en: 'Recipient list published.', bn: 'প্রাপক তালিকা প্রকাশিত হয়েছে।' },
+  msgRecipientsUnpublished: { en: 'Recipient list unpublished.', bn: 'প্রাপক তালিকা অপ্রকাশিত হয়েছে।' },
+  titleRecipientsUpdated: { en: 'Recipient list updated', bn: 'প্রাপক তালিকা আপডেট হয়েছে' },
+  msgRecipientPubFailed: { en: 'Failed to update recipient publication status.', bn: 'প্রাপক প্রকাশনার অবস্থা আপডেট করতে ব্যর্থ।' },
+  titleRecipientPubFailed: { en: 'Recipient publication failed', bn: 'প্রাপক প্রকাশনা ব্যর্থ' },
+  msgUpdatePublished: { en: 'Scholarship update published.', bn: 'বৃত্তি আপডেট প্রকাশিত হয়েছে।' },
+  titleUpdateFeed: { en: 'Update feed', bn: 'আপডেট ফিড' },
+  msgUpdateFailed: { en: 'Failed to publish scholarship update.', bn: 'বৃত্তি আপডেট প্রকাশ করতে ব্যর্থ।' },
+  titleUpdateFailed: { en: 'Update publish failed', bn: 'আপডেট প্রকাশ ব্যর্থ' },
+  msgTimelineFailed: { en: 'Failed to load scholarship update timeline.', bn: 'বৃত্তি আপডেট টাইমলাইন লোড করতে ব্যর্থ।' },
+  msgRecipientsLoadFailed: { en: 'Failed to load scholarship recipients for this notice.', bn: 'এই বিজ্ঞপ্তির বৃত্তিপ্রাপ্ত লোড করতে ব্যর্থ।' },
+  msgRecipientsUpdatesFailed: { en: 'Failed to load scholarship recipients and updates.', bn: 'বৃত্তিপ্রাপ্ত ও আপডেট লোড করতে ব্যর্থ।' },
+  msgInfoLoadFailed: { en: 'Failed to load scholarship information.', bn: 'বৃত্তি তথ্য লোড করতে ব্যর্থ।' }
+};
 
 function sortByDateDesc(list, field) {
   return [...list].sort((left, right) => {
@@ -55,6 +257,7 @@ function sortByDeadlineThenTitle(list) {
 function ScholarshipPage() {
   const { user, isAuthenticated } = useAuth();
   const { language } = useLanguage();
+  const t = useCallback((key) => toLocalizedText(T[key], language), [language]);
   const { success, error: toastError, info } = useToast();
 
   const canReview = useRole('admin', 'manager', 'reviewer');
@@ -91,6 +294,7 @@ function ScholarshipPage() {
   const [globalUpdates, setGlobalUpdates] = useState([]);
   const [applicationDrafts, setApplicationDrafts] = useState({});
 
+  const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [applicationForm, setApplicationForm] = useState({
     statement: '',
     gpa: '',
@@ -147,10 +351,6 @@ function ScholarshipPage() {
     () => sortByDateDesc(applications, 'createdAt'),
     [applications]
   );
-  const orderedMyApplications = useMemo(
-    () => sortByDateDesc(myApplications, 'createdAt'),
-    [myApplications]
-  );
   const orderedRecipients = useMemo(() => sortByDateDesc(recipients, 'reviewedAt'), [recipients]);
   const orderedGlobalUpdates = useMemo(
     () => sortByDateDesc(globalUpdates, 'createdAt'),
@@ -175,8 +375,17 @@ function ScholarshipPage() {
   }, [myApplications, selectedNoticeId]);
 
   const currentStep = !selectedNoticeId ? 1 : selectedNoticeApplication ? 3 : 2;
-  const isSelectedNoticeClosed =
-    selectedNotice && (selectedNotice.applicationState || selectedNotice.status) === 'closed';
+
+  // The *live* state (computed from the dates by the API) is the single source of
+  // truth for whether applications are accepted — not the raw `status` toggle.
+  const liveState = selectedNotice
+    ? selectedNotice.applicationState || selectedNotice.status
+    : '';
+  const rawStatus = selectedNotice ? selectedNotice.status : '';
+  const canAcceptApplications = liveState === 'open';
+  // Admin marked it open, but the calendar says otherwise (window ended / not started).
+  const stateMismatch =
+    selectedNotice && rawStatus === 'open' && liveState !== 'open' ? liveState : '';
 
   const downloadSelectedNoticeInfo = useCallback(() => {
     if (!selectedNotice) {
@@ -208,13 +417,6 @@ function ScholarshipPage() {
     anchor.click();
     URL.revokeObjectURL(url);
   }, [language, selectedNotice, selectedNoticeCategories]);
-
-  const scrollToApplyForm = useCallback(() => {
-    document.getElementById('scholarship-application-form')?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
-    });
-  }, []);
 
   const dashboardStats = useMemo(
     () => ({
@@ -405,7 +607,7 @@ function ScholarshipPage() {
       } catch (apiError) {
         setNoticeUpdates([]);
         setMessage(
-          getApiErrorMessage(apiError, 'Failed to load scholarship update timeline.')
+          getApiErrorMessage(apiError, t('msgTimelineFailed'))
         );
       }
 
@@ -444,10 +646,7 @@ function ScholarshipPage() {
           });
         } else {
           setMessage(
-            getApiErrorMessage(
-              recipientResult.reason,
-              'Failed to load scholarship recipients for this notice.'
-            )
+            getApiErrorMessage(recipientResult.reason, t('msgRecipientsLoadFailed'))
           );
         }
       }
@@ -472,11 +671,10 @@ function ScholarshipPage() {
           isRestricted: true
         });
       } else {
-        setMessage(
-          getApiErrorMessage(apiError, 'Failed to load scholarship recipients and updates.')
-        );
+        setMessage(getApiErrorMessage(apiError, t('msgRecipientsUpdatesFailed')));
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canPostUpdates, canReview, notices, selectedNoticeId]);
 
   useEffect(() => {
@@ -495,10 +693,11 @@ function ScholarshipPage() {
         loadGlobalUpdates()
       ]);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load scholarship information.'));
+      setError(getApiErrorMessage(apiError, t('msgInfoLoadFailed')));
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadApplications, loadGlobalUpdates, loadMyApplications, loadNotices]);
 
   useEffect(() => {
@@ -514,12 +713,12 @@ function ScholarshipPage() {
     setMessage('');
 
     if (!selectedNoticeId) {
-      setMessage('Select a scholarship notice first.');
+      setMessage(t('msgSelectNotice'));
       return;
     }
 
     if (selectedNoticeCategories.length && !applicationForm.selectedCategoryCode) {
-      setMessage('Select a scholarship category before submitting.');
+      setMessage(t('msgSelectCategory'));
       return;
     }
 
@@ -531,18 +730,18 @@ function ScholarshipPage() {
       const freshNotice = freshNotices.find((n) => n._id === selectedNoticeId);
 
       if (!freshNotice) {
-        setMessage('Selected scholarship notice not found.');
+        setMessage(t('msgNoticeNotFound'));
         return;
       }
 
       const liveState = freshNotice.applicationState || freshNotice.status;
       if (liveState === 'closed') {
-        setMessage('Application window has closed');
+        setMessage(t('msgWindowClosed'));
         return;
       }
 
       if (liveState === 'scheduled') {
-        setMessage('Application window has not opened yet');
+        setMessage(t('msgWindowNotOpen'));
         return;
       }
 
@@ -554,8 +753,9 @@ function ScholarshipPage() {
         documents: []
       });
 
-      setMessage('Application submitted successfully.');
-      success('Application submitted successfully.', { title: 'Scholarship application sent' });
+      setMessage(t('msgAppSubmitted'));
+      success(t('msgAppSubmitted'), { title: t('titleAppSent') });
+      setApplyModalOpen(false);
       setApplicationForm((prev) => ({
         ...prev,
         statement: '',
@@ -576,9 +776,9 @@ function ScholarshipPage() {
       await loadMyApplications();
       await loadNoticeDetails();
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(apiError, 'Failed to submit application.');
+      const nextMessage = getApiErrorMessage(apiError, t('msgAppFailed'));
       setMessage(nextMessage);
-      toastError(nextMessage, { title: 'Application failed' });
+      toastError(nextMessage, { title: t('titleAppFailed') });
     }
   };
 
@@ -609,7 +809,7 @@ function ScholarshipPage() {
     const codes = new Set();
     for (const item of normalized) {
       if (codes.has(item.code)) {
-        throw new Error('Category codes must be unique.');
+        throw new Error(t('msgUniqueCodes'));
       }
       codes.add(item.code);
     }
@@ -636,8 +836,8 @@ function ScholarshipPage() {
         categories
       });
 
-      setMessage('Scholarship notice created successfully.');
-      success('Scholarship notice created successfully.', { title: 'Notice created' });
+      setMessage(t('msgNoticeCreated'));
+      success(t('msgNoticeCreated'), { title: t('titleNoticeCreated') });
       setNoticeForm({
         title: { en: '', bn: '' },
         description: { en: '', bn: '' },
@@ -653,11 +853,11 @@ function ScholarshipPage() {
     } catch (apiError) {
       if (apiError instanceof Error && !apiError.response) {
         setMessage(apiError.message);
-        toastError(apiError.message, { title: 'Notice creation failed' });
+        toastError(apiError.message, { title: t('titleNoticeCreateFailed') });
       } else {
-        const nextMessage = getApiErrorMessage(apiError, 'Failed to create scholarship notice.');
+        const nextMessage = getApiErrorMessage(apiError, t('msgNoticeCreateFailed'));
         setMessage(nextMessage);
-        toastError(nextMessage, { title: 'Notice creation failed' });
+        toastError(nextMessage, { title: t('titleNoticeCreateFailed') });
       }
     }
   };
@@ -667,7 +867,7 @@ function ScholarshipPage() {
     setMessage('');
 
     if (!selectedNoticeId) {
-      setMessage('Select a scholarship notice first.');
+      setMessage(t('msgSelectNotice'));
       return;
     }
 
@@ -686,18 +886,18 @@ function ScholarshipPage() {
         categories
       });
 
-      setMessage('Scholarship notice updated successfully.');
-      success('Scholarship notice updated successfully.', { title: 'Notice updated' });
+      setMessage(t('msgNoticeUpdated'));
+      success(t('msgNoticeUpdated'), { title: t('titleNoticeUpdated') });
       await loadNotices();
       await loadNoticeDetails();
     } catch (apiError) {
       if (apiError instanceof Error && !apiError.response) {
         setMessage(apiError.message);
-        toastError(apiError.message, { title: 'Notice update failed' });
+        toastError(apiError.message, { title: t('titleNoticeUpdateFailed') });
       } else {
-        const nextMessage = getApiErrorMessage(apiError, 'Failed to update scholarship notice.');
+        const nextMessage = getApiErrorMessage(apiError, t('msgNoticeUpdateFailed'));
         setMessage(nextMessage);
-        toastError(nextMessage, { title: 'Notice update failed' });
+        toastError(nextMessage, { title: t('titleNoticeUpdateFailed') });
       }
     }
   };
@@ -723,22 +923,22 @@ function ScholarshipPage() {
     try {
       await scholarshipApi.reviewApplication(reviewModal.applicationId, payload);
 
-      setMessage('Application review updated.');
-      success(`Application ${payload.status}.`, { title: 'Review saved' });
+      setMessage(t('msgReviewUpdated'));
+      success(t('msgReviewed'), { title: t('titleReviewSaved') });
       closeReviewModal();
       await loadApplications();
       await loadMyApplications();
       await loadNoticeDetails();
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(apiError, 'Failed to update review status.');
+      const nextMessage = getApiErrorMessage(apiError, t('msgReviewFailed'));
       setMessage(nextMessage);
-      toastError(nextMessage, { title: 'Review failed' });
+      toastError(nextMessage, { title: t('titleReviewFailed') });
     }
   };
 
   const exportCsv = async () => {
     if (!selectedNoticeId) {
-      setMessage('Select a notice before export.');
+      setMessage(t('msgSelectBeforeExport'));
       return;
     }
 
@@ -751,12 +951,36 @@ function ScholarshipPage() {
       anchor.download = `scholarship-applications-${selectedNoticeId}.csv`;
       anchor.click();
       URL.revokeObjectURL(url);
-      setMessage('CSV export downloaded.');
-      info('CSV export downloaded.', { title: 'Export complete' });
+      setMessage(t('msgCsvDownloaded'));
+      info(t('msgCsvDownloaded'), { title: t('titleExportComplete') });
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(apiError, 'Failed to export applications.');
+      const nextMessage = getApiErrorMessage(apiError, t('msgCsvFailed'));
       setMessage(nextMessage);
-      toastError(nextMessage, { title: 'Export failed' });
+      toastError(nextMessage, { title: t('titleExportFailed') });
+    }
+  };
+
+  const exportPdf = async () => {
+    if (!selectedNoticeId) {
+      setMessage(t('msgSelectBeforeExport'));
+      return;
+    }
+
+    try {
+      const response = await scholarshipApi.exportApplicationsPdf({ noticeId: selectedNoticeId });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `scholarship-applications-${selectedNoticeId}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setMessage(t('msgPdfDownloaded'));
+      info(t('msgPdfDownloaded'), { title: t('titleExportComplete') });
+    } catch (apiError) {
+      const nextMessage = getApiErrorMessage(apiError, t('msgPdfFailed'));
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: t('titleExportFailed') });
     }
   };
 
@@ -839,17 +1063,67 @@ function ScholarshipPage() {
 
     try {
       await scholarshipApi.updateNotice(selectedNoticeId, { status });
-      setMessage(`Notice marked as ${status}.`);
-      success(`Notice marked as ${status}.`, { title: 'Scholarship notice updated' });
+      const markedMsg = `${t('msgNoticeMarked')} ${status}.`;
+      setMessage(markedMsg);
+      success(markedMsg, { title: t('titleScholarshipUpdated') });
       await loadNotices();
       await loadNoticeDetails();
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(
-        apiError,
-        'Failed to update scholarship notice status.'
-      );
+      const nextMessage = getApiErrorMessage(apiError, t('msgStatusFailed'));
       setMessage(nextMessage);
-      toastError(nextMessage, { title: 'Notice update failed' });
+      toastError(nextMessage, { title: t('titleNoticeUpdateFailed') });
+    }
+  };
+
+  // "Open Window" that actually opens it: marks the notice open AND, if the
+  // window/deadline has already passed, extends it so applications are truly
+  // accepted (a plain status flip would leave the live state "closed").
+  const [reopenPlan, setReopenPlan] = useState(null);
+
+  const openApplicationWindow = () => {
+    if (!selectedNoticeId || !selectedNotice) {
+      return;
+    }
+
+    const now = new Date();
+    const currentEnd = new Date(
+      selectedNotice.applicationWindowEnd || selectedNotice.deadline || 0
+    );
+    const needsExtension = !currentEnd.getTime() || currentEnd.getTime() <= now.getTime();
+    const newEnd = needsExtension ? new Date(now.getTime() + 30 * DAY_MS) : currentEnd;
+
+    const currentDeadline = new Date(selectedNotice.deadline || 0);
+    const newDeadline =
+      currentDeadline.getTime() >= newEnd.getTime() ? currentDeadline : newEnd;
+
+    const plan = { now, newEnd, newDeadline };
+
+    if (needsExtension) {
+      setReopenPlan(plan);
+      return;
+    }
+
+    executeOpenWindow(plan);
+  };
+
+  const executeOpenWindow = async ({ now, newEnd, newDeadline }) => {
+    setReopenPlan(null);
+
+    try {
+      await scholarshipApi.updateNotice(selectedNoticeId, {
+        status: 'open',
+        applicationWindowStart: now.toISOString(),
+        applicationWindowEnd: newEnd.toISOString(),
+        deadline: newDeadline.toISOString()
+      });
+      setMessage(t('msgWindowOpened'));
+      success(t('msgWindowNowOpen'), { title: t('titleScholarshipUpdated') });
+      await loadNotices();
+      await loadNoticeDetails();
+    } catch (apiError) {
+      const nextMessage = getApiErrorMessage(apiError, t('msgWindowOpenFailed'));
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: t('titleNoticeUpdateFailed') });
     }
   };
 
@@ -860,18 +1134,14 @@ function ScholarshipPage() {
 
     try {
       await scholarshipApi.publishRecipients(selectedNoticeId, { publish });
-      setMessage(publish ? 'Recipient list published.' : 'Recipient list unpublished.');
-      success(publish ? 'Recipient list published.' : 'Recipient list unpublished.', {
-        title: 'Recipient list updated'
-      });
+      const recipMsg = publish ? t('msgRecipientsPublished') : t('msgRecipientsUnpublished');
+      setMessage(recipMsg);
+      success(recipMsg, { title: t('titleRecipientsUpdated') });
       await loadNoticeDetails();
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(
-        apiError,
-        'Failed to update recipient publication status.'
-      );
+      const nextMessage = getApiErrorMessage(apiError, t('msgRecipientPubFailed'));
       setMessage(nextMessage);
-      toastError(nextMessage, { title: 'Recipient publication failed' });
+      toastError(nextMessage, { title: t('titleRecipientPubFailed') });
     }
   };
 
@@ -890,14 +1160,14 @@ function ScholarshipPage() {
     setMessage('');
 
     if (!selectedNoticeId) {
-      setMessage('Select a scholarship notice first.');
+      setMessage(t('msgSelectNotice'));
       return;
     }
 
     try {
       await scholarshipApi.createNoticeUpdate(selectedNoticeId, updateForm);
-      setMessage('Scholarship update published.');
-      info('Scholarship update published.', { title: 'Update feed' });
+      setMessage(t('msgUpdatePublished'));
+      info(t('msgUpdatePublished'), { title: t('titleUpdateFeed') });
       setUpdateForm({
         kind: 'general',
         visibility: 'public',
@@ -909,9 +1179,9 @@ function ScholarshipPage() {
       await loadGlobalUpdates();
       await loadNotices();
     } catch (apiError) {
-      const nextMessage = getApiErrorMessage(apiError, 'Failed to publish scholarship update.');
+      const nextMessage = getApiErrorMessage(apiError, t('msgUpdateFailed'));
       setMessage(nextMessage);
-      toastError(nextMessage, { title: 'Update publish failed' });
+      toastError(nextMessage, { title: t('titleUpdateFailed') });
     }
   };
 
@@ -936,9 +1206,9 @@ function ScholarshipPage() {
           <p className="page-title-subtitle">{ui('scholarship', 'subtitle', language)}</p>
           <div className="scholarship-stepper" aria-label="Scholarship steps">
             {[
-              { number: '1', label: 'Choose a notice' },
-              { number: '2', label: 'Review & Apply' },
-              { number: '3', label: 'Confirmation' }
+              { number: '1', label: t('step1') },
+              { number: '2', label: t('step2') },
+              { number: '3', label: t('step3') }
             ].map((step, index) => {
               const stepIndex = index + 1;
               const isCompleted = currentStep > stepIndex;
@@ -968,25 +1238,25 @@ function ScholarshipPage() {
 
       <section className="kpi-strip" aria-label="Scholarship summary">
         <article className="kpi-card">
-          <p className="kpi-label">Open Notices</p>
+          <p className="kpi-label">{t('openNotices')}</p>
           <p className="kpi-value">{dashboardStats.openNotices}</p>
-          <p className="kpi-note">Active window-aware opportunities</p>
+          <p className="kpi-note">{t('openNoticesNote')}</p>
         </article>
         <article className="kpi-card">
-          <p className="kpi-label">Notice Categories</p>
+          <p className="kpi-label">{t('noticeCategories')}</p>
           <p className="kpi-value">{dashboardStats.activeCategories}</p>
-          <p className="kpi-note">Configured for selected notice</p>
+          <p className="kpi-note">{t('noticeCategoriesNote')}</p>
         </article>
         <article className="kpi-card">
-          <p className="kpi-label">Recipients Listed</p>
+          <p className="kpi-label">{t('recipientsListed')}</p>
           <p className="kpi-value">{dashboardStats.recipientCount}</p>
-          <p className="kpi-note">Visible in current selection</p>
+          <p className="kpi-note">{t('recipientsNote')}</p>
         </article>
         <article className="kpi-card">
-          <p className="kpi-label">{canReview ? 'Pending Reviews' : 'My Applications'}</p>
+          <p className="kpi-label">{canReview ? t('pendingReviews') : t('myApplications')}</p>
           <p className="kpi-value">{dashboardStats.reviewCount}</p>
           <p className="kpi-note">
-            {canReview ? 'Submitted or under review' : 'Submitted in your account'}
+            {canReview ? t('submittedOrReview') : t('submittedInAccount')}
           </p>
         </article>
       </section>
@@ -1022,8 +1292,10 @@ function ScholarshipPage() {
             <article className="surface-card inner-card scholarship-notice-card__body">
               <div className="section-head section-head-tight">
                 <h3>{toLocalizedText(selectedNotice.title, language)}</h3>
-                <span className={`status-badge status-${selectedNotice.status}`}>
-                  {selectedNotice.status}
+                {/* Badge reflects the LIVE state (computed from dates), so a notice
+                    whose deadline has passed reads "Closed" even if still toggled open. */}
+                <span className={`status-badge ${stateBadgeClass(liveState)}`}>
+                  {stateLabel(liveState, language)}
                 </span>
               </div>
 
@@ -1034,24 +1306,44 @@ function ScholarshipPage() {
                 {toLocalizedText(selectedNotice.eligibility, language)}
               </p>
               <p className="meta scholarship-notice-card__meta">
-                Type: {selectedNotice.scholarshipType || 'one_off'} • Application Window:{' '}
-                {toIsoDate(selectedNotice.applicationWindowStart)} to{' '}
-                {toIsoDate(selectedNotice.applicationWindowEnd)} • Decision Date:{' '}
-                {toIsoDate(selectedNotice.deadline)}
+                {t('type')}: {selectedNotice.scholarshipType || 'one_off'} • {t('applicationWindow')}:{' '}
+                {toIsoDate(selectedNotice.applicationWindowStart) || '—'} to{' '}
+                {toIsoDate(selectedNotice.applicationWindowEnd) || '—'} • {t('decisionDate')}:{' '}
+                {toIsoDate(selectedNotice.deadline) || '—'}
               </p>
-              <p className="meta scholarship-notice-card__meta">
-                Live State: {selectedNotice.applicationState || selectedNotice.status}
-              </p>
+
+              {stateMismatch === 'closed' && canManageNotices && (
+                <InlineAlert type="warning">
+                  {toLocalizedText(
+                    {
+                      en: 'This notice is toggled Open, but its application window has already closed, so students cannot apply. Use "Open Window" below to reopen and extend it.',
+                      bn: 'এই বিজ্ঞপ্তিটি "খোলা" করা আছে, কিন্তু আবেদন সময়সীমা ইতিমধ্যে বন্ধ হয়ে গেছে, তাই শিক্ষার্থীরা আবেদন করতে পারছে না। পুনরায় খুলতে ও বাড়াতে নিচের "উইন্ডো খুলুন" ব্যবহার করুন।'
+                    },
+                    language
+                  )}
+                </InlineAlert>
+              )}
+              {stateMismatch === 'scheduled' && canManageNotices && (
+                <InlineAlert type="info">
+                  {toLocalizedText(
+                    {
+                      en: `This notice is Open but its window has not started yet (opens ${toIsoDate(selectedNotice.applicationWindowStart)}). Applications open automatically on that date, or use "Open Window" to start now.`,
+                      bn: `এই বিজ্ঞপ্তিটি "খোলা" কিন্তু এর উইন্ডো এখনও শুরু হয়নি (খুলবে ${toIsoDate(selectedNotice.applicationWindowStart)})। ওই তারিখে আবেদন স্বয়ংক্রিয়ভাবে খুলবে, অথবা এখনই শুরু করতে "উইন্ডো খুলুন" ব্যবহার করুন।`
+                    },
+                    language
+                  )}
+                </InlineAlert>
+              )}
 
               {!!selectedNoticeCategories.length && (
                 <div className="table-wrap scholarship-category-table" id="scholarship-category-table">
                   <table>
                     <thead>
                       <tr>
-                        <th>Category</th>
-                        <th>Code</th>
-                        <th>Amount</th>
-                        <th>Slots</th>
+                        <th>{t('category')}</th>
+                        <th>{t('code')}</th>
+                        <th>{t('amount')}</th>
+                        <th>{t('slots')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1075,13 +1367,13 @@ function ScholarshipPage() {
               {selectedNoticeApplication && (
                 <article className="surface-card inner-card scholarship-application-status">
                   <div className="section-head section-head-tight">
-                    <h4>Your Application</h4>
+                    <h4>{t('yourApplication')}</h4>
                     <span className={`status-badge status-${selectedNoticeApplication.status}`}>
                       {selectedNoticeApplication.status}
                     </span>
                   </div>
                   <p className="meta">
-                    Submitted: {toIsoDate(selectedNoticeApplication.createdAt)} • GPA:{' '}
+                    {t('submitted')} {toIsoDate(selectedNoticeApplication.createdAt)} • GPA:{' '}
                     {selectedNoticeApplication.gpa}
                   </p>
                   {selectedNoticeApplication.decisionNote && (
@@ -1089,7 +1381,7 @@ function ScholarshipPage() {
                   )}
                   {selectedNoticeApplication.awardedAmount && (
                     <p className="meta">
-                      Award: {selectedNoticeApplication.awardedAmount}
+                      {t('award')} {selectedNoticeApplication.awardedAmount}
                       {selectedNoticeApplication.awardedCategoryCode
                         ? ` (${selectedNoticeApplication.awardedCategoryCode})`
                         : ''}
@@ -1099,24 +1391,30 @@ function ScholarshipPage() {
               )}
 
               <div className="notice-card-actions">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={scrollToApplyForm}
-                  disabled={!selectedNotice || isSelectedNoticeClosed}
-                  title={isSelectedNoticeClosed ? 'This notice is closed.' : 'Jump to the application form.'}
-                >
-                  Apply Now
-                </button>
+                {canApply && !selectedNoticeApplication && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => setApplyModalOpen(true)}
+                    disabled={!selectedNotice || !canAcceptApplications}
+                    title={
+                      canAcceptApplications
+                        ? t('openFormHint')
+                        : `${t('notAcceptingHint')} (${stateLabel(liveState, language)})`
+                    }
+                  >
+                    {t('applyNow')}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-ghost"
                   onClick={() => document.getElementById('scholarship-notice-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                 >
-                  View Details
+                  {t('viewDetails')}
                 </button>
                 <button type="button" className="btn btn-ghost" onClick={downloadSelectedNoticeInfo}>
-                  Download Info
+                  {t('downloadInfo')}
                 </button>
               </div>
 
@@ -1125,23 +1423,23 @@ function ScholarshipPage() {
                   <button
                     type="button"
                     className="btn btn-ghost"
-                    onClick={() => updateNoticeStatus('open')}
+                    onClick={openApplicationWindow}
                   >
-                    Open Window
+                    {t('openWindow')}
                   </button>
                   <button
                     type="button"
                     className="btn btn-ghost"
                     onClick={() => updateNoticeStatus('closed')}
                   >
-                    Close Window
+                    {t('closeWindow')}
                   </button>
                   <button
                     type="button"
                     className="btn btn-ghost"
                     onClick={() => updateNoticeStatus('draft')}
                   >
-                    Move to Draft
+                    {t('moveToDraft')}
                   </button>
                 </div>
               )}
@@ -1154,8 +1452,8 @@ function ScholarshipPage() {
                     onClick={() => publishRecipients(!recipientInfo.isPublished)}
                   >
                     {recipientInfo.isPublished
-                      ? 'Unpublish Recipient List'
-                      : 'Publish Recipient List'}
+                      ? t('unpublishRecipients')
+                      : t('publishRecipientsLabel')}
                   </button>
                 </div>
               )}
@@ -1165,7 +1463,7 @@ function ScholarshipPage() {
 
         {!!orderedGlobalUpdates.length && (
           <article className="surface-card scholarship-feed-card">
-            <h3>Scholarship Update Feed</h3>
+            <h3>{t('feedTitle')}</h3>
             <div className="stack-list">
               {orderedGlobalUpdates.map((item) => (
                 <article key={item._id} className="surface-card inner-card scholarship-feed-item">
@@ -1177,7 +1475,7 @@ function ScholarshipPage() {
                   </div>
                   <p className="scholarship-feed-item__body">{toLocalizedText(item.body, language)}</p>
                   <p className="meta scholarship-feed-item__meta">
-                    Notice: {toLocalizedText(item.notice?.title, language)} • Posted:{' '}
+                    {t('notice')} {toLocalizedText(item.notice?.title, language)} • {t('posted')}{' '}
                     {toIsoDate(item.createdAt)}
                   </p>
                 </article>
@@ -1187,88 +1485,114 @@ function ScholarshipPage() {
         )}
       </div>
 
-      {isAuthenticated && (canApply || selectedNoticeApplication) && (
-        <div className="workflow-grid workflow-grid-2">
-          {canApply && !selectedNoticeApplication && (
-            <article className="surface-card scholarship-apply-card">
-              <p className="meta">{ui('scholarship', 'stepApply', language)}</p>
-              <h3>{ui('scholarship', 'applyTitle', language)}</h3>
-              <form className="form-grid" id="scholarship-application-form" onSubmit={submitApplication}>
-                {!!selectedNoticeCategories.length && (
-                  <label>
-                    {ui('scholarship', 'categoryLabel', language)}
-                    <select
-                      value={applicationForm.selectedCategoryCode}
-                      onChange={(event) =>
-                        setApplicationForm((prev) => ({
-                          ...prev,
-                          selectedCategoryCode: event.target.value
-                        }))
-                      }
-                      required
-                    >
-                      <option value="">{ui('scholarship', 'selectCategory', language)}</option>
-                      {selectedNoticeCategories.map((category) => (
-                        <option key={category.code} value={category.code}>
-                          {toLocalizedText(category.name, language)} ({category.code})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-
-                <label>
-                  {ui('scholarship', 'statement', language)}
-                  <textarea
-                    minLength={30}
-                    value={applicationForm.statement}
-                    onChange={(event) =>
-                      setApplicationForm((prev) => ({ ...prev, statement: event.target.value }))
-                    }
-                    required
-                  />
-                </label>
-
-                <label>
-                  {ui('scholarship', 'gpa', language)}
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="4"
-                    value={applicationForm.gpa}
-                    onChange={(event) =>
-                      setApplicationForm((prev) => ({ ...prev, gpa: event.target.value }))
-                    }
-                    required
-                  />
-                </label>
-
-                <label>
-                  {ui('scholarship', 'department', language)}
-                  <input
-                    value={applicationForm.department}
-                    onChange={(event) =>
-                      setApplicationForm((prev) => ({ ...prev, department: event.target.value }))
-                    }
-                    required
-                  />
-                </label>
-
-                <button type="submit" className="btn btn-primary scholarship-apply-card__submit">
-                  Submit Application
-                </button>
-              </form>
-            </article>
+      <Modal
+        isOpen={applyModalOpen && isAuthenticated && canApply && !selectedNoticeApplication}
+        onClose={() => setApplyModalOpen(false)}
+        title={ui('scholarship', 'applyTitle', language)}
+      >
+        <form
+          className="modal-form form-grid"
+          id="scholarship-application-form"
+          onSubmit={submitApplication}
+        >
+          {selectedNotice && (
+            <p className="modal-form__lead">{toLocalizedText(selectedNotice.title, language)}</p>
           )}
+
+          {!selectedNoticeId && (
+            <InlineAlert type="info">{t('selectNoticeAbove')}</InlineAlert>
+          )}
+          {selectedNoticeId && !canAcceptApplications && (
+            <InlineAlert type="warning">
+              {applyBlockedMessage(liveState, selectedNotice?.applicationWindowStart, language)}
+            </InlineAlert>
+          )}
+
+          {!!selectedNoticeCategories.length && (
+            <label>
+              {ui('scholarship', 'categoryLabel', language)}
+              <select
+                value={applicationForm.selectedCategoryCode}
+                onChange={(event) =>
+                  setApplicationForm((prev) => ({
+                    ...prev,
+                    selectedCategoryCode: event.target.value
+                  }))
+                }
+                required
+              >
+                <option value="">{ui('scholarship', 'selectCategory', language)}</option>
+                {selectedNoticeCategories.map((category) => (
+                  <option key={category.code} value={category.code}>
+                    {toLocalizedText(category.name, language)} ({category.code})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <label>
+            {ui('scholarship', 'statement', language)}
+            <textarea
+              minLength={30}
+              rows={6}
+              value={applicationForm.statement}
+              onChange={(event) =>
+                setApplicationForm((prev) => ({ ...prev, statement: event.target.value }))
+              }
+              required
+            />
+          </label>
+
+          <div className="modal-form__row">
+            <label>
+              {ui('scholarship', 'gpa', language)}
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="4"
+                value={applicationForm.gpa}
+                onChange={(event) =>
+                  setApplicationForm((prev) => ({ ...prev, gpa: event.target.value }))
+                }
+                required
+              />
+            </label>
+
+            <label>
+              {ui('scholarship', 'department', language)}
+              <input
+                value={applicationForm.department}
+                onChange={(event) =>
+                  setApplicationForm((prev) => ({ ...prev, department: event.target.value }))
+                }
+                required
+              />
+            </label>
           </div>
-          )}
+
+          <div className="modal-form__actions">
+            <button type="button" className="btn btn-ghost" onClick={() => setApplyModalOpen(false)}>
+              {t('cancel')}
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={!selectedNoticeId || !canAcceptApplications}
+              title={canAcceptApplications ? t('submitHint') : t('notAcceptingHint')}
+            >
+              {t('submitApplication')}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {selectedNotice && (
         <div className="workflow-grid workflow-grid-2 scholarship-notice-panel-grid">
-          <CollapsibleSection title="Recipient List" defaultOpen={false}>
+          <CollapsibleSection title={t('recipientList')} defaultOpen={false}>
             {recipientInfo.recipientsPublishedAt && (
-              <p className="meta">Published: {toIsoDate(recipientInfo.recipientsPublishedAt)}</p>
+              <p className="meta">{t('published')} {toIsoDate(recipientInfo.recipientsPublishedAt)}</p>
             )}
 
             {!orderedRecipients.length && !recipientInfo.isRestricted && (
@@ -1276,12 +1600,12 @@ function ScholarshipPage() {
                 <div className="empty-state__icon" aria-hidden="true">
                   •
                 </div>
-                <p className="empty-state__title">No recipients listed yet.</p>
-                <p className="empty-state__text">Recipients will appear here after publication.</p>
+                <p className="empty-state__title">{t('noRecipientsYet')}</p>
+                <p className="empty-state__text">{t('recipientsAfterPub')}</p>
               </div>
             )}
             {recipientInfo.isRestricted && !canReview && (
-              <p className="meta">Recipient list is not published yet.</p>
+              <p className="meta">{t('recipientNotPublished')}</p>
             )}
 
             {!!orderedRecipients.length && (
@@ -1300,11 +1624,11 @@ function ScholarshipPage() {
                         {initials}
                       </span>
                       <div className="recipient-card__body">
-                        <h4>{item.student?.fullName || 'Unknown'}</h4>
+                        <h4>{item.student?.fullName || t('unknown')}</h4>
                         <p>{item.department}</p>
                       </div>
                       <span className="recipient-card__badge">
-                        {item.awardedCategoryCode || item.selectedCategoryCode || 'Awarded'}
+                        {item.awardedCategoryCode || item.selectedCategoryCode || t('awarded')}
                       </span>
                     </article>
                   );
@@ -1313,8 +1637,8 @@ function ScholarshipPage() {
             )}
           </CollapsibleSection>
 
-          <CollapsibleSection title="Notice Update Timeline" defaultOpen={false}>
-            {!orderedNoticeUpdates.length && <p>No updates for this notice yet.</p>}
+          <CollapsibleSection title={t('updateTimeline')} defaultOpen={false}>
+            {!orderedNoticeUpdates.length && <p>{t('noUpdatesYet')}</p>}
             {!!orderedNoticeUpdates.length && (
               <div className="scholarship-timeline">
                 {orderedNoticeUpdates.map((item) => (
@@ -1327,12 +1651,12 @@ function ScholarshipPage() {
                           {item.kind}
                         </span>
                         {item.visibility === 'internal' && (
-                          <span className="status-badge status-draft">internal</span>
+                          <span className="status-badge status-draft">{t('internalBadge')}</span>
                         )}
                       </div>
                       <p>{toLocalizedText(item.body, language)}</p>
                       <p className="meta scholarship-timeline__meta">
-                        {item.visibility} • Posted by {item.postedBy?.fullName || 'System'} •{' '}
+                        {item.visibility} • {t('postedBy')} {item.postedBy?.fullName || t('systemFallback')} •{' '}
                         {toIsoDate(item.createdAt)}
                       </p>
                     </div>
@@ -1344,35 +1668,35 @@ function ScholarshipPage() {
             {canPostUpdates && (
               <form className="form-grid" onSubmit={submitNoticeUpdate}>
                 <label>
-                  Update Type
+                  {t('updateType')}
                   <select
                     value={updateForm.kind}
                     onChange={(event) =>
                       setUpdateForm((prev) => ({ ...prev, kind: event.target.value }))
                     }
                   >
-                    <option value="general">General</option>
-                    <option value="deadline">Deadline</option>
-                    <option value="recipient">Recipient</option>
-                    <option value="announcement">Announcement</option>
+                    <option value="general">{t('general')}</option>
+                    <option value="deadline">{t('deadline')}</option>
+                    <option value="recipient">{t('recipient')}</option>
+                    <option value="announcement">{t('announcement')}</option>
                   </select>
                 </label>
 
                 <label>
-                  Visibility
+                  {t('visibility')}
                   <select
                     value={updateForm.visibility}
                     onChange={(event) =>
                       setUpdateForm((prev) => ({ ...prev, visibility: event.target.value }))
                     }
                   >
-                    <option value="public">Public</option>
-                    <option value="internal">Internal</option>
+                    <option value="public">{t('publicVis')}</option>
+                    <option value="internal">{t('internalVis')}</option>
                   </select>
                 </label>
 
                 <label>
-                  Title (EN)
+                  {t('titleEn')}
                   <input
                     value={updateForm.title.en}
                     onChange={(event) =>
@@ -1383,7 +1707,7 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Title (BN)
+                  {t('titleBn')}
                   <input
                     value={updateForm.title.bn}
                     onChange={(event) =>
@@ -1394,7 +1718,7 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Body (EN)
+                  {t('bodyEn')}
                   <textarea
                     value={updateForm.body.en}
                     onChange={(event) =>
@@ -1405,7 +1729,7 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Body (BN)
+                  {t('bodyBn')}
                   <textarea
                     value={updateForm.body.bn}
                     onChange={(event) =>
@@ -1416,7 +1740,7 @@ function ScholarshipPage() {
                 </label>
 
                 <button type="submit" className="btn btn-primary">
-                  Publish Update
+                  {t('publishUpdate')}
                 </button>
               </form>
             )}
@@ -1425,16 +1749,16 @@ function ScholarshipPage() {
       )}
 
       {(canManageNotices || canReview) && (
-        <CollapsibleSection title="Admin Panel" defaultOpen={false}>
+        <CollapsibleSection title={t('adminPanel')} defaultOpen={false}>
           <div className="workflow-grid workflow-grid-2">
             {canManageNotices && (
               <article className="surface-card">
-                <h3>Edit Selected Scholarship Notice</h3>
-                {!selectedNotice && <p>Select a notice to edit.</p>}
+                <h3>{t('editSelectedNotice')}</h3>
+                {!selectedNotice && <p>{t('selectNoticeToEdit')}</p>}
                 {selectedNotice && (
                   <form className="form-grid" onSubmit={submitNoticeEdit}>
                   <label>
-                    Title (EN)
+                    {t('titleEn')}
                     <input
                       value={editNoticeForm.title.en}
                       onChange={(event) =>
@@ -1444,7 +1768,7 @@ function ScholarshipPage() {
                     />
                   </label>
                   <label>
-                    Title (BN)
+                    {t('titleBn')}
                     <input
                       value={editNoticeForm.title.bn}
                       onChange={(event) =>
@@ -1455,7 +1779,7 @@ function ScholarshipPage() {
                   </label>
 
                   <label>
-                    Description (EN)
+                    {t('descEn')}
                     <textarea
                       value={editNoticeForm.description.en}
                       onChange={(event) =>
@@ -1466,7 +1790,7 @@ function ScholarshipPage() {
                   </label>
 
                   <label>
-                    Description (BN)
+                    {t('descBn')}
                     <textarea
                       value={editNoticeForm.description.bn}
                       onChange={(event) =>
@@ -1477,7 +1801,7 @@ function ScholarshipPage() {
                   </label>
 
                   <label>
-                    Eligibility (EN)
+                    {t('eligEn')}
                     <textarea
                       value={editNoticeForm.eligibility.en}
                       onChange={(event) =>
@@ -1488,7 +1812,7 @@ function ScholarshipPage() {
                   </label>
 
                   <label>
-                    Eligibility (BN)
+                    {t('eligBn')}
                     <textarea
                       value={editNoticeForm.eligibility.bn}
                       onChange={(event) =>
@@ -1499,7 +1823,7 @@ function ScholarshipPage() {
                   </label>
 
                   <label>
-                    Scholarship Type
+                    {t('scholarshipTypeLabel')}
                     <select
                       value={editNoticeForm.scholarshipType}
                       onChange={(event) =>
@@ -1509,13 +1833,13 @@ function ScholarshipPage() {
                         }))
                       }
                     >
-                      <option value="one_off">One-Off</option>
-                      <option value="monthly">Monthly</option>
+                      <option value="one_off">{t('oneOff')}</option>
+                      <option value="monthly">{t('monthly')}</option>
                     </select>
                   </label>
 
                   <label>
-                    Application Window Start
+                    {t('windowStartLabel')}
                     <input
                       type="date"
                       value={editNoticeForm.applicationWindowStart}
@@ -1530,7 +1854,7 @@ function ScholarshipPage() {
                   </label>
 
                   <label>
-                    Application Window End
+                    {t('windowEndLabel')}
                     <input
                       type="date"
                       value={editNoticeForm.applicationWindowEnd}
@@ -1545,7 +1869,7 @@ function ScholarshipPage() {
                   </label>
 
                   <label>
-                    Decision Date
+                    {t('decisionDateLabel')}
                     <input
                       type="date"
                       value={editNoticeForm.deadline}
@@ -1557,24 +1881,24 @@ function ScholarshipPage() {
                   </label>
 
                   <label>
-                    Status
+                    {t('statusLabel')}
                     <select
                       value={editNoticeForm.status}
                       onChange={(event) =>
                         setEditNoticeForm((prev) => ({ ...prev, status: event.target.value }))
                       }
                     >
-                      <option value="draft">Draft</option>
-                      <option value="open">Open</option>
-                      <option value="closed">Closed</option>
+                      <option value="draft">{t('draftOpt')}</option>
+                      <option value="open">{t('openOpt')}</option>
+                      <option value="closed">{t('closedOpt')}</option>
                     </select>
                   </label>
 
                   <div className="surface-card inner-card">
                     <div className="section-head section-head-tight">
-                      <h3>Category Amount Matrix</h3>
+                      <h3>{t('categoryMatrix')}</h3>
                       <button type="button" className="btn btn-ghost" onClick={addEditCategoryRow}>
-                        Add Category
+                        {t('addCategoryBtn')}
                       </button>
                     </div>
 
@@ -1586,7 +1910,7 @@ function ScholarshipPage() {
                         >
                           <div className="form-grid">
                             <label>
-                              Code
+                              {t('code')}
                               <input
                                 value={category.code}
                                 onChange={(event) =>
@@ -1596,7 +1920,7 @@ function ScholarshipPage() {
                               />
                             </label>
                             <label>
-                              Name (EN)
+                              {t('nameEn')}
                               <input
                                 value={category.nameEn}
                                 onChange={(event) =>
@@ -1605,7 +1929,7 @@ function ScholarshipPage() {
                               />
                             </label>
                             <label>
-                              Name (BN)
+                              {t('nameBn')}
                               <input
                                 value={category.nameBn}
                                 onChange={(event) =>
@@ -1614,7 +1938,7 @@ function ScholarshipPage() {
                               />
                             </label>
                             <label>
-                              Amount
+                              {t('amount')}
                               <input
                                 type="number"
                                 min="0"
@@ -1625,7 +1949,7 @@ function ScholarshipPage() {
                               />
                             </label>
                             <label>
-                              Slots
+                              {t('slots')}
                               <input
                                 type="number"
                                 min="1"
@@ -1641,7 +1965,7 @@ function ScholarshipPage() {
                               className="btn btn-ghost"
                               onClick={() => removeEditCategoryRow(index)}
                             >
-                              Remove Category
+                              {t('removeCategory')}
                             </button>
                           </div>
                         </article>
@@ -1650,7 +1974,7 @@ function ScholarshipPage() {
                   </div>
 
                   <button type="submit" className="btn btn-primary">
-                    Update Notice
+                    {t('updateNoticeBtn')}
                   </button>
                 </form>
               )}
@@ -1659,10 +1983,10 @@ function ScholarshipPage() {
 
           {canManageNotices && (
             <article className="surface-card">
-              <h3>Publish Scholarship Notice</h3>
+              <h3>{t('publishNotice')}</h3>
               <form className="form-grid" onSubmit={submitNotice}>
                 <label>
-                  Title (EN)
+                  {t('titleEn')}
                   <input
                     value={noticeForm.title.en}
                     onChange={(event) => updateNoticeLocalized('title', 'en', event.target.value)}
@@ -1670,7 +1994,7 @@ function ScholarshipPage() {
                   />
                 </label>
                 <label>
-                  Title (BN)
+                  {t('titleBn')}
                   <input
                     value={noticeForm.title.bn}
                     onChange={(event) => updateNoticeLocalized('title', 'bn', event.target.value)}
@@ -1679,7 +2003,7 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Description (EN)
+                  {t('descEn')}
                   <textarea
                     value={noticeForm.description.en}
                     onChange={(event) =>
@@ -1690,7 +2014,7 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Description (BN)
+                  {t('descBn')}
                   <textarea
                     value={noticeForm.description.bn}
                     onChange={(event) =>
@@ -1701,7 +2025,7 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Eligibility (EN)
+                  {t('eligEn')}
                   <textarea
                     value={noticeForm.eligibility.en}
                     onChange={(event) =>
@@ -1712,7 +2036,7 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Eligibility (BN)
+                  {t('eligBn')}
                   <textarea
                     value={noticeForm.eligibility.bn}
                     onChange={(event) =>
@@ -1723,20 +2047,20 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Scholarship Type
+                  {t('scholarshipTypeLabel')}
                   <select
                     value={noticeForm.scholarshipType}
                     onChange={(event) =>
                       setNoticeForm((prev) => ({ ...prev, scholarshipType: event.target.value }))
                     }
                   >
-                    <option value="one_off">One-Off</option>
-                    <option value="monthly">Monthly</option>
+                    <option value="one_off">{t('oneOff')}</option>
+                    <option value="monthly">{t('monthly')}</option>
                   </select>
                 </label>
 
                 <label>
-                  Application Window Start
+                  {t('windowStartLabel')}
                   <input
                     type="date"
                     value={noticeForm.applicationWindowStart}
@@ -1751,7 +2075,7 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Application Window End
+                  {t('windowEndLabel')}
                   <input
                     type="date"
                     value={noticeForm.applicationWindowEnd}
@@ -1766,7 +2090,7 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Decision Date
+                  {t('decisionDateLabel')}
                   <input
                     type="date"
                     value={noticeForm.deadline}
@@ -1778,24 +2102,24 @@ function ScholarshipPage() {
                 </label>
 
                 <label>
-                  Initial Status
+                  {t('initialStatus')}
                   <select
                     value={noticeForm.status}
                     onChange={(event) =>
                       setNoticeForm((prev) => ({ ...prev, status: event.target.value }))
                     }
                   >
-                    <option value="draft">Draft</option>
-                    <option value="open">Open</option>
-                    <option value="closed">Closed</option>
+                    <option value="draft">{t('draftOpt')}</option>
+                    <option value="open">{t('openOpt')}</option>
+                    <option value="closed">{t('closedOpt')}</option>
                   </select>
                 </label>
 
                 <div className="surface-card inner-card">
                   <div className="section-head section-head-tight">
-                    <h3>Category Amount Matrix</h3>
+                    <h3>{t('categoryMatrix')}</h3>
                     <button type="button" className="btn btn-ghost" onClick={addCategoryRow}>
-                      Add Category
+                      {t('addCategoryBtn')}
                     </button>
                   </div>
 
@@ -1807,7 +2131,7 @@ function ScholarshipPage() {
                       >
                         <div className="form-grid">
                           <label>
-                            Code
+                            {t('code')}
                             <input
                               value={category.code}
                               onChange={(event) =>
@@ -1817,7 +2141,7 @@ function ScholarshipPage() {
                             />
                           </label>
                           <label>
-                            Name (EN)
+                            {t('nameEn')}
                             <input
                               value={category.nameEn}
                               onChange={(event) =>
@@ -1826,7 +2150,7 @@ function ScholarshipPage() {
                             />
                           </label>
                           <label>
-                            Name (BN)
+                            {t('nameBn')}
                             <input
                               value={category.nameBn}
                               onChange={(event) =>
@@ -1835,7 +2159,7 @@ function ScholarshipPage() {
                             />
                           </label>
                           <label>
-                            Amount
+                            {t('amount')}
                             <input
                               type="number"
                               min="0"
@@ -1846,7 +2170,7 @@ function ScholarshipPage() {
                             />
                           </label>
                           <label>
-                            Slots
+                            {t('slots')}
                             <input
                               type="number"
                               min="1"
@@ -1862,7 +2186,7 @@ function ScholarshipPage() {
                             className="btn btn-ghost"
                             onClick={() => removeCategoryRow(index)}
                           >
-                            Remove Category
+                            {t('removeCategory')}
                           </button>
                         </div>
                       </article>
@@ -1871,7 +2195,7 @@ function ScholarshipPage() {
                 </div>
 
                 <button type="submit" className="btn btn-primary">
-                  Publish Notice
+                  {t('publishNoticeBtn')}
                 </button>
               </form>
             </article>
@@ -1880,30 +2204,35 @@ function ScholarshipPage() {
           {canReview && (
             <article className="surface-card">
               <div className="section-head section-head-tight">
-                <h3>Review Queue</h3>
-                <button type="button" className="btn btn-ghost" onClick={exportCsv}>
-                  Export CSV
-                </button>
+                <h3>{t('reviewQueue')}</h3>
+                <div className="inline-actions">
+                  <button type="button" className="btn btn-ghost" onClick={exportCsv}>
+                    {t('exportCsv')}
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={exportPdf}>
+                    {t('exportPdf')}
+                  </button>
+                </div>
               </div>
 
-              {!orderedApplications.length && <p>No applications to review.</p>}
+              {!orderedApplications.length && <p>{t('noApplicationsReview')}</p>}
               {!!orderedApplications.length && (
                 <div className="table-wrap">
                   <table>
                     <thead>
                       <tr>
-                        <th>Student</th>
-                        <th>Notice</th>
-                        <th>Category</th>
+                        <th>{t('student')}</th>
+                        <th>{t('noticeCol')}</th>
+                        <th>{t('category')}</th>
                         <th>GPA</th>
-                        <th>Status</th>
-                        <th>Action</th>
+                        <th>{t('statusLabel')}</th>
+                        <th>{t('action')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {orderedApplications.map((item) => (
                         <tr key={item._id}>
-                          <td>{item.student?.fullName || 'Unknown'}</td>
+                          <td>{item.student?.fullName || t('unknown')}</td>
                           <td>{toLocalizedText(item.notice?.title, language)}</td>
                           <td>{item.selectedCategoryCode || '-'}</td>
                           <td>{item.gpa}</td>
@@ -1915,21 +2244,21 @@ function ScholarshipPage() {
                                 className="btn btn-ghost"
                                 onClick={() => openReviewModal(item, 'under_review')}
                               >
-                                Review
+                                {t('reviewBtn')}
                               </button>
                               <button
                                 type="button"
                                 className="btn btn-ghost"
                                 onClick={() => openReviewModal(item, 'approved')}
                               >
-                                Approve
+                                {t('approve')}
                               </button>
                               <button
                                 type="button"
                                 className="btn btn-ghost"
                                 onClick={() => openReviewModal(item, 'rejected')}
                               >
-                                Reject
+                                {t('reject')}
                               </button>
                             </div>
                           </td>
@@ -1953,6 +2282,26 @@ function ScholarshipPage() {
         initialStatus={reviewModal.initialStatus}
         categories={reviewModal.categories}
         onConfirm={handleReviewConfirm}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(reopenPlan)}
+        onClose={() => setReopenPlan(null)}
+        onConfirm={() => reopenPlan && executeOpenWindow(reopenPlan)}
+        title={t('reopenTitle')}
+        message={
+          reopenPlan
+            ? toLocalizedText(
+                {
+                  en: `This notice's application window has passed. Reopen it and accept applications until ${toIsoDate(reopenPlan.newEnd)}?`,
+                  bn: `এই বিজ্ঞপ্তির আবেদন সময়সীমা পেরিয়ে গেছে। এটি পুনরায় খুলে ${toIsoDate(reopenPlan.newEnd)} পর্যন্ত আবেদন গ্রহণ করবেন?`
+                },
+                language
+              )
+            : ''
+        }
+        confirmLabel={t('reopenLabel')}
+        tone="primary"
       />
     </section>
   );

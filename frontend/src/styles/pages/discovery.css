@@ -1,0 +1,396 @@
+/* Discovery features: header search box, global search page, and admin
+   dashboard insight widgets (application-status distribution + deadlines).
+   All colors use theme tokens so light/dark modes are handled automatically. */
+
+/* ---- Header search box ---------------------------------------------------
+   Collapsed by default to a single icon button so the header's right cluster
+   stays compact; clicking the icon expands the input (and focuses it). */
+.nav-search {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.15rem;
+  transition:
+    border-color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.nav-search--open {
+  background: var(--card);
+  border-color: var(--stroke);
+  padding: 0.15rem 0.2rem 0.15rem 0.7rem;
+}
+
+.nav-search--open:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.nav-search__input {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+  width: 0;
+  opacity: 0;
+  outline: none;
+  padding: 0.25rem 0;
+  transition:
+    width var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+
+.nav-search--open .nav-search__input {
+  width: 9.5rem;
+  opacity: 1;
+}
+
+.nav-search__input::placeholder {
+  color: var(--muted);
+}
+
+.nav-search__btn {
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur) var(--ease);
+}
+
+.nav-search__btn:hover {
+  background: var(--primary-dark);
+}
+
+@media (max-width: 900px) {
+  .nav-search {
+    display: none;
+  }
+}
+
+/* ---- Search page --------------------------------------------------------- */
+.search-page__header {
+  margin-bottom: 1.5rem;
+}
+
+.search-page__subtitle {
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+.search-page__form {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  max-width: 640px;
+}
+
+.search-page__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.search-page__input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.search-page__summary {
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.search-page__empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--muted);
+}
+
+.search-page__empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.search-result {
+  display: flex;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  background: var(--card);
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+
+.search-result:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.search-result__icon {
+  font-size: 1.4rem;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.search-result__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.search-result__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.search-result__title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--primary);
+}
+
+.search-result__badge {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: var(--bg-accent);
+  color: var(--muted);
+  border: 1px solid var(--stroke);
+}
+
+.search-result__snippet {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.search-result__date {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* ---- Admin dashboard insight widgets ------------------------------------ */
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.25rem;
+  margin: 1.5rem 0;
+}
+
+.insight-card {
+  min-width: 0;
+}
+
+.status-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+
+.status-bar-row {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr 2rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.status-bar-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.status-bar-track {
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--bg-accent);
+  overflow: hidden;
+}
+
+.status-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  min-width: 2px;
+  transition: width var(--dur) var(--ease);
+}
+
+.status-bar--submitted {
+  background: #6366f1;
+}
+.status-bar--review {
+  background: #0ea5e9;
+}
+.status-bar--shortlisted {
+  background: #f59e0b;
+}
+.status-bar--approved {
+  background: #16a34a;
+}
+.status-bar--rejected {
+  background: #dc2626;
+}
+/* Neutral fill for non-status metrics (e.g. content views on the teacher dashboard). */
+.status-bar--views {
+  background: var(--primary);
+}
+
+.status-bar-value {
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.deadline-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.deadline-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.deadline-item:last-child {
+  border-bottom: none;
+}
+
+.deadline-item__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.deadline-item__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* When the title is a link (e.g. most-viewed content rows), keep it looking
+   like text until hovered. */
+a.deadline-item__title {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.deadline-item__title:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.deadline-chip {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.deadline-chip--urgent {
+  background: color-mix(in srgb, #dc2626 15%, transparent);
+  color: #dc2626;
+}
+.deadline-chip--soon {
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  color: #b45309;
+}
+.deadline-chip--normal {
+  background: var(--bg-accent);
+  color: var(--muted);
+}
+
+/* ---- Scheduled status badge (not defined in components.css) --------------- */
+.status-scheduled {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #92600a;
+}
+
+:root[data-theme='dark'] .status-scheduled {
+  color: #f4c471;
+}
+
+/* ---- Inline alerts (shared component; previously unstyled) ---------------- */
+.inline-alert {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.95rem;
+  margin: 0.6rem 0;
+  border: 1px solid var(--stroke);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.inline-alert__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.inline-alert--info {
+  border-left-color: #0ea5e9;
+  background: color-mix(in srgb, #0ea5e9 8%, var(--card));
+}
+
+.inline-alert--warning {
+  border-left-color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 12%, var(--card));
+}
+
+.inline-alert--error {
+  border-left-color: #dc2626;
+  background: color-mix(in srgb, #dc2626 9%, var(--card));
+}
+
+.inline-alert--success {
+  border-left-color: #16a34a;
+  background: color-mix(in srgb, #16a34a 9%, var(--card));
+}
+
