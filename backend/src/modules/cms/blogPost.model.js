@@ -33,6 +33,14 @@ const translationWorkflowSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const seoSchema = new mongoose.Schema(
+  {
+    metaTitle: { type: localizedTextSchema, default: () => ({}) },
+    metaDescription: { type: localizedTextSchema, default: () => ({}) }
+  },
+  { _id: false }
+);
+
 const blogPostSchema = new mongoose.Schema(
   {
     slug: {
@@ -57,6 +65,14 @@ const blogPostSchema = new mongoose.Schema(
     translationWorkflow: {
       type: translationWorkflowSchema,
       default: () => ({})
+    },
+    seo: {
+      type: seoSchema,
+      default: () => ({})
+    },
+    scheduledAt: {
+      type: Date,
+      default: null
     },
     coverImageUrl: {
       type: String,

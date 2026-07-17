@@ -13,6 +13,18 @@ const createVenue = {
   })
 };
 
+const updateVenue = {
+  params: Joi.object({ venueId: objectId.required() }),
+  body: Joi.object({
+    name: Joi.string().trim().max(200).optional(),
+    location: Joi.string().trim().max(300).optional(),
+    capacity: Joi.number().integer().min(1).optional(),
+    amenities: Joi.array().items(Joi.string().trim().max(100)).optional(),
+    manager: objectId.optional(),
+    isActive: Joi.boolean().optional()
+  }).min(1)
+};
+
 const listVenues = {
   query: Joi.object({
     isActive: Joi.boolean().optional(),
@@ -36,6 +48,10 @@ const requestBooking = {
     endTime: Joi.date().iso().required(),
     attendeeCount: Joi.number().integer().min(1).required()
   })
+};
+
+const cancelMyBooking = {
+  params: Joi.object({ bookingId: objectId.required() })
 };
 
 const decision = {
@@ -91,8 +107,10 @@ const checkConflicts = {
 
 module.exports = {
   createVenue,
+  updateVenue,
   listVenues,
   requestBooking,
+  cancelMyBooking,
   decision,
   listBookings,
   listMyBookings,

@@ -84,6 +84,31 @@ const submitFeedback = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ registration });
 });
 
+const listMyRegistrations = asyncHandler(async (req, res) => {
+  const data = await eventService.listMyRegistrations({
+    attendeeId: req.user._id,
+    query: req.query
+  });
+
+  res.status(StatusCodes.OK).json(data);
+});
+
+const cancelRegistration = asyncHandler(async (req, res) => {
+  const registration = await eventService.cancelRegistration({
+    registrationId: req.params.registrationId,
+    attendeeId: req.user._id
+  });
+
+  res.locals.auditMeta = {
+    action: 'CANCEL_EVENT_REGISTRATION',
+    entityType: 'EventRegistration',
+    entityId: registration._id.toString(),
+    after: { status: registration.status }
+  };
+
+  res.status(StatusCodes.OK).json({ registration });
+});
+
 const listRegistrations = asyncHandler(async (req, res) => {
   const data = await eventService.listRegistrations({
     eventId: req.params.eventId,
@@ -115,6 +140,8 @@ module.exports = {
   registerForEvent,
   checkIn,
   submitFeedback,
-  listRegistrations
-  ,updateEvent
+  listRegistrations,
+  listMyRegistrations,
+  cancelRegistration,
+  updateEvent
 };

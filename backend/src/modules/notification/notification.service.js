@@ -101,7 +101,11 @@ const listNotifications = async ({ query, requester, isPrivileged }) => {
   const { page, limit, skip } = buildPagination(query);
 
   const [items, total] = await Promise.all([
-    NotificationLog.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    NotificationLog.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('recipient', 'fullName email'),
     NotificationLog.countDocuments(filter)
   ]);
 

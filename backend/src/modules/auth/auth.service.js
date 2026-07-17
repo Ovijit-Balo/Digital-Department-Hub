@@ -7,6 +7,19 @@ const RefreshToken = require('./refreshToken.model');
 const ApiError = require('../../utils/ApiError');
 const { signAccessToken } = require('../../utils/jwt');
 const { ROLES } = require('../../config/roles');
+const EmailService = require('../../services/emailService');
+const logger = require('../../config/logger');
+
+// How long a password-reset link stays valid after it is issued.
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+// Same response whether or not the email exists, so the endpoint cannot be used
+// to discover which emails have accounts (user-enumeration protection).
+const GENERIC_RESET_REQUEST_MESSAGE =
+  'If an account exists for that email, a password reset link has been sent.';
+
+const hashResetToken = (rawToken) =>
+  crypto.createHash('sha256').update(rawToken).digest('hex');
 
 const sanitizeUser = (user) => ({
   id: user._id,
@@ -165,6 +178,53 @@ const resetPassword = async ({ userId, currentPassword, newPassword }) => {
   return { message: 'Password reset successful' };
 };
 
+// FR-PA-047: forgot-password step 1 — issue a time-limited reset token and
+// email the reset link. Only the SHA-256 hash of the token is stored, so a DB
+// leak cannot be used to reset anyone's password.
+const requestPasswordReset = async ({ email }) => {
+  const user = await User.findOne({ email: email.toLowerCase() });
+
+  if (user && user.isActive) {
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    user.passwordResetTokenHash = hashResetToken(rawToken);
+    user.passwordResetExpires = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+    await user.save();
+
+    try {
+      await EmailService.sendPasswordResetEmail(user.email, rawToken);
+    } catch (error) {
+      // Never surface delivery failures to the caller (would leak account
+      // existence and expose infra detail); log for operators instead.
+      logger.error('Failed to send password reset email', error);
+    }
+  }
+
+  return { message: GENERIC_RESET_REQUEST_MESSAGE };
+};
+
+// FR-PA-047: forgot-password step 2 — verify the token and set the new password.
+const confirmPasswordReset = async ({ token, newPassword }) => {
+  const user = await User.findOne({
+    passwordResetTokenHash: hashResetToken(token),
+    passwordResetExpires: { $gt: new Date() }
+  }).select('+passwordResetTokenHash +passwordResetExpires');
+
+  if (!user) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Invalid or expired password reset token.');
+  }
+
+  user.passwordHash = await bcrypt.hash(newPassword, 12);
+  user.passwordChangedAt = new Date();
+  user.passwordResetTokenHash = undefined;
+  user.passwordResetExpires = undefined;
+  await user.save();
+
+  // Any sessions that existed before the reset are no longer trusted.
+  await RefreshToken.updateMany({ user: user._id, revoked: false }, { $set: { revoked: true } });
+
+  return { message: 'Password has been reset. You can now sign in with your new password.' };
+};
+
 const getProfile = async (userId) => {
   const user = await User.findById(userId);
 
@@ -257,6 +317,8 @@ module.exports = {
   registerUser,
   loginUser,
   resetPassword,
+  requestPasswordReset,
+  confirmPasswordReset,
   getProfile,
   listUsers,
   updateUserRoles,

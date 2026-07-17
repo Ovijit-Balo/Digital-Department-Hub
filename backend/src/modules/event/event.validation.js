@@ -84,6 +84,18 @@ const submitFeedback = {
   })
 };
 
+const listMyRegistrations = {
+  query: Joi.object({
+    status: Joi.string().valid('registered', 'checked_in', 'cancelled').optional(),
+    page: Joi.number().min(1).default(1),
+    limit: Joi.number().min(1).max(100).default(20)
+  })
+};
+
+const cancelRegistration = {
+  params: Joi.object({ registrationId: objectId.required() })
+};
+
 const listRegistrations = {
   params: Joi.object({ eventId: objectId.required() }),
   query: Joi.object({
@@ -102,6 +114,8 @@ module.exports = {
   registerForEvent,
   checkIn,
   submitFeedback,
-  listRegistrations
-  ,updateEvent
+  listRegistrations,
+  listMyRegistrations,
+  cancelRegistration,
+  updateEvent
 };

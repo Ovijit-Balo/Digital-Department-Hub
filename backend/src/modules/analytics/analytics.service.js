@@ -2,6 +2,14 @@ const AnalyticsEvent = require('./analytics.model');
 const { StatusCodes } = require('http-status-codes');
 const ApiError = require('../../utils/ApiError');
 
+// Lazily resolved to avoid a require cycle (cms.controller requires this service).
+const ENTITY_MODELS = {
+  news: () => require('../cms/newsPost.model'),
+  blog: () => require('../cms/blogPost.model'),
+  gallery: () => require('../cms/gallery.model'),
+  page: () => require('../cms/page.model')
+};
+
 class AnalyticsService {
   /**
    * Track a content view event
@@ -203,7 +211,36 @@ class AnalyticsService {
       { $limit: limit }
     ]);
 
-    return results;
+    // Enrich with the content document's title/slug/status so consumers (e.g.
+    // the Teacher Dashboard insights widget) can render meaningful rows
+    // instead of bare ObjectIds. Views of since-deleted content are skipped.
+    const getModel = ENTITY_MODELS[entityType];
+    if (!getModel || results.length === 0) {
+      return results;
+    }
+
+    const docs = await getModel()
+      .find({ _id: { $in: results.map((row) => row.entityId) } })
+      .select('title slug status')
+      .lean();
+    const docMap = new Map(docs.map((doc) => [doc._id.toString(), doc]));
+
+    return results
+      .map((row) => {
+        const doc = docMap.get(row.entityId.toString());
+        if (!doc) {
+          return null;
+        }
+        return {
+          entityId: row.entityId,
+          viewCount: row.viewCount,
+          uniqueViewers: row.uniqueViewers,
+          title: doc.title,
+          slug: doc.slug,
+          status: doc.status
+        };
+      })
+      .filter(Boolean);
   }
 
   /**

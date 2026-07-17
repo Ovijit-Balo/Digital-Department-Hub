@@ -160,10 +160,11 @@ const registerForEvent = async ({ eventId, userId }) => {
       throw new ApiError(StatusCodes.BAD_REQUEST, 'Registration deadline has passed');
     }
 
-    const alreadyRegistered = await EventRegistration.findOne({ event: eventId, attendee: userId }).session(
-      session
-    );
-    if (alreadyRegistered) {
+    const existingRegistration = await EventRegistration.findOne({
+      event: eventId,
+      attendee: userId
+    }).session(session);
+    if (existingRegistration && existingRegistration.status !== 'cancelled') {
       throw new ApiError(StatusCodes.CONFLICT, 'You are already registered for this event');
     }
 
@@ -179,6 +180,18 @@ const registerForEvent = async ({ eventId, userId }) => {
     const qrToken = randomUUID();
     const qrPayload = JSON.stringify({ eventId, qrToken });
     const qrCodeDataUrl = await QRCode.toDataURL(qrPayload);
+
+    // The unique {event, attendee} index allows only one registration document
+    // per user per event, so a cancelled registration is revived with a fresh
+    // QR pass instead of inserting a new row.
+    if (existingRegistration) {
+      existingRegistration.status = 'registered';
+      existingRegistration.qrToken = qrToken;
+      existingRegistration.qrCodeDataUrl = qrCodeDataUrl;
+      existingRegistration.checkedInAt = undefined;
+      await existingRegistration.save({ session });
+      return existingRegistration;
+    }
 
     const [registration] = await EventRegistration.create(
       [
@@ -239,6 +252,62 @@ const submitFeedback = async ({ registrationId, attendeeId, payload }) => {
   return registration;
 };
 
+// A user's own registrations across all events — lets attendees re-open their
+// QR pass any time instead of only in the moment of registration.
+const listMyRegistrations = async ({ attendeeId, query }) => {
+  const filter = { attendee: attendeeId };
+  if (query.status) {
+    filter.status = query.status;
+  }
+
+  const { page, limit, skip } = buildPagination(query);
+
+  const [items, total] = await Promise.all([
+    EventRegistration.find(filter)
+      .populate('event', 'title location startTime endTime status')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    EventRegistration.countDocuments(filter)
+  ]);
+
+  return {
+    items,
+    page,
+    limit,
+    total
+  };
+};
+
+const cancelRegistration = async ({ registrationId, attendeeId }) => {
+  const registration = await EventRegistration.findById(registrationId).populate(
+    'event',
+    'title startTime'
+  );
+
+  if (!registration) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Event registration not found');
+  }
+
+  if (registration.attendee.toString() !== attendeeId.toString()) {
+    throw new ApiError(StatusCodes.FORBIDDEN, 'You can only cancel your own registration');
+  }
+
+  if (registration.status !== 'registered') {
+    throw new ApiError(StatusCodes.CONFLICT, 'Only active registrations can be cancelled');
+  }
+
+  if (registration.event?.startTime && new Date(registration.event.startTime) <= new Date()) {
+    throw new ApiError(StatusCodes.CONFLICT, 'Cannot cancel after the event has started');
+  }
+
+  // Frees the seat automatically: capacity counts only registered/checked_in.
+  registration.status = 'cancelled';
+  await registration.save();
+
+  return registration;
+};
+
 const listRegistrations = async ({ eventId, query }) => {
   const filter = { event: eventId };
   if (query.status) {
@@ -293,5 +362,7 @@ module.exports = {
   checkIn,
   submitFeedback,
   listRegistrations,
+  listMyRegistrations,
+  cancelRegistration,
   updateEvent
 };

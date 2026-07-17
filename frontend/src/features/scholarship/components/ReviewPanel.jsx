@@ -4,10 +4,25 @@ import { useToast } from '../../../context/ToastContext';
 import { getApiErrorMessage } from '../../../utils/http';
 import ReviewModal from './ReviewModal';
 import useLanguage from '../../../hooks/useLanguage';
+import { toLocalizedText } from '../../../utils/localized';
+
+const T = {
+  heading: { en: 'Applications to Review', bn: 'পর্যালোচনার আবেদন' },
+  empty: { en: 'No applications to review.', bn: 'পর্যালোচনার জন্য কোনো আবেদন নেই।' },
+  unknown: { en: 'Unknown', bn: 'অজানা' },
+  categoryLabel: { en: 'Category:', bn: 'বিভাগ:' },
+  readMore: { en: '...read more', bn: '...আরও পড়ুন' },
+  review: { en: 'Review', bn: 'পর্যালোচনা' },
+  reviewSaved: { en: 'Review saved', bn: 'পর্যালোচনা সংরক্ষিত' },
+  reviewFailed: { en: 'Review failed', bn: 'পর্যালোচনা ব্যর্থ' },
+  updateFailed: { en: 'Failed to update review status.', bn: 'পর্যালোচনার অবস্থা আপডেট করতে ব্যর্থ।' },
+  applicationReviewed: { en: 'Application reviewed.', bn: 'আবেদন পর্যালোচিত।' }
+};
 
 function ReviewPanel({ applications, onRefresh }) {
   const { success, error: toastError } = useToast();
   const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
 
@@ -19,13 +34,13 @@ function ReviewPanel({ applications, onRefresh }) {
   const handleReviewConfirm = async (reviewData) => {
     try {
       await scholarshipApi.reviewApplication(selectedApplication._id, reviewData);
-      success(`Application ${reviewData.status}.`, { title: 'Review saved' });
+      success(t('applicationReviewed'), { title: t('reviewSaved') });
       setModalOpen(false);
       setSelectedApplication(null);
       onRefresh();
     } catch (apiError) {
-      const message = getApiErrorMessage(apiError, 'Failed to update review status.');
-      toastError(message, { title: 'Review failed' });
+      const message = getApiErrorMessage(apiError, t('updateFailed'));
+      toastError(message, { title: t('reviewFailed') });
     }
   };
 
@@ -43,15 +58,15 @@ function ReviewPanel({ applications, onRefresh }) {
   if (applications.length === 0) {
     return (
       <div className="review-panel">
-        <h3 className="section-header">Applications to Review</h3>
-        <p className="empty-state">No applications to review.</p>
+        <h3 className="section-header">{t('heading')}</h3>
+        <p className="empty-state">{t('empty')}</p>
       </div>
     );
   }
 
   return (
     <div className="review-panel">
-      <h3 className="section-header">Applications to Review</h3>
+      <h3 className="section-header">{t('heading')}</h3>
       <div className="application-list">
         {applications.map((app) => (
           <article key={app._id} className="application-item">
@@ -62,18 +77,18 @@ function ReviewPanel({ applications, onRefresh }) {
               </span>
             </div>
             <div className="application-details">
-              <h4 className="applicant-name">{app.student?.fullName || 'Unknown'}</h4>
+              <h4 className="applicant-name">{app.student?.fullName || t('unknown')}</h4>
               <p className="applicant-info">
                 {app.student?.email} • {app.department} • GPA: {app.gpa}
               </p>
               {app.selectedCategoryCode && (
                 <p className="applicant-category">
-                  Category: {app.selectedCategoryCode}
+                  {t('categoryLabel')} {app.selectedCategoryCode}
                 </p>
               )}
               <p className="applicant-statement">
                 {app.statement.substring(0, 200)}
-                {app.statement.length > 200 && '...read more'}
+                {app.statement.length > 200 && t('readMore')}
               </p>
             </div>
             <div className="application-actions">
@@ -82,7 +97,7 @@ function ReviewPanel({ applications, onRefresh }) {
                 className="btn btn-sm btn-outline"
                 onClick={() => handleReviewClick(app)}
               >
-                Review
+                {t('review')}
               </button>
             </div>
           </article>

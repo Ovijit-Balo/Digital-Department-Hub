@@ -1,5 +1,6 @@
 import TranslationWorkflowFields from './TranslationWorkflowFields';
 import GalleryItemEditor from './GalleryItemEditor';
+import useCmsFormText from '../cmsFormText';
 
 export function GalleryForm({
   form,
@@ -13,10 +14,12 @@ export function GalleryForm({
   onItemChange,
   onItemCaptionChange
 }) {
+  const t = useCmsFormText();
+
   return (
     <form className="form-grid" onSubmit={onSubmit}>
       <label>
-        Gallery Slug
+        {t('gallerySlug')}
         <input
           value={form.slug}
           onChange={(event) => onFieldChange('slug', event.target.value)}
@@ -27,7 +30,7 @@ export function GalleryForm({
       </label>
 
       <label>
-        Title (EN)
+        {t('titleEn')}
         <input
           value={form.title.en}
           onChange={(event) => onLocalizedChange('title', 'en', event.target.value)}
@@ -36,7 +39,7 @@ export function GalleryForm({
       </label>
 
       <label>
-        Title (BN)
+        {t('titleBn')}
         <input
           value={form.title.bn}
           onChange={(event) => onLocalizedChange('title', 'bn', event.target.value)}
@@ -45,7 +48,7 @@ export function GalleryForm({
       </label>
 
       <label>
-        Description (EN)
+        {t('descriptionEn')}
         <textarea
           value={form.description.en}
           onChange={(event) => onLocalizedChange('description', 'en', event.target.value)}
@@ -53,7 +56,7 @@ export function GalleryForm({
       </label>
 
       <label>
-        Description (BN)
+        {t('descriptionBn')}
         <textarea
           value={form.description.bn}
           onChange={(event) => onLocalizedChange('description', 'bn', event.target.value)}
@@ -61,13 +64,13 @@ export function GalleryForm({
       </label>
 
       <label>
-        Publish Status
+        {t('publishStatus')}
         <select
           value={form.status}
           onChange={(event) => onFieldChange('status', event.target.value)}
         >
-          <option value="draft">Draft</option>
-          <option value="published">Published</option>
+          <option value="draft">{t('draft')}</option>
+          <option value="published">{t('published')}</option>
         </select>
       </label>
 
@@ -75,9 +78,9 @@ export function GalleryForm({
 
       <div className="surface-card inner-card">
         <div className="section-head section-head-tight">
-          <h4>Gallery Media Items</h4>
+          <h4>{t('galleryMediaItems')}</h4>
           <button type="button" className="btn btn-ghost" onClick={onAddItem}>
-            Add Media
+            {t('addMedia')}
           </button>
         </div>
 
@@ -96,7 +99,7 @@ export function GalleryForm({
       </div>
 
       <button type="submit" className="btn btn-primary">
-        {form.id ? 'Update Gallery' : 'Create Gallery'}
+        {form.id ? t('updateGallery') : t('createGallery')}
       </button>
     </form>
   );

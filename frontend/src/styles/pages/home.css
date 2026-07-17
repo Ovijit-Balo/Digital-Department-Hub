@@ -479,6 +479,81 @@
   padding-block: clamp(2.75rem, 2rem + 2.5vw, 4rem);
 }
 
+/* ---- How the hub works: first-visit orientation ---------------------------- */
+.home-how .home-section-title {
+  text-align: center;
+  margin-bottom: 0.4rem;
+}
+
+.home-how-lead {
+  text-align: center;
+  color: var(--muted);
+  max-width: 46rem;
+  margin: 0 auto;
+}
+
+.home-how-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1.1rem;
+  margin-top: 1.6rem;
+}
+
+.home-how-step {
+  padding: 1.5rem 1.4rem;
+  background: var(--bg);
+  border: 1px solid var(--stroke);
+  border-radius: 0.95rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.home-how-step__num {
+  display: inline-flex;
+  width: 2.2rem;
+  height: 2.2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(140, 21, 21, 0.09);
+  color: var(--primary);
+  font-weight: 700;
+  margin-bottom: 0.65rem;
+}
+
+.home-how-step h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.35rem;
+}
+
+.home-how-step p {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.home-how-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 1.6rem;
+}
+
+/* Secondary link inside the dark CTA band */
+.home-cta-secondary {
+  margin-top: 0.9rem;
+}
+
+.home-inline-link--inverse {
+  color: rgba(255, 255, 255, 0.92);
+  text-underline-offset: 3px;
+}
+
+.home-inline-link--inverse:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
 /* ---- Hero: full viewport, centered ---- */
 .hero-cinema--full {
   min-height: calc(100dvh - 4.75rem);

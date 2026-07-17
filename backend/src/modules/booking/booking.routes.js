@@ -18,6 +18,14 @@ router.post(
   bookingController.createVenue
 );
 
+router.patch(
+  '/venues/:venueId',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.MANAGER),
+  validate(bookingValidation.updateVenue),
+  bookingController.updateVenue
+);
+
 router.post(
   '/requests',
   authenticate,
@@ -39,6 +47,14 @@ router.get(
   authenticate,
   validate(bookingValidation.listMyBookings),
   bookingController.listMyBookings
+);
+
+// Requester-side withdrawal of a pending request (ownership checked in service).
+router.patch(
+  '/my-requests/:bookingId/cancel',
+  authenticate,
+  validate(bookingValidation.cancelMyBooking),
+  bookingController.cancelMyBooking
 );
 
 router.patch(

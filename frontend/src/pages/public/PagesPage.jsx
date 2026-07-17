@@ -13,8 +13,22 @@ function stripHtml(value = '') {
     .trim();
 }
 
+const T = {
+  loadFailed: { en: 'Failed to load pages.', bn: 'পৃষ্ঠা লোড করতে ব্যর্থ।' },
+  eyebrow: { en: 'Static Content', bn: 'স্ট্যাটিক বিষয়বস্তু' },
+  title: { en: 'Department Pages', bn: 'বিভাগীয় পৃষ্ঠা' },
+  subtitle: { en: 'Static pages and informational content', bn: 'স্ট্যাটিক পৃষ্ঠা ও তথ্যমূলক বিষয়বস্তু' },
+  refresh: { en: 'Refresh', bn: 'রিফ্রেশ' },
+  loading: { en: 'Loading pages...', bn: 'পৃষ্ঠা লোড হচ্ছে...' },
+  emptyTitle: { en: 'No pages published yet.', bn: 'এখনও কোনো পৃষ্ঠা প্রকাশিত হয়নি।' },
+  emptyText: { en: 'Static content pages will appear here.', bn: 'স্ট্যাটিক বিষয়বস্তুর পৃষ্ঠা এখানে দেখা যাবে।' },
+  badge: { en: 'Page', bn: 'পৃষ্ঠা' },
+  readPage: { en: 'Read Page', bn: 'পৃষ্ঠা পড়ুন' }
+};
+
 function PagesPage() {
   const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [items, setItems] = useState([]);
@@ -27,11 +41,12 @@ function PagesPage() {
       const response = await cmsApi.listPages({ status: 'published', limit: 100 });
       setItems(response.data.items || []);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load pages.'));
+      setError(getApiErrorMessage(apiError, t('loadFailed')));
     } finally {
       setLoading(false);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   useEffect(() => {
     loadPages();
@@ -41,22 +56,22 @@ function PagesPage() {
     <section className="page-wrap">
       <header className="page-title-bar">
         <div>
-          <p className="eyebrow">Static Content</p>
-          <h1>Department Pages</h1>
-          <p className="page-title-subtitle">Static pages and informational content</p>
+          <p className="eyebrow">{t('eyebrow')}</p>
+          <h1>{t('title')}</h1>
+          <p className="page-title-subtitle">{t('subtitle')}</p>
         </div>
         <button type="button" className="btn btn-ghost" onClick={loadPages}>
-          Refresh
+          {t('refresh')}
         </button>
       </header>
 
       {error && <InlineAlert type="error">{error}</InlineAlert>}
-      {loading && <p>Loading pages...</p>}
+      {loading && <p>{t('loading')}</p>}
       {!loading && !items.length && (
         <div className="empty-state empty-state--center">
           <div className="empty-state__icon" aria-hidden="true">📄</div>
-          <p className="empty-state__title">No pages published yet.</p>
-          <p className="empty-state__text">Static content pages will appear here.</p>
+          <p className="empty-state__title">{t('emptyTitle')}</p>
+          <p className="empty-state__text">{t('emptyText')}</p>
         </div>
       )}
 
@@ -70,7 +85,7 @@ function PagesPage() {
                 </Link>
               </h3>
               <span className="content-card__badge content-card__badge--academic">
-                Page
+                {t('badge')}
               </span>
             </div>
             <p className="content-card__excerpt">
@@ -78,7 +93,7 @@ function PagesPage() {
             </p>
             <div className="content-card__footer">
               <Link to={`/pages/${item.slug}`} className="btn btn-ghost">
-                Read Page
+                {t('readPage')}
               </Link>
             </div>
           </article>

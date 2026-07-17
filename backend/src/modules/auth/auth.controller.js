@@ -49,6 +49,19 @@ const resetPassword = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(result);
 });
 
+const forgotPassword = asyncHandler(async (req, res) => {
+  const result = await authService.requestPasswordReset({ email: req.body.email });
+  res.status(StatusCodes.OK).json(result);
+});
+
+const confirmPasswordReset = asyncHandler(async (req, res) => {
+  const result = await authService.confirmPasswordReset({
+    token: req.body.token,
+    newPassword: req.body.newPassword
+  });
+  res.status(StatusCodes.OK).json(result);
+});
+
 const me = asyncHandler(async (req, res) => {
   const user = await authService.getProfile(req.user._id);
   res.status(StatusCodes.OK).json({ user });
@@ -106,6 +119,8 @@ module.exports = {
   register,
   login,
   resetPassword,
+  forgotPassword,
+  confirmPasswordReset,
   me,
   listUsers,
   updateUserRoles,

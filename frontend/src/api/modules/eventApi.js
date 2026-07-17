@@ -30,5 +30,11 @@ export const eventApi = {
   },
   listRegistrations(eventId, params = {}) {
     return apiClient.get(`/events/${eventId}/registrations`, { params });
+  },
+  listMyRegistrations(params = {}) {
+    return apiClient.get('/events/my-registrations', { params });
+  },
+  cancelRegistration(registrationId) {
+    return apiClient.patch(`/events/registrations/${registrationId}/cancel`);
   }
 };

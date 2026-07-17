@@ -1,30 +1,45 @@
 const mongoose = require('mongoose');
 
-async function setupMongoTest() {
-  const testMongoUri = process.env.TEST_MONGODB_URI;
+let memoryServer = null;
 
-  if (!testMongoUri) {
-    throw new Error('TEST_MONGODB_URI is required for Mongo-backed tests.');
+/**
+ * Connect Mongoose to a test database. If TEST_MONGODB_URI is set (e.g. in CI
+ * against a real MongoDB) it is used directly; otherwise an ephemeral in-memory
+ * MongoDB is spun up via mongodb-memory-server so tests run with zero setup.
+ *
+ * @returns {Promise<import('mongodb-memory-server').MongoMemoryServer|null>}
+ */
+async function setupMongoTest() {
+  let uri = process.env.TEST_MONGODB_URI;
+
+  if (!uri) {
+    // Lazy-require so the dependency is only loaded when we actually need to
+    // start an in-memory server (not when an external test DB is provided).
+    const { MongoMemoryServer } = require('mongodb-memory-server');
+    memoryServer = await MongoMemoryServer.create();
+    uri = memoryServer.getUri();
   }
 
-  process.env.MONGODB_URI = testMongoUri;
+  process.env.MONGODB_URI = uri;
 
   if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(uri);
   }
 
-  return null;
+  return memoryServer;
 }
 
-async function cleanupMongoTest(mongoServer) {
+async function cleanupMongoTest(server) {
   if (mongoose.connection.readyState !== 0) {
     const collections = mongoose.connection.collections;
     await Promise.all(Object.values(collections).map((collection) => collection.deleteMany({})));
     await mongoose.disconnect();
   }
 
-  if (mongoServer) {
-    await mongoServer.stop();
+  const target = server || memoryServer;
+  if (target) {
+    await target.stop();
+    memoryServer = null;
   }
 }
 

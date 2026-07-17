@@ -35,6 +35,15 @@ const translationWorkflow = Joi.object({
   lastUpdatedAt: Joi.date().iso().optional()
 });
 
+const seo = Joi.object({
+  metaTitle: localizedTextOptional.optional(),
+  metaDescription: localizedTextOptional.optional()
+});
+
+const scheduledAt = Joi.date().iso().allow(null, '').optional();
+
+const coverImageUrl = Joi.string().uri({ scheme: ['http', 'https', 'data'] });
+
 const createPage = {
   body: Joi.object({
     slug: Joi.string()
@@ -45,6 +54,8 @@ const createPage = {
     title: localizedText.required(),
     content: localizedText.required(),
     translationWorkflow: translationWorkflow.optional(),
+    seo: seo.optional(),
+    scheduledAt,
     status: Joi.string().valid('draft', 'published').optional()
   })
 };
@@ -60,6 +71,8 @@ const updatePage = {
     title: localizedText.optional(),
     content: localizedText.optional(),
     translationWorkflow: translationWorkflow.optional(),
+    seo: seo.optional(),
+    scheduledAt,
     status: Joi.string().valid('draft', 'published').optional()
   }).min(1)
 };
@@ -99,7 +112,9 @@ const createNewsPost = {
     body: localizedText.required(),
     category: Joi.string().valid('news', 'announcement').optional(),
     translationWorkflow: translationWorkflow.optional(),
-    coverImageUrl: Joi.string().uri().optional(),
+    seo: seo.optional(),
+    scheduledAt,
+    coverImageUrl: coverImageUrl.optional(),
     tags: Joi.array().items(Joi.string().trim().max(50)).optional(),
     status: Joi.string().valid('draft', 'published').optional()
   })
@@ -118,7 +133,9 @@ const updateNewsPost = {
     body: localizedText.optional(),
     category: Joi.string().valid('news', 'announcement').optional(),
     translationWorkflow: translationWorkflow.optional(),
-    coverImageUrl: Joi.string().uri().allow('').optional(),
+    seo: seo.optional(),
+    scheduledAt,
+    coverImageUrl: coverImageUrl.allow('').optional(),
     tags: Joi.array().items(Joi.string().trim().max(50)).optional(),
     status: Joi.string().valid('draft', 'published').optional()
   }).min(1)
@@ -164,7 +181,9 @@ const createBlogPost = {
     excerpt: localizedText.required(),
     body: localizedText.required(),
     translationWorkflow: translationWorkflow.optional(),
-    coverImageUrl: Joi.string().uri().optional(),
+    seo: seo.optional(),
+    scheduledAt,
+    coverImageUrl: coverImageUrl.optional(),
     tags: Joi.array().items(Joi.string().trim().max(50)).optional(),
     status: Joi.string().valid('draft', 'published').optional()
   })
@@ -182,7 +201,9 @@ const updateBlogPost = {
     excerpt: localizedText.optional(),
     body: localizedText.optional(),
     translationWorkflow: translationWorkflow.optional(),
-    coverImageUrl: Joi.string().uri().allow('').optional(),
+    seo: seo.optional(),
+    scheduledAt,
+    coverImageUrl: coverImageUrl.allow('').optional(),
     tags: Joi.array().items(Joi.string().trim().max(50)).optional(),
     status: Joi.string().valid('draft', 'published').optional()
   }).min(1)

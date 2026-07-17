@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { contactApi } from '../../api/modules';
+import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import InlineAlert from '../../components/ui/InlineAlert';
 import SkeletonList from '../../components/ui/SkeletonList';
 import { useAuth } from '../../context/AuthContext';
@@ -7,11 +8,44 @@ import useRole from '../../hooks/useRole';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
-import { toLocalDateTime } from '../../utils/localized';
+import { toLocalDateTime, toLocalizedText } from '../../utils/localized';
 import { validateInquiryForm } from '../../utils/formValidation';
+
+const T = {
+  loadFailed: { en: 'Failed to load inquiries.', bn: 'অনুসন্ধান লোড করতে ব্যর্থ।' },
+  loadMineFailed: { en: 'Failed to load your inquiries.', bn: 'আপনার অনুসন্ধান লোড করতে ব্যর্থ।' },
+  fixFields: { en: 'Please fix the highlighted inquiry fields.', bn: 'অনুগ্রহ করে চিহ্নিত অনুসন্ধান ক্ষেত্রগুলো ঠিক করুন।' },
+  submitFailed: { en: 'Failed to submit inquiry.', bn: 'অনুসন্ধান জমা দিতে ব্যর্থ।' },
+  statusUpdated: { en: 'Inquiry status updated successfully.', bn: 'অনুসন্ধানের স্ট্যাটাস সফলভাবে হালনাগাদ হয়েছে।' },
+  statusUpdateFailed: { en: 'Failed to update inquiry status.', bn: 'অনুসন্ধানের স্ট্যাটাস হালনাগাদ করতে ব্যর্থ।' },
+  noneForFilter: { en: 'No inquiries found for this filter.', bn: 'এই ফিল্টারের জন্য কোনো অনুসন্ধান পাওয়া যায়নি।' },
+  sender: { en: 'Sender', bn: 'প্রেরক' },
+  subject: { en: 'Subject', bn: 'বিষয়' },
+  message: { en: 'Message', bn: 'বার্তা' },
+  status: { en: 'Status', bn: 'স্ট্যাটাস' },
+  updated: { en: 'Updated', bn: 'হালনাগাদ' },
+  actions: { en: 'Actions', bn: 'ক্রিয়া' },
+  resolutionNote: { en: 'Resolution Note', bn: 'সমাধান নোট' },
+  markNew: { en: 'Mark New', bn: 'নতুন চিহ্নিত করুন' },
+  inProgress: { en: 'In Progress', bn: 'চলমান' },
+  resolve: { en: 'Resolve', bn: 'সমাধান' },
+  dialogTitle: { en: 'Update inquiry status', bn: 'অনুসন্ধানের স্ট্যাটাস হালনাগাদ করুন' },
+  dialogUpdate: { en: 'Update', bn: 'হালনাগাদ' },
+  dialogNoteLabel: { en: 'Status note (optional)', bn: 'স্ট্যাটাস নোট (ঐচ্ছিক)' },
+  dialogNotePlaceholder: { en: 'Add context for this status change', bn: 'এই স্ট্যাটাস পরিবর্তনের জন্য প্রসঙ্গ যোগ করুন' }
+};
+
+const STATUS_LABELS = {
+  new: { en: 'New', bn: 'নতুন' },
+  in_progress: { en: 'In Progress', bn: 'চলমান' },
+  resolved: { en: 'Resolved', bn: 'সমাধান হয়েছে' }
+};
 
 function ContactPage() {
   const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
+  const statusLabel = (status) =>
+    STATUS_LABELS[status] ? toLocalizedText(STATUS_LABELS[status], language) : status;
   const { isAuthenticated, user } = useAuth();
   const canManageInquiries = useRole('admin', 'manager', 'editor');
   const canViewMyInquiries = isAuthenticated && !canManageInquiries;
@@ -61,11 +95,12 @@ function ContactPage() {
       });
       setInquiries(response.data.items || []);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load inquiries.'));
+      setError(getApiErrorMessage(apiError, t('loadFailed')));
     } finally {
       setLoading(false);
     }
-  }, [canManageInquiries, inquiryFilter, isAuthenticated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManageInquiries, inquiryFilter, isAuthenticated, language]);
 
   useEffect(() => {
     loadInquiries();
@@ -87,11 +122,12 @@ function ContactPage() {
       });
       setMyInquiries(response.data.items || []);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load your inquiries.'));
+      setError(getApiErrorMessage(apiError, t('loadMineFailed')));
     } finally {
       setMyLoading(false);
     }
-  }, [canViewMyInquiries, myInquiryFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canViewMyInquiries, myInquiryFilter, language]);
 
   useEffect(() => {
     loadMyInquiries();
@@ -105,7 +141,7 @@ function ContactPage() {
     const nextErrors = validateInquiryForm(inquiryForm);
     setFormErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
-      setError('Please fix the highlighted inquiry fields.');
+      setError(t('fixFields'));
       return;
     }
 
@@ -129,22 +165,37 @@ function ContactPage() {
       });
       await Promise.all([loadInquiries(), loadMyInquiries()]);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to submit inquiry.'));
+      setError(getApiErrorMessage(apiError, t('submitFailed')));
     }
   };
 
-  const updateInquiryStatus = async (inquiryId, status) => {
-    const resolutionNote = window.prompt('Add a status note (optional):', '') || '';
+  const [statusTarget, setStatusTarget] = useState(null);
+  const [statusBusy, setStatusBusy] = useState(false);
+
+  const updateInquiryStatus = (inquiryId, status) => {
+    setStatusTarget({ id: inquiryId, status });
+  };
+
+  const confirmInquiryStatus = async (resolutionNote) => {
+    if (!statusTarget) {
+      return;
+    }
+
+    setStatusBusy(true);
 
     try {
-      await contactApi.updateInquiryStatus(inquiryId, {
-        status,
+      await contactApi.updateInquiryStatus(statusTarget.id, {
+        status: statusTarget.status,
         resolutionNote
       });
-      setMessage('Inquiry status updated successfully.');
+      setMessage(t('statusUpdated'));
+      setStatusTarget(null);
       await loadInquiries();
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to update inquiry status.'));
+      setError(getApiErrorMessage(apiError, t('statusUpdateFailed')));
+      setStatusTarget(null);
+    } finally {
+      setStatusBusy(false);
     }
   };
 
@@ -240,7 +291,7 @@ function ContactPage() {
 
           {loading && <SkeletonList count={3} lines={3} />}
           {!loading && !inquiries.length && (
-            <InlineAlert type="info">No inquiries found for this filter.</InlineAlert>
+            <InlineAlert type="info">{t('noneForFilter')}</InlineAlert>
           )}
 
           {!!inquiries.length && (
@@ -248,12 +299,12 @@ function ContactPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Sender</th>
-                    <th>Subject</th>
-                    <th>Message</th>
-                    <th>Status</th>
-                    <th>Updated</th>
-                    <th>Actions</th>
+                    <th>{t('sender')}</th>
+                    <th>{t('subject')}</th>
+                    <th>{t('message')}</th>
+                    <th>{t('status')}</th>
+                    <th>{t('updated')}</th>
+                    <th>{t('actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -267,7 +318,7 @@ function ContactPage() {
                       <td>{item.subject}</td>
                       <td>{item.message}</td>
                       <td>
-                        <span className={`status-badge status-${item.status}`}>{item.status}</span>
+                        <span className={`status-badge status-${item.status}`}>{statusLabel(item.status)}</span>
                       </td>
                       <td>{toLocalDateTime(item.updatedAt)}</td>
                       <td>
@@ -277,21 +328,21 @@ function ContactPage() {
                             className="btn btn-ghost"
                             onClick={() => updateInquiryStatus(item._id, 'new')}
                           >
-                            Mark New
+                            {t('markNew')}
                           </button>
                           <button
                             type="button"
                             className="btn btn-ghost"
                             onClick={() => updateInquiryStatus(item._id, 'in_progress')}
                           >
-                            In Progress
+                            {t('inProgress')}
                           </button>
                           <button
                             type="button"
                             className="btn btn-ghost"
                             onClick={() => updateInquiryStatus(item._id, 'resolved')}
                           >
-                            Resolve
+                            {t('resolve')}
                           </button>
                         </div>
                       </td>
@@ -335,10 +386,10 @@ function ContactPage() {
               <table>
                 <thead>
                   <tr>
-                    <th>Subject</th>
-                    <th>Status</th>
-                    <th>Updated</th>
-                    <th>Resolution Note</th>
+                    <th>{t('subject')}</th>
+                    <th>{t('status')}</th>
+                    <th>{t('updated')}</th>
+                    <th>{t('resolutionNote')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -346,7 +397,7 @@ function ContactPage() {
                     <tr key={item._id}>
                       <td>{item.subject}</td>
                       <td>
-                        <span className={`status-badge status-${item.status}`}>{item.status}</span>
+                        <span className={`status-badge status-${item.status}`}>{statusLabel(item.status)}</span>
                       </td>
                       <td>{toLocalDateTime(item.updatedAt)}</td>
                       <td>{item.resolutionNote || '-'}</td>
@@ -358,6 +409,25 @@ function ContactPage() {
           )}
         </article>
       )}
+
+      <ConfirmDialog
+        isOpen={Boolean(statusTarget)}
+        onClose={() => setStatusTarget(null)}
+        onConfirm={confirmInquiryStatus}
+        title={t('dialogTitle')}
+        message={toLocalizedText(
+          {
+            en: `Mark this inquiry as ${statusTarget ? statusLabel(statusTarget.status) : ''}?`,
+            bn: `এই অনুসন্ধানটিকে ${statusTarget ? statusLabel(statusTarget.status) : ''} হিসেবে চিহ্নিত করবেন?`
+          },
+          language
+        )}
+        confirmLabel={t('dialogUpdate')}
+        tone="primary"
+        noteLabel={t('dialogNoteLabel')}
+        notePlaceholder={t('dialogNotePlaceholder')}
+        busy={statusBusy}
+      />
     </section>
   );
 }

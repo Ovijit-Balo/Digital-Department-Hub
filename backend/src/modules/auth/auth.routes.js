@@ -18,6 +18,20 @@ router.post(
   validate(authValidation.resetPassword),
   authController.resetPassword
 );
+
+// Public forgot-password flow (FR-PA-047). Rate-limited to blunt abuse/enumeration.
+router.post(
+  '/password/forgot',
+  authLimiter,
+  validate(authValidation.forgotPassword),
+  authController.forgotPassword
+);
+router.post(
+  '/password/reset',
+  authLimiter,
+  validate(authValidation.confirmPasswordReset),
+  authController.confirmPasswordReset
+);
 router.get('/me', authenticate, authController.me);
 router.get(
   '/users',

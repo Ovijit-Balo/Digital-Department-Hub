@@ -1,45 +1,52 @@
 import { sourceLanguageOptions, translationStatusOptions } from '../../../data/cmsTranslations';
+import useLanguage from '../../../hooks/useLanguage';
+import { toLocalizedText } from '../../../utils/localized';
+import useCmsFormText from '../cmsFormText';
 
 export function TranslationWorkflowFields({ value, onChange }) {
+  const t = useCmsFormText();
+  const { language } = useLanguage();
+  const optionLabel = (option) => toLocalizedText(option.label, language);
+
   return (
     <div className="workflow-grid">
       <label>
-        Source Language
+        {t('sourceLanguage')}
         <select
           value={value.sourceLanguage}
           onChange={(event) => onChange('sourceLanguage', event.target.value)}
         >
           {sourceLanguageOptions.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {optionLabel(option)}
             </option>
           ))}
         </select>
       </label>
 
       <label>
-        EN Translation Status
+        {t('enTranslationStatus')}
         <select
           value={value.enStatus}
           onChange={(event) => onChange('enStatus', event.target.value)}
         >
           {translationStatusOptions.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {optionLabel(option)}
             </option>
           ))}
         </select>
       </label>
 
       <label>
-        BN Translation Status
+        {t('bnTranslationStatus')}
         <select
           value={value.bnStatus}
           onChange={(event) => onChange('bnStatus', event.target.value)}
         >
           {translationStatusOptions.map((option) => (
             <option key={option.value} value={option.value}>
-              {option.label}
+              {optionLabel(option)}
             </option>
           ))}
         </select>

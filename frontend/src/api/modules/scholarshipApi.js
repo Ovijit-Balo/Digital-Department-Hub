@@ -51,5 +51,14 @@ export const scholarshipApi = {
       params,
       responseType: 'blob'
     });
+  },
+  exportApplicationsPdf(params = {}) {
+    return apiClient.get('/scholarships/applications/export/pdf', {
+      params,
+      responseType: 'blob'
+    });
+  },
+  applicationStats(params = {}) {
+    return apiClient.get('/scholarships/applications/stats', { params });
   }
 };

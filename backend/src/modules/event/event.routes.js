@@ -43,6 +43,22 @@ router.patch(
   eventController.updateEvent
 );
 
+// A user's own registrations (QR passes) across events. Must be declared
+// before the parameterised routes below.
+router.get(
+  '/my-registrations',
+  authenticate,
+  validate(eventValidation.listMyRegistrations),
+  eventController.listMyRegistrations
+);
+
+router.patch(
+  '/registrations/:registrationId/cancel',
+  authenticate,
+  validate(eventValidation.cancelRegistration),
+  eventController.cancelRegistration
+);
+
 router.post(
   '/:eventId/registrations',
   authenticate,

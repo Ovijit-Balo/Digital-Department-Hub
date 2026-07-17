@@ -198,7 +198,12 @@ class ImageService {
    * Optimize gallery items with thumbnails
    */
   static optimizeGalleryItems(items) {
-    return items.map((item) => {
+    return items.map((rawItem) => {
+      // Mongoose subdocuments must be converted before spreading, otherwise
+      // `{ ...item }` copies internal props ($__parent, _doc, ...) instead of
+      // the actual fields (mediaType/mediaUrl/caption).
+      const item = typeof rawItem?.toObject === 'function' ? rawItem.toObject() : rawItem;
+
       if (item.mediaType === 'image' && item.mediaUrl) {
         // Extract public ID from Cloudinary URL if it's a Cloudinary URL
         const publicId = this.extractPublicId(item.mediaUrl);
@@ -227,6 +232,16 @@ class ImageService {
     try {
       const urlObj = new URL(url);
       const pathParts = urlObj.pathname.split('/');
+
+      // Only derive transformation URLs for assets that live on OUR configured
+      // cloud. URLs from another Cloudinary account (e.g. pasted links, or
+      // uploads made before the credentials were changed) would 404 if we
+      // rebuilt them against the current cloud name.
+      const urlCloudName = pathParts[1];
+      if (!env.CLOUDINARY_CLOUD_NAME || urlCloudName !== env.CLOUDINARY_CLOUD_NAME) {
+        return null;
+      }
+
       const uploadIndex = pathParts.indexOf('upload');
       
       if (uploadIndex !== -1 && uploadIndex < pathParts.length - 1) {

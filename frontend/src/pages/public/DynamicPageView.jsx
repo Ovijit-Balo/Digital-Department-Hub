@@ -4,7 +4,9 @@ import { cmsApi } from '../../api/modules';
 import RichTextPreview from '../../components/ui/RichTextPreview';
 import SkeletonCard from '../../components/ui/SkeletonCard';
 import useLanguage from '../../hooks/useLanguage';
+import usePageMeta from '../../hooks/usePageMeta';
 import { getApiErrorMessage } from '../../utils/http';
+import { resolveSeoMeta } from '../../utils/seo';
 import { toLocalizedText } from '../../utils/localized';
 
 function DynamicPageView() {
@@ -23,15 +25,21 @@ function DynamicPageView() {
       const response = await cmsApi.getPageBySlug(slug);
       setPage(response.data.page || null);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load page content.'));
+      setError(getApiErrorMessage(apiError, toLocalizedText(
+        { en: 'Failed to load page content.', bn: 'পৃষ্ঠার বিষয়বস্তু লোড করতে ব্যর্থ।' },
+        language
+      )));
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, language]);
 
   useEffect(() => {
     loadPage();
   }, [loadPage]);
+
+  const meta = resolveSeoMeta(page, { language, bodyField: 'content' });
+  usePageMeta(meta);
 
   return (
     <section className="page-wrap">

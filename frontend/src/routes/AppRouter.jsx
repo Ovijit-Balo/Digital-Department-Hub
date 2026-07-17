@@ -15,21 +15,25 @@ import GalleryDetailPage from '../pages/public/GalleryDetailPage';
 import PagesPage from '../pages/public/PagesPage';
 import DynamicPageView from '../pages/public/DynamicPageView';
 import ScholarshipPage from '../pages/public/ScholarshipPage';
+import SearchPage from '../pages/public/SearchPage';
 import EventsPage from '../pages/public/EventsPage';
 import BookingPage from '../pages/public/BookingPage';
 import ContactPage from '../pages/public/ContactPage';
 import ProfilePage from '../pages/ProfilePage';
 import PortalsPage from '../pages/public/PortalsPage';
-import StudentDashboardPage from '../pages/public/StudentDashboardPage';
+import StudentDashboardPage from '../pages/workspace/StudentDashboardPage';
 import LoginPage from '../pages/auth/LoginPage';
 import RegisterPage from '../pages/auth/RegisterPage';
-// Admin workspace pages are lazy-loaded so public visitors never download them.
-const AdminLandingPage = lazy(() => import('../pages/admin/AdminLandingPage'));
-const TeacherDashboardPage = lazy(() => import('../pages/admin/TeacherDashboardPage'));
-const StaffDashboardPage = lazy(() => import('../pages/admin/StaffDashboardPage'));
-const NotificationCenterPage = lazy(() => import('../pages/admin/NotificationCenterPage'));
-const AccessControlPage = lazy(() => import('../pages/admin/AccessControlPage'));
-const CmsStudioPage = lazy(() => import('../pages/admin/CmsStudioPage'));
+import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from '../pages/auth/ResetPasswordPage';
+// Signed-in workspace pages (pages/workspace) are lazy-loaded so public
+// visitors never download them.
+const AdminLandingPage = lazy(() => import('../pages/workspace/AdminLandingPage'));
+const TeacherDashboardPage = lazy(() => import('../pages/workspace/TeacherDashboardPage'));
+const StaffDashboardPage = lazy(() => import('../pages/workspace/StaffDashboardPage'));
+const NotificationCenterPage = lazy(() => import('../pages/workspace/NotificationCenterPage'));
+const AccessControlPage = lazy(() => import('../pages/workspace/AccessControlPage'));
+const CmsStudioPage = lazy(() => import('../pages/workspace/CmsStudioPage'));
 import {
   ACCESS_CONTROL_VIEW_ROLES,
   ADMIN_PANEL_ROLES,
@@ -62,6 +66,7 @@ function AppRouter() {
         <Route path="/gallery/:galleryId" element={<GalleryDetailPage />} />
         <Route path="/pages" element={<PagesPage />} />
         <Route path="/pages/:slug" element={<DynamicPageView />} />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/portals" element={<PortalsPage />} />
         <Route
@@ -84,6 +89,8 @@ function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/login/:portal" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route
         element={

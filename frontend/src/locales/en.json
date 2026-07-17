@@ -89,7 +89,21 @@
     "featCatFacilities": "Facilities",
     "ctaTitle": "Ready to take the next step?",
     "ctaLead": "Apply for scholarships, join department events, or reach the office — everything starts here.",
-    "ctaButton": "Explore scholarships"
+    "ctaButton": "Explore scholarships",
+    "heroCtaAccount": "Create an account",
+    "heroCtaWorkspace": "Open my workspace",
+    "howHeading": "How the hub works",
+    "howLead": "One website, two sides: everything below is public to read — sign in to your portal when you need to take action.",
+    "how1t": "Browse freely",
+    "how1p": "News, announcements, blogs, galleries, events, and scholarship notices are open to everyone — no account needed.",
+    "how2t": "Create your account",
+    "how2p": "Students register in a minute and can immediately apply, register for events, and request venues. Faculty and staff accounts are elevated by the department admin.",
+    "how3t": "Work from your portal",
+    "how3p": "Each role gets its own workspace — students track applications and event passes, teachers publish content, staff run the service desks.",
+    "howRegisterCta": "Create an account",
+    "howPortalsCta": "Explore the portals",
+    "ctaButtonGuest": "Create your account",
+    "ctaPortalLink": "Already have an account? Choose your portal"
   },
   "gallery": {
     "title": "Gallery",

@@ -11,6 +11,7 @@ import {
 } from 'framer-motion';
 import { bookingApi, cmsApi, eventApi, scholarshipApi } from '../../api/modules';
 import { useAuth } from '../../context/AuthContext';
+import { getDefaultWorkspaceForUser } from '../../constants/roles';
 import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
@@ -85,6 +86,7 @@ function StatCounter({ value }) {
 function HomePage() {
   const { user, isAuthenticated } = useAuth();
   const { language } = useLanguage();
+  const workspacePath = getDefaultWorkspaceForUser(user);
 
   // Optional hero background video. Set VITE_HERO_VIDEO_URL to an mp4 URL to
   // enable it; when unset the hero uses its built-in animated backdrop.
@@ -132,11 +134,14 @@ function HomePage() {
         venues: venueResponse.data.items || []
       });
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load dashboard highlights.'));
+      setError(getApiErrorMessage(apiError, toLocalizedText(
+        { en: 'Failed to load dashboard highlights.', bn: 'ড্যাশবোর্ড হাইলাইট লোড করতে ব্যর্থ।' },
+        language
+      )));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     loadSnapshot();
@@ -237,14 +242,20 @@ function HomePage() {
             )}
 
             <m.div variants={fadeUp} className="hero-cinema__cta">
-              <Link to="/scholarship" className="btn btn-primary">
+              {isAuthenticated ? (
+                <Link to={workspacePath} className="btn btn-primary">
+                  {ui('home', 'heroCtaWorkspace', language)}
+                </Link>
+              ) : (
+                <Link to="/register" className="btn btn-primary">
+                  {ui('home', 'heroCtaAccount', language)}
+                </Link>
+              )}
+              <Link to="/scholarship" className="btn btn-hero-outline">
                 {ui('home', 'heroCtaScholarships', language)}
               </Link>
               <Link to="/events" className="btn btn-hero-outline">
                 {ui('home', 'heroCtaEvents', language)}
-              </Link>
-              <Link to="/pages" className="btn btn-hero-outline">
-                {ui('home', 'heroCtaAbout', language)}
               </Link>
             </m.div>
           </m.div>
@@ -261,6 +272,45 @@ function HomePage() {
               </button>
             </div>
           )}
+        </section>
+
+        {/* ---- How the hub works: first-visit orientation ---- */}
+        <section className="home-band home-band--white home-how" aria-labelledby="home-how-heading">
+          <m.div className="home-band__inner" {...inViewProps} variants={stagger}>
+            <m.h2 variants={fadeUp} id="home-how-heading" className="home-section-title">
+              {ui('home', 'howHeading', language)}
+            </m.h2>
+            <m.p variants={fadeUp} className="home-how-lead">
+              {ui('home', 'howLead', language)}
+            </m.p>
+
+            <div className="home-how-grid">
+              {[1, 2, 3].map((step) => (
+                <m.article key={step} variants={fadeUp} className="home-how-step">
+                  <span className="home-how-step__num" aria-hidden="true">
+                    {step}
+                  </span>
+                  <h3>{ui('home', `how${step}t`, language)}</h3>
+                  <p>{ui('home', `how${step}p`, language)}</p>
+                </m.article>
+              ))}
+            </div>
+
+            <m.div variants={fadeUp} className="home-how-actions">
+              {isAuthenticated ? (
+                <Link to={workspacePath} className="btn btn-primary">
+                  {ui('home', 'heroCtaWorkspace', language)}
+                </Link>
+              ) : (
+                <Link to="/register" className="btn btn-primary">
+                  {ui('home', 'howRegisterCta', language)}
+                </Link>
+              )}
+              <Link to="/portals" className="btn btn-ghost">
+                {ui('home', 'howPortalsCta', language)}
+              </Link>
+            </m.div>
+          </m.div>
         </section>
 
         {/* ---- Feature cards ---- */}
@@ -485,10 +535,23 @@ function HomePage() {
             <m.h2 variants={fadeUp}>{ui('home', 'ctaTitle', language)}</m.h2>
             <m.p variants={fadeUp}>{ui('home', 'ctaLead', language)}</m.p>
             <m.div variants={fadeUp}>
-              <Link to="/scholarship" className="btn btn-primary home-cta-btn">
-                {ui('home', 'ctaButton', language)}
-              </Link>
+              {isAuthenticated ? (
+                <Link to="/scholarship" className="btn btn-primary home-cta-btn">
+                  {ui('home', 'ctaButton', language)}
+                </Link>
+              ) : (
+                <Link to="/register" className="btn btn-primary home-cta-btn">
+                  {ui('home', 'ctaButtonGuest', language)}
+                </Link>
+              )}
             </m.div>
+            {!isAuthenticated && (
+              <m.p variants={fadeUp} className="home-cta-secondary">
+                <Link to="/portals" className="home-inline-link home-inline-link--inverse">
+                  {ui('home', 'ctaPortalLink', language)} →
+                </Link>
+              </m.p>
+            )}
           </m.div>
         </section>
       </section>

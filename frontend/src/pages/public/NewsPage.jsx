@@ -8,6 +8,7 @@ import useLanguage from '../../hooks/useLanguage';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalizedText } from '../../utils/localized';
+import { resolveMediaUrl } from '../../utils/resolveMediaUrl';
 
 const initialLocalized = {
   en: '',
@@ -16,6 +17,49 @@ const initialLocalized = {
 
 const PAGE_SIZE = 6;
 const NEWS_FILTERS = ['all', 'announcements', 'events', 'academic', 'research'];
+
+const T = {
+  loadFailed: { en: 'Failed to load newsroom content.', bn: 'নিউজরুম বিষয়বস্তু লোড করতে ব্যর্থ।' },
+  newsPublished: { en: 'News post published successfully.', bn: 'সংবাদ পোস্ট সফলভাবে প্রকাশিত হয়েছে।' },
+  blogPublished: { en: 'Blog post published successfully.', bn: 'ব্লগ পোস্ট সফলভাবে প্রকাশিত হয়েছে।' },
+  publishNewsFailed: { en: 'Failed to publish news post.', bn: 'সংবাদ পোস্ট প্রকাশ করতে ব্যর্থ।' },
+  publishBlogFailed: { en: 'Failed to publish blog post.', bn: 'ব্লগ পোস্ট প্রকাশ করতে ব্যর্থ।' },
+  searchNews: { en: 'Search news...', bn: 'সংবাদ খুঁজুন...' },
+  newsDetails: { en: 'News Details', bn: 'সংবাদ বিবরণ' },
+  collapse: { en: 'Collapse', bn: 'গুটিয়ে নিন' },
+  openPage: { en: 'Open page', bn: 'পৃষ্ঠা খুলুন' },
+  published: { en: 'Published', bn: 'প্রকাশিত' },
+  pinned: { en: 'Pinned', bn: 'পিন করা' },
+  gallery: { en: 'Gallery', bn: 'গ্যালারি' },
+  subtitle: { en: 'Latest updates from the department', bn: 'বিভাগ থেকে সর্বশেষ হালনাগাদ' },
+  newsFilters: { en: 'News filters', bn: 'সংবাদ ফিল্টার' },
+  noNewsFound: { en: 'No news found', bn: 'কোনো সংবাদ পাওয়া যায়নি' },
+  checkBackLater: { en: 'Check back later for updates.', bn: 'হালনাগাদের জন্য পরে আবার দেখুন।' },
+  item: { en: 'item', bn: 'আইটেম' },
+  items: { en: 'items', bn: 'আইটেম' },
+  slug: { en: 'Slug', bn: 'স্লাগ' },
+  newsTitleEn: { en: 'News title (EN)', bn: 'সংবাদ শিরোনাম (EN)' },
+  newsTitleBn: { en: 'News title (BN)', bn: 'সংবাদ শিরোনাম (BN)' },
+  summaryEn: { en: 'Summary (EN)', bn: 'সারসংক্ষেপ (EN)' },
+  summaryBn: { en: 'Summary (BN)', bn: 'সারসংক্ষেপ (BN)' },
+  bodyEn: { en: 'Body (EN)', bn: 'মূল অংশ (EN)' },
+  bodyBn: { en: 'Body (BN)', bn: 'মূল অংশ (BN)' },
+  blogTitleEn: { en: 'Blog title (EN)', bn: 'ব্লগ শিরোনাম (EN)' },
+  blogTitleBn: { en: 'Blog title (BN)', bn: 'ব্লগ শিরোনাম (BN)' },
+  excerptEn: { en: 'Excerpt (EN)', bn: 'উদ্ধৃতাংশ (EN)' },
+  excerptBn: { en: 'Excerpt (BN)', bn: 'উদ্ধৃতাংশ (BN)' },
+  publishing: { en: 'Publishing...', bn: 'প্রকাশ হচ্ছে...' },
+  publishNews: { en: 'Publish News', bn: 'সংবাদ প্রকাশ করুন' },
+  publishBlog: { en: 'Publish Blog', bn: 'ব্লগ প্রকাশ করুন' }
+};
+
+const FILTER_LABELS = {
+  all: { en: 'All', bn: 'সব' },
+  announcements: { en: 'Announcements', bn: 'ঘোষণা' },
+  events: { en: 'Events', bn: 'ইভেন্ট' },
+  academic: { en: 'Academic', bn: 'একাডেমিক' },
+  research: { en: 'Research', bn: 'গবেষণা' }
+};
 
 function normalizeFilterValue(value) {
   return String(value || '')
@@ -54,31 +98,19 @@ function matchesNewsFilter(item, activeFilter) {
   return getNewsTokens(item).some((token) => token === activeFilter || token.startsWith(activeFilter));
 }
 
-function getNewsBadgeLabel(item) {
+function getNewsBadgeKey(item) {
   const tokens = getNewsTokens(item);
   const candidate = NEWS_FILTERS.find((filter) => filter !== 'all' && tokens.includes(filter));
 
   if (tokens.includes('announcements')) {
-    return 'Announcements';
+    return 'announcements';
   }
 
-  if (candidate === 'announcements') {
-    return 'Announcements';
+  if (candidate === 'announcements' || candidate === 'events' || candidate === 'academic' || candidate === 'research') {
+    return candidate;
   }
 
-  if (candidate === 'events') {
-    return 'Events';
-  }
-
-  if (candidate === 'academic') {
-    return 'Academic';
-  }
-
-  if (candidate === 'research') {
-    return 'Research';
-  }
-
-  return normalizeFilterValue(item?.category || '') === 'announcement' ? 'Announcements' : '';
+  return normalizeFilterValue(item?.category || '') === 'announcement' ? 'announcements' : '';
 }
 
 function getNewsIconLabel(item, language) {
@@ -88,6 +120,7 @@ function getNewsIconLabel(item, language) {
 
 function NewsPage() {
   const { language } = useLanguage();
+  const t = (key) => toLocalizedText(T[key], language);
   const canPublish = useRole('admin', 'editor');
 
   const [loading, setLoading] = useState(true);
@@ -139,11 +172,12 @@ function NewsPage() {
       setNewsTotal(Number(newsResponse.data.total ?? 0));
       setBlogTotal(Number(blogResponse.data.total ?? 0));
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError, 'Failed to load newsroom content.'));
+      setError(getApiErrorMessage(apiError, t('loadFailed')));
     } finally {
       setLoading(false);
     }
-  }, [blogPage, newsPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blogPage, newsPage, language]);
 
   useEffect(() => {
     loadContent();
@@ -199,7 +233,7 @@ function NewsPage() {
 
     try {
       await cmsApi.createNews({ ...newsForm, tags: [] });
-      setSubmitMessage('News post published successfully.');
+      setSubmitMessage(t('newsPublished'));
       setNewsForm({
         slug: '',
         title: { ...initialLocalized },
@@ -211,7 +245,7 @@ function NewsPage() {
       setBlogPage(1);
       setListRefresh((value) => value + 1);
     } catch (apiError) {
-      setSubmitMessage(getApiErrorMessage(apiError, 'Failed to publish news post.'));
+      setSubmitMessage(getApiErrorMessage(apiError, t('publishNewsFailed')));
     } finally {
       setSubmitting(false);
     }
@@ -224,7 +258,7 @@ function NewsPage() {
 
     try {
       await cmsApi.createBlog({ ...blogForm, tags: [] });
-      setSubmitMessage('Blog post published successfully.');
+      setSubmitMessage(t('blogPublished'));
       setBlogForm({
         slug: '',
         title: { ...initialLocalized },
@@ -236,7 +270,7 @@ function NewsPage() {
       setBlogPage(1);
       setListRefresh((value) => value + 1);
     } catch (apiError) {
-      setSubmitMessage(getApiErrorMessage(apiError, 'Failed to publish blog post.'));
+      setSubmitMessage(getApiErrorMessage(apiError, t('publishBlogFailed')));
     } finally {
       setSubmitting(false);
     }
@@ -247,7 +281,7 @@ function NewsPage() {
       <header className="newsroom-header">
         <div className="newsroom-header__copy">
           <h1>{ui('newsroom', 'title', language)}</h1>
-          <p className="newsroom-header__subtitle">Latest updates from the department</p>
+          <p className="newsroom-header__subtitle">{t('subtitle')}</p>
         </div>
 
         <div className="newsroom-header__controls">
@@ -258,7 +292,7 @@ function NewsPage() {
             <input
               id="newsroom-search"
               type="search"
-              placeholder="Search news..."
+              placeholder={t('searchNews')}
               value={newsSearch}
               onChange={(event) => setNewsSearch(event.target.value)}
             />
@@ -303,7 +337,7 @@ function NewsPage() {
           {activeComposer === 'news' ? (
             <form className="form-grid" onSubmit={submitNews}>
               <label>
-                Slug
+                {t('slug')}
                 <input
                   value={newsForm.slug}
                   onChange={(event) =>
@@ -317,7 +351,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                News title (EN)
+                {t('newsTitleEn')}
                 <input
                   value={newsForm.title.en}
                   onChange={(event) => onNewsLocalizedChange('title', 'en', event.target.value)}
@@ -325,7 +359,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                News title (BN)
+                {t('newsTitleBn')}
                 <input
                   value={newsForm.title.bn}
                   onChange={(event) => onNewsLocalizedChange('title', 'bn', event.target.value)}
@@ -333,7 +367,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                Summary (EN)
+                {t('summaryEn')}
                 <textarea
                   value={newsForm.summary.en}
                   onChange={(event) => onNewsLocalizedChange('summary', 'en', event.target.value)}
@@ -341,7 +375,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                Summary (BN)
+                {t('summaryBn')}
                 <textarea
                   value={newsForm.summary.bn}
                   onChange={(event) => onNewsLocalizedChange('summary', 'bn', event.target.value)}
@@ -349,7 +383,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                Body (EN)
+                {t('bodyEn')}
                 <textarea
                   value={newsForm.body.en}
                   onChange={(event) => onNewsLocalizedChange('body', 'en', event.target.value)}
@@ -357,7 +391,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                Body (BN)
+                {t('bodyBn')}
                 <textarea
                   value={newsForm.body.bn}
                   onChange={(event) => onNewsLocalizedChange('body', 'bn', event.target.value)}
@@ -366,13 +400,13 @@ function NewsPage() {
               </label>
 
               <button type="submit" className="btn btn-primary" disabled={submitting}>
-                {submitting ? 'Publishing...' : 'Publish News'}
+                {submitting ? t('publishing') : t('publishNews')}
               </button>
             </form>
           ) : (
             <form className="form-grid" onSubmit={submitBlog}>
               <label>
-                Slug
+                {t('slug')}
                 <input
                   value={blogForm.slug}
                   onChange={(event) =>
@@ -386,7 +420,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                Blog title (EN)
+                {t('blogTitleEn')}
                 <input
                   value={blogForm.title.en}
                   onChange={(event) => onBlogLocalizedChange('title', 'en', event.target.value)}
@@ -394,7 +428,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                Blog title (BN)
+                {t('blogTitleBn')}
                 <input
                   value={blogForm.title.bn}
                   onChange={(event) => onBlogLocalizedChange('title', 'bn', event.target.value)}
@@ -402,7 +436,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                Excerpt (EN)
+                {t('excerptEn')}
                 <textarea
                   value={blogForm.excerpt.en}
                   onChange={(event) => onBlogLocalizedChange('excerpt', 'en', event.target.value)}
@@ -410,7 +444,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                Excerpt (BN)
+                {t('excerptBn')}
                 <textarea
                   value={blogForm.excerpt.bn}
                   onChange={(event) => onBlogLocalizedChange('excerpt', 'bn', event.target.value)}
@@ -418,7 +452,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                Body (EN)
+                {t('bodyEn')}
                 <textarea
                   value={blogForm.body.en}
                   onChange={(event) => onBlogLocalizedChange('body', 'en', event.target.value)}
@@ -426,7 +460,7 @@ function NewsPage() {
                 />
               </label>
               <label>
-                Body (BN)
+                {t('bodyBn')}
                 <textarea
                   value={blogForm.body.bn}
                   onChange={(event) => onBlogLocalizedChange('body', 'bn', event.target.value)}
@@ -435,7 +469,7 @@ function NewsPage() {
               </label>
 
               <button type="submit" className="btn btn-primary" disabled={submitting}>
-                {submitting ? 'Publishing...' : 'Publish Blog'}
+                {submitting ? t('publishing') : t('publishBlog')}
               </button>
             </form>
           )}
@@ -444,7 +478,7 @@ function NewsPage() {
         </article>
       )}
 
-      <div className="newsroom-filterbar" aria-label="News filters">
+      <div className="newsroom-filterbar" aria-label={t('newsFilters')}>
         {NEWS_FILTERS.map((filter) => (
           <button
             key={filter}
@@ -452,15 +486,7 @@ function NewsPage() {
             className={`newsroom-filter-pill${activeNewsFilter === filter ? ' is-active' : ''}`}
             onClick={() => setActiveNewsFilter(filter)}
           >
-            {filter === 'all'
-              ? 'All'
-              : filter === 'announcements'
-                ? 'Announcements'
-                : filter === 'events'
-                  ? 'Events'
-                  : filter === 'academic'
-                    ? 'Academic'
-                    : 'Research'}
+            {toLocalizedText(FILTER_LABELS[filter], language)}
           </button>
         ))}
       </div>
@@ -471,7 +497,7 @@ function NewsPage() {
             <div className="section-head section-head-tight newsroom-feed-card__head">
               <h2>{ui('newsroom', 'latestNews', language)}</h2>
               <span className="newsroom-feed-card__count">
-                {visibleNewsItems.length} item{visibleNewsItems.length === 1 ? '' : 's'}
+                {visibleNewsItems.length} {visibleNewsItems.length === 1 ? t('item') : t('items')}
               </span>
             </div>
 
@@ -484,8 +510,8 @@ function NewsPage() {
                 <div className="newsroom-empty-state__icon" aria-hidden="true">
                   📰
                 </div>
-                <h3>No news found</h3>
-                <p>Check back later for updates.</p>
+                <h3>{t('noNewsFound')}</h3>
+                <p>{t('checkBackLater')}</p>
               </div>
             )}
 
@@ -493,7 +519,8 @@ function NewsPage() {
               <div className="newsroom-feed">
                 {visibleNewsItems.map((item) => {
                   const isExpanded = expandedNewsId === item._id;
-                  const badgeLabel = getNewsBadgeLabel(item);
+                  const badgeKey = getNewsBadgeKey(item);
+                  const badgeLabel = badgeKey ? toLocalizedText(FILTER_LABELS[badgeKey], language) : '';
 
                   return (
                     <article key={item._id} className={`newsroom-item${isExpanded ? ' is-expanded' : ''}`}>
@@ -505,9 +532,18 @@ function NewsPage() {
                         }
                         aria-expanded={isExpanded}
                       >
-                        <span className="newsroom-item__icon" aria-hidden="true">
-                          {getNewsIconLabel(item, language)}
-                        </span>
+                        {item.coverImageUrl ? (
+                          <img
+                            src={resolveMediaUrl(item.coverImageUrl)}
+                            alt=""
+                            className="newsroom-item__thumb"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="newsroom-item__icon" aria-hidden="true">
+                            {getNewsIconLabel(item, language)}
+                          </span>
+                        )}
                         <div className="newsroom-item__body">
                           <div className="newsroom-item__title-row">
                               <h3>
@@ -540,27 +576,35 @@ function NewsPage() {
                       <div className={`newsroom-item__details${isExpanded ? ' is-open' : ''}`}>
                         <div className="newsroom-detail-panel">
                           <div className="newsroom-detail-panel__header">
-                            <span className="newsroom-detail-panel__badge">News Details</span>
+                            <span className="newsroom-detail-panel__badge">{t('newsDetails')}</span>
                               <div style={{display: 'flex', gap: '0.5rem'}}>
                                 <button
                                   type="button"
                                   className="btn btn-ghost newsroom-detail-panel__collapse"
                                   onClick={() => setExpandedNewsId('')}
                                 >
-                                  Collapse
+                                  {t('collapse')}
                                 </button>
                                 <button
                                   type="button"
                                   className="btn btn-primary"
                                   onClick={() => navigate(`/news/${item.slug || item._id}`)}
                                 >
-                                  Open page
+                                  {t('openPage')}
                                 </button>
                               </div>
                           </div>
                           <p className="newsroom-detail-panel__date">
-                            Published {toIsoDate(item.publishedAt || item.createdAt)}
+                            {t('published')} {toIsoDate(item.publishedAt || item.createdAt)}
                           </p>
+                          {item.coverImageUrl && (
+                            <img
+                              src={resolveMediaUrl(item.coverImageUrl)}
+                              alt={toLocalizedText(item.title, language)}
+                              className="newsroom-detail-panel__cover"
+                              loading="lazy"
+                            />
+                          )}
                           <p className="newsroom-detail-panel__body">
                             {toLocalizedText(item.body, language)}
                           </p>
@@ -587,7 +631,7 @@ function NewsPage() {
           <article className="surface-card newsroom-widget-card">
             <div className="section-head section-head-tight newsroom-widget-card__head">
               <h2>{ui('newsroom', 'featuredBlogs', language)}</h2>
-              <span className="newsroom-widget-card__label">Pinned</span>
+              <span className="newsroom-widget-card__label">{t('pinned')}</span>
             </div>
 
             {loading && (
@@ -621,7 +665,7 @@ function NewsPage() {
           <article className="surface-card newsroom-widget-card">
             <div className="section-head section-head-tight newsroom-widget-card__head">
               <h2>{ui('newsroom', 'galleryHighlights', language)}</h2>
-              <span className="newsroom-widget-card__label">Gallery</span>
+              <span className="newsroom-widget-card__label">{t('gallery')}</span>
             </div>
 
             {!galleryItems.length && (
@@ -629,15 +673,29 @@ function NewsPage() {
             )}
             {!!galleryItems.length && (
               <div className="newsroom-widget-list">
-                {galleryItems.map((gallery) => (
-                  <article key={gallery._id} className="newsroom-widget-item">
-                    <h3>{toLocalizedText(gallery.title, language)}</h3>
-                    <p>{toLocalizedText(gallery.description, language)}</p>
-                    <p className="meta">
-                      {ui('newsroom', 'mediaItems', language)}: {gallery.items?.length || 0}
-                    </p>
-                  </article>
-                ))}
+                {galleryItems.map((gallery) => {
+                  const firstImage = (gallery.items || []).find(
+                    (media) => media.mediaType !== 'video' && (media.thumbnailUrl || media.mediaUrl)
+                  );
+
+                  return (
+                    <article key={gallery._id} className="newsroom-widget-item">
+                      {firstImage && (
+                        <img
+                          src={resolveMediaUrl(firstImage.thumbnailUrl || firstImage.mediaUrl)}
+                          alt={toLocalizedText(gallery.title, language)}
+                          className="newsroom-widget-item__thumb"
+                          loading="lazy"
+                        />
+                      )}
+                      <h3>{toLocalizedText(gallery.title, language)}</h3>
+                      <p>{toLocalizedText(gallery.description, language)}</p>
+                      <p className="meta">
+                        {ui('newsroom', 'mediaItems', language)}: {gallery.items?.length || 0}
+                      </p>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </article>

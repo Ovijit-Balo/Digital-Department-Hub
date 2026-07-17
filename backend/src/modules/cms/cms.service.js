@@ -130,6 +130,16 @@ const buildPagination = ({ page, limit }) => {
   };
 };
 
+// Content is publicly live when published AND either not scheduled or the
+// scheduled time has already passed. Used to gate public reads without a cron job.
+const liveScheduleClause = () => ({
+  $or: [
+    { scheduledAt: { $exists: false } },
+    { scheduledAt: null },
+    { scheduledAt: { $lte: new Date() } }
+  ]
+});
+
 const buildContentFilter = (query) => {
   const filter = {};
 
@@ -141,15 +151,34 @@ const buildContentFilter = (query) => {
     filter.$text = { $search: query.search };
   }
 
+  if (query.onlyLive) {
+    filter.$and = (filter.$and || []).concat(liveScheduleClause());
+  }
+
   return filter;
 };
 
+// Resolves the publishedAt timestamp taking scheduled publishing into account.
+const resolvePublishedAt = ({ status, scheduledAt, existingPublishedAt = null }) => {
+  if (status !== 'published') {
+    return existingPublishedAt;
+  }
+
+  if (scheduledAt) {
+    return new Date(scheduledAt);
+  }
+
+  return existingPublishedAt || new Date();
+};
+
 const createEntity = async (Model, payload, userId, label) => {
+  const scheduledAt = payload.scheduledAt ? new Date(payload.scheduledAt) : null;
   const entityPayload = {
     ...payload,
+    scheduledAt,
     createdBy: userId,
     updatedBy: userId,
-    publishedAt: payload.status === 'published' ? new Date() : null
+    publishedAt: resolvePublishedAt({ status: payload.status, scheduledAt })
   };
 
   const localizedRules = LOCALIZED_FIELD_RULES.get(Model);
@@ -200,10 +229,22 @@ const updateEntity = async (Model, id, payload, userId, label) => {
     throw new ApiError(StatusCodes.NOT_FOUND, `${label} not found`);
   }
 
-  Object.assign(existing, payload, {
+  const cleanPayload = { ...payload };
+  if ('scheduledAt' in cleanPayload) {
+    cleanPayload.scheduledAt = cleanPayload.scheduledAt ? new Date(cleanPayload.scheduledAt) : null;
+  }
+
+  const nextStatus = cleanPayload.status || existing.status;
+  const nextScheduledAt =
+    'scheduledAt' in cleanPayload ? cleanPayload.scheduledAt : existing.scheduledAt;
+
+  Object.assign(existing, cleanPayload, {
     updatedBy: userId,
-    publishedAt:
-      payload.status === 'published' && !existing.publishedAt ? new Date() : existing.publishedAt
+    publishedAt: resolvePublishedAt({
+      status: nextStatus,
+      scheduledAt: nextScheduledAt,
+      existingPublishedAt: existing.publishedAt
+    })
   });
 
   const localizedRules = LOCALIZED_FIELD_RULES.get(Model);
@@ -246,7 +287,7 @@ const getPageById = async (id) => {
 const getPageBySlug = async (slug, options = {}) => {
   const filter = {
     slug,
-    ...(options.includeDraft ? {} : { status: 'published' })
+    ...(options.includeDraft ? {} : { status: 'published', ...liveScheduleClause() })
   };
 
   const page = await Page.findOne(filter);
@@ -321,7 +362,7 @@ const getNewsPostById = async (id) => {
 };
 
 const getPublicNewsPostById = async (id) => {
-  const post = await NewsPost.findOne({ _id: id, status: 'published' });
+  const post = await NewsPost.findOne({ _id: id, status: 'published', ...liveScheduleClause() });
 
   if (!post) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'News post not found');
@@ -333,7 +374,7 @@ const getPublicNewsPostById = async (id) => {
 const getNewsPostBySlug = async (slug, options = {}) => {
   const filter = {
     slug,
-    ...(options.includeDraft ? {} : { status: 'published' })
+    ...(options.includeDraft ? {} : { status: 'published', ...liveScheduleClause() })
   };
 
   const post = await NewsPost.findOne(filter);
@@ -406,7 +447,7 @@ const getBlogPostById = async (id) => {
 const getBlogPostBySlug = async (slug, options = {}) => {
   const filter = {
     slug,
-    ...(options.includeDraft ? {} : { status: 'published' })
+    ...(options.includeDraft ? {} : { status: 'published', ...liveScheduleClause() })
   };
 
   const post = await BlogPost.findOne(filter);

@@ -10,6 +10,9 @@ export const bookingApi = {
   createVenue(payload) {
     return apiClient.post('/bookings/venues', payload);
   },
+  updateVenue(venueId, payload) {
+    return apiClient.patch(`/bookings/venues/${venueId}`, payload);
+  },
   requestBooking(payload) {
     return apiClient.post('/bookings/requests', payload);
   },
@@ -18,6 +21,9 @@ export const bookingApi = {
   },
   listMyBookings(params = {}) {
     return apiClient.get('/bookings/my-requests', { params });
+  },
+  cancelMyBooking(bookingId) {
+    return apiClient.patch(`/bookings/my-requests/${bookingId}/cancel`);
   },
   reviewBooking(bookingId, payload) {
     return apiClient.patch(`/bookings/requests/${bookingId}/decision`, payload);

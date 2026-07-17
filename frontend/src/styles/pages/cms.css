@@ -62,3 +62,169 @@
 :root[data-theme='dark'] .rich-preview a {
   color: var(--primary);
 }
+
+/* ---- CMS Studio: list actions, toolbar, pager --------------------------- */
+.btn-sm {
+  padding: 0.3rem 0.66rem;
+  font-size: 0.82rem;
+}
+
+.btn-danger {
+  background: #b42318;
+  border-color: #b42318;
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #921a11;
+  border-color: #921a11;
+}
+
+.action-row-tight {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.cms-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.cms-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.cms-toolbar__search {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.cms-toolbar__filter {
+  flex: 0 0 auto;
+}
+
+.cms-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--stroke);
+}
+
+/* ---- SEO & scheduling advanced panel ------------------------------------ */
+.cms-advanced {
+  grid-column: 1 / -1;
+  border: 1px solid var(--stroke);
+  border-radius: 0.7rem;
+  padding: 0.5rem 0.85rem;
+  background: var(--bg-accent, transparent);
+}
+
+.cms-advanced > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.25rem 0;
+}
+
+.cms-advanced[open] > summary {
+  margin-bottom: 0.6rem;
+}
+
+/* ---- Reusable image upload field ---------------------------------------- */
+.image-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.image-field__label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.image-field__preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.image-field__preview img {
+  width: 120px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 0.55rem;
+  border: 1px solid var(--stroke);
+}
+
+.image-field__controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.image-field__controls input[type='url'] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---- Preview modal body -------------------------------------------------- */
+.cms-preview__cover {
+  width: 100%;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 0.7rem;
+  margin-bottom: 0.9rem;
+}
+
+.cms-preview__lead {
+  color: var(--muted);
+  font-size: 1.02rem;
+  margin-bottom: 0.8rem;
+}
+
+.cms-preview__gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.7rem;
+  margin-top: 0.8rem;
+}
+
+.cms-preview__gallery figure {
+  margin: 0;
+}
+
+.cms-preview__gallery img,
+.cms-preview__gallery video {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 0.55rem;
+  border: 1px solid var(--stroke);
+}
+
+.confirm-dialog__message {
+  margin-bottom: 0.4rem;
+  color: var(--text);
+}
+
+.confirm-dialog__note {
+  display: grid;
+  gap: 0.3rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.confirm-dialog__note textarea {
+  font-weight: 400;
+  resize: vertical;
+}

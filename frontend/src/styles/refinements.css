@@ -36,22 +36,28 @@ p {
   line-height: 1.65;
 }
 
-/* ---- Cardinal masthead rule (Stanford signature) ------------------------- */
-.app-shell {
-  border-top: 4px solid var(--primary);
-}
+/* ---- Cardinal masthead rule (Stanford signature) -------------------------
+   The navbar itself now carries the red top hairline (see .top-nav below), so
+   the app-shell no longer draws a separate masthead line — avoids a doubled,
+   overly thick red band above the bar. */
 
 .top-nav {
   padding-block: 1rem;
   /* Keep the bar full-bleed while aligning its content to the page container */
   padding-inline: max(var(--gutter), calc((100% - var(--content-max)) / 2));
-  border-bottom: 1px solid var(--stroke);
+  /* Cardinal frame: red hairlines top & bottom so the bar reads as one band */
+  border-top: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 1px 0 rgba(46, 45, 41, 0.04);
 }
 
 :root[data-theme='dark'] .top-nav {
   background: rgba(26, 25, 24, 0.9);
+  /* Re-assert the cardinal frame — layout.css forces border-color to grey in
+     dark mode, which would otherwise erase the red top/bottom hairlines. */
+  border-top-color: var(--primary);
+  border-bottom-color: var(--primary);
 }
 
 .brand-link {
@@ -257,7 +263,8 @@ p {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  /* Must sit above the sticky workspace/site headers (which go up to ~260). */
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -339,6 +346,55 @@ p {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.6rem;
+}
+
+/* Modal width variants (md is the base 560px). */
+.modal-content--sm {
+  width: min(440px, 100%);
+}
+.modal-content--lg {
+  width: min(760px, 100%);
+}
+
+/* --- Shared modal form layout -------------------------------------------------
+   Forms inside a modal must be single-column regardless of any page-level
+   `.form-grid` multi-column rules (e.g. the desk pages). This override is more
+   specific than `.desk-page .form-grid`, so fields always stack cleanly. */
+.modal-content form.form-grid {
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+  align-items: stretch;
+  max-width: none;
+}
+
+/* Intro line under a modal title (e.g. the notice/context name). */
+.modal-form__lead {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+/* Optional two-up row for short fields (e.g. GPA + Department). */
+.modal-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+/* Action bar pinned to the bottom of the modal form, full width. */
+.modal-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--stroke);
+}
+
+@media (max-width: 520px) {
+  .modal-form__row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-error {
@@ -646,7 +702,7 @@ body {
   background: rgba(255, 255, 255, 0.68);
   backdrop-filter: blur(14px) saturate(1.4);
   -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  border-bottom: 1px solid transparent;
+  /* Keep the cardinal frame from .top-nav (red top + bottom hairlines) */
   box-shadow: none;
   transition:
     background-color 250ms var(--ease),
@@ -656,7 +712,6 @@ body {
 
 .top-nav.top-nav--public.top-nav--scrolled {
   background: rgba(255, 255, 255, 0.97);
-  border-bottom-color: var(--stroke);
   box-shadow: 0 8px 28px rgba(31, 41, 55, 0.08);
 }
 
@@ -703,6 +758,165 @@ body {
   background: transparent;
   border-color: transparent;
   box-shadow: none;
+  color: var(--primary);
+}
+
+/* ======================================================================
+   Modern navbar polish (2026-07-17)
+   Unify the whole bar into one flat, cohesive system: dropdown triggers
+   match the plain links (animated underline + rotating chevron), the
+   utilities read as one set of circular ghost controls, the bar condenses
+   on scroll, and the primary CTA gets real presence.
+   ====================================================================== */
+
+/* ---- Flat dropdown triggers (drop the heavy gradient pills) ---- */
+.public-nav .nav-dropdown__summary {
+  position: relative;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  font-weight: 500;
+  color: var(--text);
+  padding: 0.5rem 1.35rem 0.5rem 0.75rem;
+  transition:
+    color 200ms var(--ease),
+    background-color 200ms var(--ease);
+}
+
+/* Animated cardinal underline, matching .public-nav .nav-link */
+.public-nav .nav-dropdown__summary::before {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  right: 1.35rem;
+  bottom: 0.28rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 220ms var(--ease);
+}
+
+.public-nav .nav-dropdown:hover .nav-dropdown__summary,
+.public-nav .nav-dropdown--open > .nav-dropdown__summary,
+.public-nav .nav-dropdown--active > .nav-dropdown__summary {
+  color: var(--primary);
+  background: transparent;
+}
+
+.public-nav .nav-dropdown:hover .nav-dropdown__summary::before,
+.public-nav .nav-dropdown--open > .nav-dropdown__summary::before,
+.public-nav .nav-dropdown--active > .nav-dropdown__summary::before {
+  transform: scaleX(1);
+}
+
+/* Chevron flips up when the panel is open */
+.public-nav .nav-dropdown--open > .nav-dropdown__summary::after {
+  transform: rotate(-135deg) translateY(1px);
+  opacity: 1;
+}
+
+/* Chevron takes the cardinal tint on hover/open/active */
+.public-nav .nav-dropdown:hover .nav-dropdown__summary::after,
+.public-nav .nav-dropdown--open > .nav-dropdown__summary::after,
+.public-nav .nav-dropdown--active > .nav-dropdown__summary::after {
+  border-color: var(--primary);
+  opacity: 1;
+}
+
+/* Softer, larger dropdown panel to feel less boxy */
+.nav-dropdown__panel {
+  border-radius: 0.9rem;
+  padding: 0.5rem;
+  box-shadow: 0 18px 44px rgba(31, 41, 55, 0.14);
+}
+
+/* ---- Unified circular ghost utilities (search / theme / language) ---- */
+.nav-utilities .theme-toggle--icon,
+.nav-search:not(.nav-search--open) .nav-search__btn {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--stroke);
+  color: var(--text);
+  transition:
+    transform 160ms var(--ease),
+    background-color 200ms var(--ease),
+    border-color 200ms var(--ease),
+    color 200ms var(--ease);
+}
+
+.nav-search:not(.nav-search--open) .nav-search__btn:hover,
+.nav-utilities .theme-toggle--icon:hover {
+  border-color: rgba(140, 21, 21, 0.32);
+  background: rgba(140, 21, 21, 0.08);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.lang-switch--compact select {
+  transition:
+    border-color 200ms var(--ease),
+    background-color 200ms var(--ease),
+    color 200ms var(--ease);
+}
+
+.lang-switch--compact select:hover {
+  border-color: rgba(140, 21, 21, 0.32);
+  color: var(--primary);
+}
+
+/* Consistent cardinal focus ring across every header control */
+.public-nav .nav-dropdown__summary:focus-visible,
+.nav-utilities .theme-toggle--icon:focus-visible,
+.nav-search__btn:focus-visible,
+.lang-switch--compact select:focus-visible,
+.user-menu__trigger:focus-visible {
+  outline: 2px solid rgba(140, 21, 21, 0.55);
+  outline-offset: 2px;
+}
+
+/* ---- Primary CTA (Sign In) gets a lift + cardinal glow ---- */
+.auth-actions .btn-primary {
+  box-shadow: 0 4px 14px rgba(140, 21, 21, 0.24);
+}
+
+.auth-actions .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(140, 21, 21, 0.32);
+}
+
+/* ---- Condense the bar as the page scrolls ---- */
+.top-nav.top-nav--public {
+  transition:
+    background-color 250ms var(--ease),
+    box-shadow 250ms var(--ease),
+    border-color 250ms var(--ease),
+    padding-block 250ms var(--ease);
+}
+
+.top-nav.top-nav--public.top-nav--scrolled {
+  padding-block: 0.62rem;
+}
+
+/* Dark mode: keep the flat/ghost look (layout.css + components.css otherwise
+   force an opaque card fill + grey border on these in dark theme). */
+:root[data-theme='dark'] .nav-utilities .theme-toggle--icon,
+:root[data-theme='dark'] .nav-search:not(.nav-search--open) .nav-search__btn {
+  background: transparent;
+  border-color: var(--stroke);
+}
+
+:root[data-theme='dark'] .public-nav .nav-dropdown__summary {
+  background: transparent;
+  border-color: transparent;
+}
+
+:root[data-theme='dark'] .public-nav .nav-dropdown:hover .nav-dropdown__summary,
+:root[data-theme='dark'] .public-nav .nav-dropdown--open > .nav-dropdown__summary,
+:root[data-theme='dark'] .public-nav .nav-dropdown--active > .nav-dropdown__summary {
   color: var(--primary);
 }
 
