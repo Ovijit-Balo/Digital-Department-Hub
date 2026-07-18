@@ -78,6 +78,50 @@ const listMyApplications = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json(data);
 });
 
+const updateMyApplication = asyncHandler(async (req, res) => {
+  const application = await scholarshipService.updateOwnApplication({
+    applicationId: req.params.applicationId,
+    studentId: req.user._id,
+    payload: req.body
+  });
+
+  res.locals.auditMeta = {
+    action: 'UPDATE_SCHOLARSHIP_APPLICATION',
+    entityType: 'ScholarshipApplication',
+    entityId: application._id.toString(),
+    after: { status: application.status }
+  };
+
+  res.status(StatusCodes.OK).json({ application });
+});
+
+const withdrawMyApplication = asyncHandler(async (req, res) => {
+  const result = await scholarshipService.withdrawOwnApplication({
+    applicationId: req.params.applicationId,
+    studentId: req.user._id
+  });
+
+  res.locals.auditMeta = {
+    action: 'WITHDRAW_SCHOLARSHIP_APPLICATION',
+    entityType: 'ScholarshipApplication',
+    entityId: req.params.applicationId
+  };
+
+  res.status(StatusCodes.OK).json(result);
+});
+
+const downloadAwardLetter = asyncHandler(async (req, res) => {
+  const { buffer, filename } = await scholarshipService.generateAwardLetter({
+    applicationId: req.params.applicationId,
+    requesterId: req.user._id,
+    requesterRoles: req.user.roles
+  });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.status(StatusCodes.OK).send(buffer);
+});
+
 const reviewApplication = asyncHandler(async (req, res) => {
   const application = await scholarshipService.reviewApplication({
     applicationId: req.params.applicationId,
@@ -209,6 +253,9 @@ module.exports = {
   listManageNotices,
   updateNotice,
   apply,
+  updateMyApplication,
+  withdrawMyApplication,
+  downloadAwardLetter,
   listApplications,
   listMyApplications,
   reviewApplication,

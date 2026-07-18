@@ -117,6 +117,33 @@ router.get(
   scholarshipController.listMyApplications
 );
 
+// Applicant self-service: a student may edit or withdraw their own application
+// while it is still in their hands (submitted / returned as needs_info). An
+// edit on a returned application also resubmits it. Ownership is checked in the
+// service, so no role gate beyond authentication is needed here.
+router.patch(
+  '/my-applications/:applicationId',
+  authenticate,
+  validate(scholarshipValidation.updateMyApplication),
+  scholarshipController.updateMyApplication
+);
+
+router.delete(
+  '/my-applications/:applicationId',
+  authenticate,
+  validate(scholarshipValidation.withdrawMyApplication),
+  scholarshipController.withdrawMyApplication
+);
+
+// Approved applicants download their award confirmation letter. Reviewers may
+// also fetch it; both are checked in the service.
+router.get(
+  '/applications/:applicationId/award-letter',
+  authenticate,
+  validate(scholarshipValidation.awardLetter),
+  scholarshipController.downloadAwardLetter
+);
+
 router.patch(
   '/applications/:applicationId/review',
   authenticate,

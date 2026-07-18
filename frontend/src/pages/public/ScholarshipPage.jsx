@@ -22,6 +22,38 @@ const createEmptyCategory = () => ({
   slots: 1
 });
 
+const createEmptyDocument = () => ({
+  name: '',
+  url: ''
+});
+
+// Statuses at which an applicant still controls their own application and may
+// edit or withdraw it (mirrors the backend guard). A needs_info edit resubmits.
+const APPLICANT_EDITABLE_STATUSES = ['submitted', 'needs_info'];
+
+// Common supporting documents a scholarship applicant attaches. Offered as
+// suggestions (via <datalist>) but the label field stays free-text so students
+// can name anything the notice asks for.
+const DOCUMENT_SUGGESTIONS = [
+  { en: 'Academic Transcript', bn: 'একাডেমিক ট্রান্সক্রিপ্ট' },
+  { en: 'Latest Marksheet', bn: 'সর্বশেষ মার্কশিট' },
+  { en: 'Student ID Card', bn: 'শিক্ষার্থী আইডি কার্ড' },
+  { en: 'Income Certificate', bn: 'আয়ের সনদ' },
+  { en: 'National ID / Birth Certificate', bn: 'জাতীয় পরিচয়পত্র / জন্ম সনদ' },
+  { en: 'Recommendation Letter', bn: 'সুপারিশপত্র' }
+];
+
+// Accepts http(s) links only; used to keep obviously-broken URLs out of an
+// application before it reaches the reviewer.
+const isValidHttpUrl = (value) => {
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 // Human-friendly labels + badge classes for the computed application state.
 const STATE_META = {
   open: { label: { en: 'Open', bn: 'খোলা' }, badge: 'status-open' },
@@ -87,6 +119,43 @@ const T = {
   amount: { en: 'Amount', bn: 'পরিমাণ' },
   slots: { en: 'Slots', bn: 'স্লট' },
   yourApplication: { en: 'Your Application', bn: 'আপনার আবেদন' },
+  editApplication: { en: 'Edit Application', bn: 'আবেদন সম্পাদনা' },
+  withdrawApplication: { en: 'Withdraw', bn: 'প্রত্যাহার' },
+  resubmitApplication: { en: 'Update & Resubmit', bn: 'হালনাগাদ ও পুনরায় জমা' },
+  downloadAwardLetter: { en: 'Download Award Letter', bn: 'পুরস্কার পত্র ডাউনলোড' },
+  saveChanges: { en: 'Save Changes', bn: 'পরিবর্তন সংরক্ষণ' },
+  needsInfoHint: {
+    en: 'A reviewer asked you to update this application. Make your changes and resubmit.',
+    bn: 'একজন পর্যালোচক আপনাকে এই আবেদন হালনাগাদ করতে বলেছেন। পরিবর্তন করে পুনরায় জমা দিন।'
+  },
+  confirmWithdraw: {
+    en: 'Withdraw this application? This cannot be undone, but you can apply again while the window is open.',
+    bn: 'এই আবেদন প্রত্যাহার করবেন? এটি ফেরানো যাবে না, তবে সময়সীমা খোলা থাকা পর্যন্ত আপনি আবার আবেদন করতে পারবেন।'
+  },
+  msgAppUpdated: { en: 'Application updated.', bn: 'আবেদন হালনাগাদ হয়েছে।' },
+  msgAppWithdrawn: { en: 'Application withdrawn.', bn: 'আবেদন প্রত্যাহার করা হয়েছে।' },
+  msgAppUpdateFailed: { en: 'Could not update the application.', bn: 'আবেদন হালনাগাদ করা যায়নি।' },
+  msgAppWithdrawFailed: { en: 'Could not withdraw the application.', bn: 'আবেদন প্রত্যাহার করা যায়নি।' },
+  msgLetterFailed: { en: 'Could not download the award letter.', bn: 'পুরস্কার পত্র ডাউনলোড করা যায়নি।' },
+  titleAppUpdated: { en: 'Application Updated', bn: 'আবেদন হালনাগাদ' },
+  titleAppWithdrawn: { en: 'Application Withdrawn', bn: 'আবেদন প্রত্যাহার' },
+  documents: { en: 'Supporting Documents', bn: 'সহায়ক নথিপত্র' },
+  documentsHint: {
+    en: 'Add links to your transcript, marksheet, or other proof (Google Drive, OneDrive, etc.). Make sure sharing is set to "anyone with the link".',
+    bn: 'আপনার ট্রান্সক্রিপ্ট, মার্কশিট বা অন্যান্য প্রমাণের লিঙ্ক যোগ করুন (গুগল ড্রাইভ, ওয়ানড্রাইভ ইত্যাদি)। শেয়ারিং "যে কেউ লিঙ্ক দিয়ে" করা আছে তা নিশ্চিত করুন।'
+  },
+  documentsHintRequired: {
+    en: 'This scholarship requires at least one supporting document. Add links to your transcript, marksheet, or other proof and make sure sharing is set to "anyone with the link".',
+    bn: 'এই বৃত্তির জন্য অন্তত একটি সহায়ক নথি প্রয়োজন। আপনার ট্রান্সক্রিপ্ট, মার্কশিট বা অন্যান্য প্রমাণের লিঙ্ক যোগ করুন এবং শেয়ারিং "যে কেউ লিঙ্ক দিয়ে" করা আছে তা নিশ্চিত করুন।'
+  },
+  requiredMark: { en: 'required', bn: 'আবশ্যক' },
+  documentName: { en: 'Document name', bn: 'নথির নাম' },
+  documentUrl: { en: 'Link (URL)', bn: 'লিঙ্ক (URL)' },
+  addDocument: { en: 'Add Document', bn: 'নথি যোগ করুন' },
+  removeDocument: { en: 'Remove', bn: 'সরান' },
+  noDocuments: { en: 'No documents attached.', bn: 'কোনো নথি সংযুক্ত নেই।' },
+  attachedDocuments: { en: 'Attached documents', bn: 'সংযুক্ত নথিপত্র' },
+  openDocument: { en: 'Open', bn: 'খুলুন' },
   submitted: { en: 'Submitted:', bn: 'জমা দেওয়া:' },
   award: { en: 'Award:', bn: 'পুরস্কার:' },
   openFormHint: { en: 'Open the application form.', bn: 'আবেদন ফর্ম খুলুন।' },
@@ -162,6 +231,7 @@ const T = {
   exportPdf: { en: 'Export PDF', bn: 'PDF রপ্তানি' },
   noApplicationsReview: { en: 'No applications to review.', bn: 'পর্যালোচনার জন্য কোনো আবেদন নেই।' },
   student: { en: 'Student', bn: 'শিক্ষার্থী' },
+  docsCol: { en: 'Docs', bn: 'নথি' },
   action: { en: 'Action', bn: 'পদক্ষেপ' },
   reviewBtn: { en: 'Review', bn: 'পর্যালোচনা' },
   approve: { en: 'Approve', bn: 'অনুমোদন' },
@@ -172,6 +242,24 @@ const T = {
   // messages / toasts
   msgSelectNotice: { en: 'Select a scholarship notice first.', bn: 'প্রথমে একটি বৃত্তি বিজ্ঞপ্তি নির্বাচন করুন।' },
   msgSelectCategory: { en: 'Select a scholarship category before submitting.', bn: 'জমা দেওয়ার আগে একটি বৃত্তি বিভাগ নির্বাচন করুন।' },
+  msgDocIncomplete: { en: 'Each document needs both a name and a link. Remove any blank rows.', bn: 'প্রতিটি নথির নাম ও লিঙ্ক উভয়ই প্রয়োজন। ফাঁকা সারি সরান।' },
+  msgDocBadUrl: { en: 'One of the document links is not a valid http(s) URL.', bn: 'একটি নথির লিঙ্ক বৈধ http(s) URL নয়।' },
+  msgDocRequired: {
+    en: 'This scholarship requires at least one supporting document. Add a name and link before submitting.',
+    bn: 'এই বৃত্তির জন্য অন্তত একটি সহায়ক নথি প্রয়োজন। জমা দেওয়ার আগে একটি নাম ও লিঙ্ক যোগ করুন।'
+  },
+  documentsRequiredLabel: {
+    en: 'Require supporting documents',
+    bn: 'সহায়ক নথি আবশ্যক করুন'
+  },
+  documentsRequiredHint: {
+    en: 'Applicants must attach at least one document link to submit.',
+    bn: 'জমা দিতে আবেদনকারীদের অন্তত একটি নথির লিঙ্ক সংযুক্ত করতে হবে।'
+  },
+  documentsRequiredNotice: {
+    en: 'This scholarship requires at least one supporting document.',
+    bn: 'এই বৃত্তির জন্য অন্তত একটি সহায়ক নথি প্রয়োজন।'
+  },
   msgNoticeNotFound: { en: 'Selected scholarship notice not found.', bn: 'নির্বাচিত বৃত্তি বিজ্ঞপ্তি পাওয়া যায়নি।' },
   msgWindowClosed: { en: 'Application window has closed', bn: 'আবেদন সময়সীমা বন্ধ হয়েছে' },
   msgWindowNotOpen: { en: 'Application window has not opened yet', bn: 'আবেদন সময়সীমা এখনও খোলেনি' },
@@ -272,7 +360,9 @@ function ScholarshipPage() {
     currentStatus: 'submitted',
     fallbackCategoryCode: '',
     initialStatus: 'under_review',
-    categories: []
+    categories: [],
+    documents: [],
+    reviewHistory: []
   });
 
   const [loading, setLoading] = useState(true);
@@ -295,11 +385,15 @@ function ScholarshipPage() {
   const [applicationDrafts, setApplicationDrafts] = useState({});
 
   const [applyModalOpen, setApplyModalOpen] = useState(false);
+  // When set, the apply modal is in edit mode for the applicant's own pending
+  // application rather than creating a new one.
+  const [editingApplicationId, setEditingApplicationId] = useState(null);
   const [applicationForm, setApplicationForm] = useState({
     statement: '',
     gpa: '',
     department: user?.department || '',
-    selectedCategoryCode: ''
+    selectedCategoryCode: '',
+    documents: []
   });
 
   const lastNoticeIdRef = useRef('');
@@ -314,6 +408,7 @@ function ScholarshipPage() {
     applicationWindowEnd: '',
     deadline: '',
     status: 'draft',
+    documentsRequired: false,
     categories: [createEmptyCategory()]
   });
 
@@ -326,6 +421,7 @@ function ScholarshipPage() {
     applicationWindowEnd: '',
     deadline: '',
     status: 'draft',
+    documentsRequired: false,
     categories: [createEmptyCategory()]
   });
 
@@ -461,7 +557,10 @@ function ScholarshipPage() {
         statement: draft?.statement || '',
         gpa: draft?.gpa || '',
         department: draft?.department || user?.department || '',
-        selectedCategoryCode: nextCategoryCode
+        selectedCategoryCode: nextCategoryCode,
+        documents: draft?.documents?.length
+          ? draft.documents.map((doc) => ({ ...doc }))
+          : []
       });
 
       lastNoticeIdRef.current = selectedNoticeId;
@@ -522,6 +621,7 @@ function ScholarshipPage() {
       applicationWindowEnd: toIsoDate(selectedNotice.applicationWindowEnd),
       deadline: toIsoDate(selectedNotice.deadline),
       status: selectedNotice.status || 'draft',
+      documentsRequired: Boolean(selectedNotice.documentsRequired),
       categories: mappedCategories.length ? mappedCategories : [createEmptyCategory()]
     });
 
@@ -529,7 +629,9 @@ function ScholarshipPage() {
   }, [canManageNotices, selectedNotice, selectedNoticeId]);
 
   useEffect(() => {
-    if (!selectedNoticeId) {
+    // Don't persist the form as a "new application" draft while editing an
+    // existing application — that would overwrite the applicant's real draft.
+    if (!selectedNoticeId || editingApplicationId) {
       return;
     }
 
@@ -537,7 +639,7 @@ function ScholarshipPage() {
       ...prev,
       [selectedNoticeId]: applicationForm
     }));
-  }, [applicationForm, selectedNoticeId]);
+  }, [applicationForm, selectedNoticeId, editingApplicationId]);
 
   const loadNotices = useCallback(async () => {
     const response = canViewManageNotices
@@ -724,6 +826,61 @@ function ScholarshipPage() {
       return;
     }
 
+    // A document row is either fully filled (name + link) or removed; half-filled
+    // rows are a mistake we surface before hitting the API.
+    const documentRows = applicationForm.documents || [];
+    const hasPartialDocument = documentRows.some((doc) => {
+      const name = doc.name.trim();
+      const url = doc.url.trim();
+      return (name && !url) || (!name && url);
+    });
+    if (hasPartialDocument) {
+      setMessage(t('msgDocIncomplete'));
+      return;
+    }
+
+    const completedDocuments = documentRows
+      .map((doc) => ({ name: doc.name.trim(), url: doc.url.trim() }))
+      .filter((doc) => doc.name && doc.url);
+
+    if (completedDocuments.some((doc) => !isValidHttpUrl(doc.url))) {
+      setMessage(t('msgDocBadUrl'));
+      return;
+    }
+
+    if (selectedNotice?.documentsRequired && !completedDocuments.length) {
+      setMessage(t('msgDocRequired'));
+      return;
+    }
+
+    // Edit mode: patch the applicant's own pending application instead of
+    // creating a new one. A needs_info edit resubmits it on the backend.
+    if (editingApplicationId) {
+      try {
+        await scholarshipApi.updateMyApplication(editingApplicationId, {
+          statement: applicationForm.statement,
+          gpa: Number(applicationForm.gpa),
+          department: applicationForm.department,
+          selectedCategoryCode: applicationForm.selectedCategoryCode || undefined,
+          documents: completedDocuments
+        });
+
+        setMessage(t('msgAppUpdated'));
+        success(t('msgAppUpdated'), { title: t('titleAppUpdated') });
+        setApplyModalOpen(false);
+        setEditingApplicationId(null);
+
+        await loadApplications();
+        await loadMyApplications();
+        await loadNoticeDetails();
+      } catch (apiError) {
+        const nextMessage = getApiErrorMessage(apiError, t('msgAppUpdateFailed'));
+        setMessage(nextMessage);
+        toastError(nextMessage, { title: t('titleAppUpdated') });
+      }
+      return;
+    }
+
     try {
       // Refresh notice list and details to ensure latest window/status before submitting
       const freshNotices = await loadNotices();
@@ -752,7 +909,7 @@ function ScholarshipPage() {
         gpa: Number(applicationForm.gpa),
         department: applicationForm.department,
         selectedCategoryCode: applicationForm.selectedCategoryCode || undefined,
-        documents: []
+        documents: completedDocuments
       });
 
       setMessage(t('msgAppSubmitted'));
@@ -762,7 +919,8 @@ function ScholarshipPage() {
         ...prev,
         statement: '',
         gpa: '',
-        selectedCategoryCode: ''
+        selectedCategoryCode: '',
+        documents: []
       }));
       setApplicationDrafts((prev) => ({
         ...prev,
@@ -770,7 +928,8 @@ function ScholarshipPage() {
           statement: '',
           gpa: '',
           department: applicationForm.department,
-          selectedCategoryCode: ''
+          selectedCategoryCode: '',
+          documents: []
         }
       }));
 
@@ -835,6 +994,7 @@ function ScholarshipPage() {
         applicationWindowEnd: new Date(noticeForm.applicationWindowEnd).toISOString(),
         deadline: new Date(noticeForm.deadline).toISOString(),
         status: noticeForm.status,
+        documentsRequired: noticeForm.documentsRequired,
         categories
       });
 
@@ -849,6 +1009,7 @@ function ScholarshipPage() {
         applicationWindowEnd: '',
         deadline: '',
         status: 'draft',
+        documentsRequired: false,
         categories: [createEmptyCategory()]
       });
       await loadNotices();
@@ -885,6 +1046,7 @@ function ScholarshipPage() {
         applicationWindowEnd: new Date(editNoticeForm.applicationWindowEnd).toISOString(),
         deadline: new Date(editNoticeForm.deadline).toISOString(),
         status: editNoticeForm.status,
+        documentsRequired: editNoticeForm.documentsRequired,
         categories
       });
 
@@ -913,7 +1075,9 @@ function ScholarshipPage() {
       currentStatus: application.status,
       fallbackCategoryCode: application.selectedCategoryCode || '',
       initialStatus,
-      categories: noticeCategories
+      categories: noticeCategories,
+      documents: application.documents || [],
+      reviewHistory: application.reviewHistory || []
     });
   };
 
@@ -935,6 +1099,59 @@ function ScholarshipPage() {
       const nextMessage = getApiErrorMessage(apiError, t('msgReviewFailed'));
       setMessage(nextMessage);
       toastError(nextMessage, { title: t('titleReviewFailed') });
+    }
+  };
+
+  // Applicant opens the apply modal pre-filled with their own pending
+  // application for editing (submitted or returned as needs_info).
+  const openEditApplication = (application) => {
+    setEditingApplicationId(application._id);
+    setApplicationForm({
+      statement: application.statement || '',
+      gpa: application.gpa ?? '',
+      department: application.department || '',
+      selectedCategoryCode: application.selectedCategoryCode || '',
+      documents: (application.documents || []).map((doc) => ({
+        name: doc.name || '',
+        url: doc.url || ''
+      }))
+    });
+    setApplyModalOpen(true);
+  };
+
+  const handleWithdrawApplication = async (application) => {
+    if (!window.confirm(t('confirmWithdraw'))) {
+      return;
+    }
+
+    try {
+      await scholarshipApi.withdrawMyApplication(application._id);
+      setMessage(t('msgAppWithdrawn'));
+      success(t('msgAppWithdrawn'), { title: t('titleAppWithdrawn') });
+      await loadApplications();
+      await loadMyApplications();
+      await loadNoticeDetails();
+    } catch (apiError) {
+      const nextMessage = getApiErrorMessage(apiError, t('msgAppWithdrawFailed'));
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: t('titleAppWithdrawn') });
+    }
+  };
+
+  const handleDownloadAwardLetter = async (application) => {
+    try {
+      const response = await scholarshipApi.downloadAwardLetter(application._id);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `scholarship-award-${application._id}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (apiError) {
+      const nextMessage = getApiErrorMessage(apiError, t('msgLetterFailed'));
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: t('msgLetterFailed') });
     }
   };
 
@@ -1012,6 +1229,29 @@ function ScholarshipPage() {
       categories: prev.categories.map((item, itemIndex) =>
         itemIndex === index ? { ...item, [field]: value } : item
       )
+    }));
+  };
+
+  const addDocumentRow = () => {
+    setApplicationForm((prev) => ({
+      ...prev,
+      documents: [...(prev.documents || []), createEmptyDocument()]
+    }));
+  };
+
+  const updateDocumentField = (index, field, value) => {
+    setApplicationForm((prev) => ({
+      ...prev,
+      documents: (prev.documents || []).map((doc, docIndex) =>
+        docIndex === index ? { ...doc, [field]: value } : doc
+      )
+    }));
+  };
+
+  const removeDocumentRow = (index) => {
+    setApplicationForm((prev) => ({
+      ...prev,
+      documents: (prev.documents || []).filter((_, docIndex) => docIndex !== index)
     }));
   };
 
@@ -1314,6 +1554,12 @@ function ScholarshipPage() {
                 {toIsoDate(selectedNotice.deadline) || '—'}
               </p>
 
+              {selectedNotice.documentsRequired && (
+                <p className="meta scholarship-notice-card__docs-flag">
+                  {t('documentsRequiredNotice')}
+                </p>
+              )}
+
               {stateMismatch === 'closed' && canManageNotices && (
                 <InlineAlert type="warning">
                   {toLocalizedText(
@@ -1378,6 +1624,20 @@ function ScholarshipPage() {
                     {t('submitted')} {toIsoDate(selectedNoticeApplication.createdAt)} • GPA:{' '}
                     {selectedNoticeApplication.gpa}
                   </p>
+                  {!!selectedNoticeApplication.documents?.length && (
+                    <div className="scholarship-documents__list">
+                      <span className="meta">{t('attachedDocuments')}</span>
+                      <ul className="scholarship-documents__links">
+                        {selectedNoticeApplication.documents.map((doc, index) => (
+                          <li key={`${doc.url}-${index}`}>
+                            <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                              {doc.name || doc.url}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {selectedNoticeApplication.decisionNote && (
                     <p>{selectedNoticeApplication.decisionNote}</p>
                   )}
@@ -1388,6 +1648,45 @@ function ScholarshipPage() {
                         ? ` (${selectedNoticeApplication.awardedCategoryCode})`
                         : ''}
                     </p>
+                  )}
+
+                  {selectedNoticeApplication.status === 'needs_info' && (
+                    <InlineAlert type="warning">{t('needsInfoHint')}</InlineAlert>
+                  )}
+
+                  {(APPLICANT_EDITABLE_STATUSES.includes(selectedNoticeApplication.status) ||
+                    selectedNoticeApplication.status === 'approved') && (
+                    <div className="inline-actions" style={{ marginTop: '0.7rem' }}>
+                      {APPLICANT_EDITABLE_STATUSES.includes(selectedNoticeApplication.status) && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => openEditApplication(selectedNoticeApplication)}
+                          >
+                            {selectedNoticeApplication.status === 'needs_info'
+                              ? t('resubmitApplication')
+                              : t('editApplication')}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => handleWithdrawApplication(selectedNoticeApplication)}
+                          >
+                            {t('withdrawApplication')}
+                          </button>
+                        </>
+                      )}
+                      {selectedNoticeApplication.status === 'approved' && (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => handleDownloadAwardLetter(selectedNoticeApplication)}
+                        >
+                          {t('downloadAwardLetter')}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </article>
               )}
@@ -1488,9 +1787,21 @@ function ScholarshipPage() {
       </div>
 
       <Modal
-        isOpen={applyModalOpen && isAuthenticated && canApply && !selectedNoticeApplication}
-        onClose={() => setApplyModalOpen(false)}
-        title={ui('scholarship', 'applyTitle', language)}
+        isOpen={
+          applyModalOpen &&
+          isAuthenticated &&
+          canApply &&
+          (editingApplicationId ? true : !selectedNoticeApplication)
+        }
+        onClose={() => {
+          setApplyModalOpen(false);
+          setEditingApplicationId(null);
+        }}
+        title={
+          editingApplicationId
+            ? t('editApplication')
+            : ui('scholarship', 'applyTitle', language)
+        }
       >
         <form
           className="modal-form form-grid"
@@ -1574,8 +1885,75 @@ function ScholarshipPage() {
             </label>
           </div>
 
+          <div className="scholarship-documents">
+            <div className="section-head section-head-tight">
+              <div>
+                <strong>
+                  {t('documents')}
+                  {selectedNotice?.documentsRequired && (
+                    <span className="scholarship-documents__required"> *{t('requiredMark')}</span>
+                  )}
+                </strong>
+                <p className="meta scholarship-documents__hint">
+                  {selectedNotice?.documentsRequired ? t('documentsHintRequired') : t('documentsHint')}
+                </p>
+              </div>
+              <button type="button" className="btn btn-ghost" onClick={addDocumentRow}>
+                {t('addDocument')}
+              </button>
+            </div>
+
+            <datalist id="scholarship-doc-suggestions">
+              {DOCUMENT_SUGGESTIONS.map((suggestion) => (
+                <option key={suggestion.en} value={toLocalizedText(suggestion, language)} />
+              ))}
+            </datalist>
+
+            {!(applicationForm.documents || []).length && (
+              <p className="meta">{t('noDocuments')}</p>
+            )}
+
+            {(applicationForm.documents || []).map((doc, index) => (
+              <div key={index} className="scholarship-documents__row modal-form__row">
+                <label>
+                  {t('documentName')}
+                  <input
+                    value={doc.name}
+                    list="scholarship-doc-suggestions"
+                    placeholder={toLocalizedText(DOCUMENT_SUGGESTIONS[0], language)}
+                    onChange={(event) => updateDocumentField(index, 'name', event.target.value)}
+                  />
+                </label>
+                <label>
+                  {t('documentUrl')}
+                  <input
+                    type="url"
+                    inputMode="url"
+                    value={doc.url}
+                    placeholder="https://drive.google.com/..."
+                    onChange={(event) => updateDocumentField(index, 'url', event.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-ghost scholarship-documents__remove"
+                  onClick={() => removeDocumentRow(index)}
+                >
+                  {t('removeDocument')}
+                </button>
+              </div>
+            ))}
+          </div>
+
           <div className="modal-form__actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setApplyModalOpen(false)}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                setApplyModalOpen(false);
+                setEditingApplicationId(null);
+              }}
+            >
               {t('cancel')}
             </button>
             <button
@@ -1584,7 +1962,11 @@ function ScholarshipPage() {
               disabled={!selectedNoticeId || !canAcceptApplications}
               title={canAcceptApplications ? t('submitHint') : t('notAcceptingHint')}
             >
-              {t('submitApplication')}
+              {editingApplicationId
+                ? selectedNoticeApplication?.status === 'needs_info'
+                  ? t('resubmitApplication')
+                  : t('saveChanges')
+                : t('submitApplication')}
             </button>
           </div>
         </form>
@@ -1896,6 +2278,23 @@ function ScholarshipPage() {
                     </select>
                   </label>
 
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={editNoticeForm.documentsRequired}
+                      onChange={(event) =>
+                        setEditNoticeForm((prev) => ({
+                          ...prev,
+                          documentsRequired: event.target.checked
+                        }))
+                      }
+                    />
+                    <span>
+                      {t('documentsRequiredLabel')}
+                      <span className="meta checkbox-field__hint">{t('documentsRequiredHint')}</span>
+                    </span>
+                  </label>
+
                   <div className="surface-card inner-card">
                     <div className="section-head section-head-tight">
                       <h3>{t('categoryMatrix')}</h3>
@@ -1907,7 +2306,7 @@ function ScholarshipPage() {
                     <div className="stack-list">
                       {editNoticeForm.categories.map((category, index) => (
                         <article
-                          key={`${index}-${category.code || 'new'}`}
+                          key={index}
                           className="surface-card inner-card"
                         >
                           <div className="form-grid">
@@ -2117,6 +2516,23 @@ function ScholarshipPage() {
                   </select>
                 </label>
 
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={noticeForm.documentsRequired}
+                    onChange={(event) =>
+                      setNoticeForm((prev) => ({
+                        ...prev,
+                        documentsRequired: event.target.checked
+                      }))
+                    }
+                  />
+                  <span>
+                    {t('documentsRequiredLabel')}
+                    <span className="meta checkbox-field__hint">{t('documentsRequiredHint')}</span>
+                  </span>
+                </label>
+
                 <div className="surface-card inner-card">
                   <div className="section-head section-head-tight">
                     <h3>{t('categoryMatrix')}</h3>
@@ -2128,7 +2544,7 @@ function ScholarshipPage() {
                   <div className="stack-list">
                     {noticeForm.categories.map((category, index) => (
                       <article
-                        key={`${index}-${category.code || 'new'}`}
+                        key={index}
                         className="surface-card inner-card"
                       >
                         <div className="form-grid">
@@ -2227,6 +2643,7 @@ function ScholarshipPage() {
                         <th>{t('noticeCol')}</th>
                         <th>{t('category')}</th>
                         <th>GPA</th>
+                        <th>{t('docsCol')}</th>
                         <th>{t('statusLabel')}</th>
                         <th>{t('action')}</th>
                       </tr>
@@ -2238,6 +2655,13 @@ function ScholarshipPage() {
                           <td>{toLocalizedText(item.notice?.title, language)}</td>
                           <td>{item.selectedCategoryCode || '-'}</td>
                           <td>{item.gpa}</td>
+                          <td>
+                            {item.documents?.length ? (
+                              <span className="code-pill">{item.documents.length}</span>
+                            ) : (
+                              <span className="meta">—</span>
+                            )}
+                          </td>
                           <td>{item.status}</td>
                           <td>
                             <div className="inline-actions">
@@ -2283,6 +2707,8 @@ function ScholarshipPage() {
         fallbackCategoryCode={reviewModal.fallbackCategoryCode}
         initialStatus={reviewModal.initialStatus}
         categories={reviewModal.categories}
+        documents={reviewModal.documents}
+        reviewHistory={reviewModal.reviewHistory}
         onConfirm={handleReviewConfirm}
       />
 

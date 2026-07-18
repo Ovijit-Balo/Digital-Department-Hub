@@ -84,6 +84,20 @@ const scholarshipNoticeSchema = new mongoose.Schema(
       type: [scholarshipCategorySchema],
       default: []
     },
+    // When true, applicants must attach at least one supporting document
+    // before their application will be accepted.
+    documentsRequired: {
+      type: Boolean,
+      default: false
+    },
+    // Optional eligibility gate: applications below this GPA are rejected at
+    // submission time. 0 (default) means no minimum is enforced.
+    minimumGpa: {
+      type: Number,
+      min: 0,
+      max: 4,
+      default: 0
+    },
     attachments: {
       type: [attachmentSchema],
       default: []
