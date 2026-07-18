@@ -10,6 +10,14 @@ const router = express.Router();
 
 const canManageContent = [ROLES.ADMIN, ROLES.EDITOR];
 
+// Author-scoped editorial action queue (own drafts + upcoming scheduled items).
+router.get(
+  '/manage/editorial-queue',
+  authenticate,
+  authorize(...canManageContent),
+  cmsController.getEditorialQueue
+);
+
 router.get('/pages', validate(cmsValidation.listPages), cmsController.listPublicPages);
 router.get('/pages/slug/:slug', validate(cmsValidation.getPageBySlug), cmsController.getPageBySlug);
 router.get(

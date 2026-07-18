@@ -29,6 +29,10 @@ if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
         logger.info(`API listening on port ${env.PORT}`);
       });
 
+      // Start the in-process reminder scheduler now that the DB is connected.
+      const { startReminderScheduler } = require('./jobs/reminderScheduler');
+      startReminderScheduler();
+
       server.on('error', (error) => {
         if (error?.code === 'EADDRINUSE') {
           logger.error(
@@ -42,6 +46,8 @@ if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
       });
 
       const shutdown = () => {
+        const { stopReminderScheduler } = require('./jobs/reminderScheduler');
+        stopReminderScheduler();
         server.close(() => {
           logger.info('HTTP server closed');
           process.exit(0);

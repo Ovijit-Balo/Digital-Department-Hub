@@ -54,10 +54,43 @@ const notifyScholarshipSubmission = async ({ application, notice }) => {
     'scholarship submission (applicant)'
   );
 
-  // Alert the scholarship reviewers/managers.
+  // First stop in the pipeline is document verification, so alert Staff (and
+  // Admin) that a new application needs its documents checked.
+  const verifiers = await User.find({
+    isActive: true,
+    roles: { $in: [ROLES.ADMIN, ROLES.MANAGER] }
+  }).select('_id');
+
+  await Promise.all(
+    verifiers.map((verifier) =>
+      safeDispatch(
+        {
+          recipient: verifier._id,
+          channel: 'in_app',
+          subject: `New scholarship application: ${noticeTitle}`,
+          message: `A new application was submitted for "${noticeTitle}" and is awaiting document verification.`,
+          metadata: {
+            type: 'scholarship',
+            applicationId: application._id.toString(),
+            noticeId: notice._id.toString(),
+            source: 'scholarship-application'
+          }
+        },
+        'scholarship submission (verifier)'
+      )
+    )
+  );
+};
+
+// Alerts Teacher-Reviewers (and Admin) that an application has passed document
+// verification by Staff and is ready for academic evaluation. This is the
+// administrative-to-academic hand-off in the workflow.
+const notifyScholarshipDocumentsVerified = async ({ application }) => {
+  const noticeTitle = pickLocalized(application.notice && application.notice.title);
+
   const reviewers = await User.find({
     isActive: true,
-    roles: { $in: [ROLES.ADMIN, ROLES.MANAGER, ROLES.REVIEWER] }
+    roles: { $in: [ROLES.ADMIN, ROLES.REVIEWER] }
   }).select('_id');
 
   await Promise.all(
@@ -66,16 +99,48 @@ const notifyScholarshipSubmission = async ({ application, notice }) => {
         {
           recipient: reviewer._id,
           channel: 'in_app',
-          subject: `New scholarship application: ${noticeTitle}`,
-          message: `A new application was submitted for "${noticeTitle}".`,
+          subject: `Ready for review: ${noticeTitle}`,
+          message: `An application for "${noticeTitle}" passed document verification and is ready for academic evaluation.`,
           metadata: {
             type: 'scholarship',
             applicationId: application._id.toString(),
-            noticeId: notice._id.toString(),
-            source: 'scholarship-application'
+            status: application.status,
+            source: 'scholarship-documents-verified'
           }
         },
-        'scholarship submission (reviewer)'
+        'scholarship documents verified (reviewer)'
+      )
+    )
+  );
+};
+
+// Alerts the Admin that a candidate has been shortlisted by a Teacher-Reviewer
+// and now awaits the final award decision. Final approval is Admin-only, so
+// only admins are notified here.
+const notifyScholarshipShortlisted = async ({ application }) => {
+  const noticeTitle = pickLocalized(application.notice && application.notice.title);
+
+  const approvers = await User.find({
+    isActive: true,
+    roles: { $in: [ROLES.ADMIN] }
+  }).select('_id');
+
+  await Promise.all(
+    approvers.map((approver) =>
+      safeDispatch(
+        {
+          recipient: approver._id,
+          channel: 'in_app',
+          subject: `Shortlisted, awaiting decision: ${noticeTitle}`,
+          message: `An application for "${noticeTitle}" has been shortlisted and is ready for a final award decision.`,
+          metadata: {
+            type: 'scholarship',
+            applicationId: application._id.toString(),
+            status: application.status,
+            source: 'scholarship-shortlist'
+          }
+        },
+        'scholarship shortlisted (approver)'
       )
     )
   );
@@ -147,6 +212,8 @@ const notifyBookingDecision = async ({ booking, venueName }) => {
 
 module.exports = {
   notifyScholarshipSubmission,
+  notifyScholarshipDocumentsVerified,
+  notifyScholarshipShortlisted,
   notifyScholarshipDecision,
   notifyEventRegistration,
   notifyBookingDecision

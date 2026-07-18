@@ -4,22 +4,31 @@ const env = require('../../config/env');
 const { StatusCodes } = require('http-status-codes');
 const User = require('./user.model');
 const RefreshToken = require('./refreshToken.model');
+const Invitation = require('./invitation.model');
 const ApiError = require('../../utils/ApiError');
 const { signAccessToken } = require('../../utils/jwt');
-const { ROLES } = require('../../config/roles');
+const { ROLES, ALL_ROLES } = require('../../config/roles');
 const EmailService = require('../../services/emailService');
 const logger = require('../../config/logger');
 
 // How long a password-reset link stays valid after it is issued.
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
 
+// How long an admin-issued account invitation stays valid.
+const INVITATION_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours
+
 // Same response whether or not the email exists, so the endpoint cannot be used
 // to discover which emails have accounts (user-enumeration protection).
 const GENERIC_RESET_REQUEST_MESSAGE =
   'If an account exists for that email, a password reset link has been sent.';
 
-const hashResetToken = (rawToken) =>
+// Shared one-way hash for single-use tokens (password reset, invitations). Only
+// the hash is persisted, so a DB leak cannot be used to redeem a live token.
+const hashToken = (rawToken) =>
   crypto.createHash('sha256').update(rawToken).digest('hex');
+
+// Backward-compatible alias used by the password-reset flow below.
+const hashResetToken = hashToken;
 
 const sanitizeUser = (user) => ({
   id: user._id,
@@ -292,6 +301,184 @@ const updateUserRoles = async ({ actorId, targetUserId, roles }) => {
   return sanitizeUser(target);
 };
 
+// --- Account invitations (admin-issued elevated accounts) ------------------
+// Fixes the weakpoint where every registration was hardcoded to Student and
+// non-students had to self-register then wait for a manual promotion. Elevated
+// accounts (admin/editor/manager/reviewer, or even student) are now created by
+// an admin who sends an invite; the invitee sets their own name + password.
+
+const sanitizeInvitation = (invite) => ({
+  id: invite._id,
+  email: invite.email,
+  roles: invite.roles,
+  fullName: invite.fullName,
+  department: invite.department,
+  status: invite.status,
+  expiresAt: invite.expiresAt,
+  acceptedAt: invite.acceptedAt,
+  createdAt: invite.createdAt
+});
+
+const createInvitation = async ({ actorId, email, roles, fullName, department }) => {
+  const normalizedEmail = email.toLowerCase();
+
+  const normalizedRoles = Array.from(new Set(roles || []));
+  if (!normalizedRoles.length) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'At least one role is required');
+  }
+  const invalidRole = normalizedRoles.find((role) => !ALL_ROLES.includes(role));
+  if (invalidRole) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, `Unknown role: ${invalidRole}`);
+  }
+
+  // Cannot invite an email that already has an account.
+  const existingUser = await User.findOne({ email: normalizedEmail });
+  if (existingUser) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      'An account with this email already exists. Update their roles from the user directory instead.'
+    );
+  }
+
+  const rawToken = crypto.randomBytes(32).toString('hex');
+
+  // Supersede any earlier pending invite for the same email so only the newest
+  // link works (avoids multiple valid tokens floating around).
+  await Invitation.updateMany(
+    { email: normalizedEmail, status: 'pending' },
+    { $set: { status: 'revoked' } }
+  );
+
+  const invitation = await Invitation.create({
+    email: normalizedEmail,
+    roles: normalizedRoles,
+    fullName,
+    department,
+    invitedBy: actorId,
+    tokenHash: hashToken(rawToken),
+    expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
+    status: 'pending'
+  });
+
+  try {
+    await EmailService.sendInvitationEmail(normalizedEmail, rawToken, normalizedRoles);
+  } catch (error) {
+    // Delivery failure shouldn't lose the invite (admin can resend); log it.
+    logger.error('Failed to send invitation email', error);
+  }
+
+  return sanitizeInvitation(invitation);
+};
+
+const listInvitations = async (query = {}) => {
+  const filter = {};
+  if (query.status) {
+    filter.status = query.status;
+  }
+
+  const { page, limit, skip } = buildPagination(query);
+
+  const [items, total] = await Promise.all([
+    Invitation.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Invitation.countDocuments(filter)
+  ]);
+
+  return {
+    items: items.map((item) => sanitizeInvitation(item)),
+    page,
+    limit,
+    total
+  };
+};
+
+const revokeInvitation = async ({ invitationId }) => {
+  const invitation = await Invitation.findById(invitationId);
+  if (!invitation) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Invitation not found');
+  }
+  if (invitation.status === 'accepted') {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'This invitation has already been accepted');
+  }
+
+  invitation.status = 'revoked';
+  await invitation.save();
+
+  return sanitizeInvitation(invitation);
+};
+
+// Look up an invitation by its raw token without consuming it. Lets the accept
+// page show the right state on load (usable / already accepted / revoked /
+// expired) instead of only discovering a dead link after the user fills the form.
+const getInvitationByToken = async (token) => {
+  const invitation = await Invitation.findOne({ tokenHash: hashToken(token) });
+
+  if (!invitation) {
+    return { state: 'invalid' };
+  }
+
+  if (invitation.status === 'accepted') {
+    return { state: 'accepted', email: invitation.email };
+  }
+  if (invitation.status === 'revoked') {
+    return { state: 'revoked', email: invitation.email };
+  }
+  if (invitation.expiresAt.getTime() <= Date.now()) {
+    return { state: 'expired', email: invitation.email };
+  }
+
+  return {
+    state: 'pending',
+    email: invitation.email,
+    roles: invitation.roles,
+    fullName: invitation.fullName || '',
+    expiresAt: invitation.expiresAt
+  };
+};
+
+const acceptInvitation = async ({ token, fullName, password }, requestMeta = {}) => {
+  const invitation = await Invitation.findOne({
+    tokenHash: hashToken(token),
+    status: 'pending',
+    expiresAt: { $gt: new Date() }
+  }).select('+tokenHash');
+
+  if (!invitation) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'This invitation is invalid or has expired.');
+  }
+
+  // Guard against the email being claimed between invite and accept.
+  const existingUser = await User.findOne({ email: invitation.email });
+  if (existingUser) {
+    invitation.status = 'revoked';
+    await invitation.save();
+    throw new ApiError(StatusCodes.CONFLICT, 'An account with this email already exists.');
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  const user = await User.create({
+    fullName: fullName || invitation.fullName || invitation.email.split('@')[0],
+    email: invitation.email,
+    passwordHash,
+    department: invitation.department,
+    languagePreference: 'en',
+    roles: invitation.roles
+  });
+
+  invitation.status = 'accepted';
+  invitation.acceptedAt = new Date();
+  await invitation.save();
+
+  const authToken = signAccessToken({ sub: user._id.toString(), roles: user.roles });
+  const refreshToken = await issueRefreshToken(user, requestMeta);
+
+  return {
+    user: sanitizeUser(user),
+    token: authToken,
+    refreshToken
+  };
+};
+
 const updateUserStatus = async ({ actorId, targetUserId, isActive }) => {
   const target = await User.findById(targetUserId);
 
@@ -323,5 +510,10 @@ module.exports = {
   listUsers,
   updateUserRoles,
   updateUserStatus,
-  refreshAuth
+  refreshAuth,
+  createInvitation,
+  listInvitations,
+  revokeInvitation,
+  acceptInvitation,
+  getInvitationByToken
 };

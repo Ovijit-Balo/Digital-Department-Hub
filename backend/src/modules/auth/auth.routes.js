@@ -32,6 +32,23 @@ router.post(
   validate(authValidation.confirmPasswordReset),
   authController.confirmPasswordReset
 );
+
+// Public: inspect an invitation token (state only, nothing consumed) so the
+// accept page can show the right UI on load.
+router.get(
+  '/invitations/lookup',
+  authLimiter,
+  validate(authValidation.getInvitation),
+  authController.getInvitation
+);
+
+// Public: redeem an admin-issued invitation to create an elevated account.
+router.post(
+  '/invitations/accept',
+  authLimiter,
+  validate(authValidation.acceptInvitation),
+  authController.acceptInvitation
+);
 router.get('/me', authenticate, authController.me);
 router.get(
   '/users',
@@ -55,6 +72,32 @@ router.patch(
   authorize(ROLES.ADMIN),
   validate(authValidation.updateUserStatus),
   authController.updateUserStatus
+);
+
+// Admin-only invitation management (issue / list / revoke elevated accounts).
+router.post(
+  '/invitations',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  authLimiter,
+  validate(authValidation.createInvitation),
+  authController.createInvitation
+);
+
+router.get(
+  '/invitations',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(authValidation.listInvitations),
+  authController.listInvitations
+);
+
+router.delete(
+  '/invitations/:invitationId',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate(authValidation.revokeInvitation),
+  authController.revokeInvitation
 );
 
 module.exports = router;

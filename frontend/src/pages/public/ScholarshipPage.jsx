@@ -261,9 +261,9 @@ function ScholarshipPage() {
   const { success, error: toastError, info } = useToast();
 
   const canReview = useRole('admin', 'manager', 'reviewer');
-  const canManageNotices = useRole('admin', 'manager', 'editor');
-  const canApply = useRole('student', 'reviewer');
-  const canPostUpdates = useRole('admin', 'manager', 'editor', 'reviewer');
+  const canManageNotices = useRole('admin', 'manager');
+  const canApply = useRole('student');
+  const canPostUpdates = useRole('admin', 'manager', 'reviewer');
   const canViewManageNotices = canReview || canManageNotices;
 
   const [reviewModal, setReviewModal] = useState({
@@ -425,7 +425,9 @@ function ScholarshipPage() {
       activeCategories: selectedNoticeCategories.length,
       recipientCount: recipients.length,
       reviewCount: canReview
-        ? applications.filter((item) => ['submitted', 'under_review'].includes(item.status)).length
+        ? applications.filter((item) =>
+            ['submitted', 'documents_verified', 'under_review', 'shortlisted'].includes(item.status)
+          ).length
         : selectedNoticeApplication
           ? 1
           : myApplications.filter((item) => {

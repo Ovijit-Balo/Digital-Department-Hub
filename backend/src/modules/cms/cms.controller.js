@@ -328,6 +328,13 @@ const createUploadSignature = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ signature });
 });
 
+// GET /cms/manage/editorial-queue — the signed-in author's own drafts and
+// upcoming scheduled publishes across all content types.
+const getEditorialQueue = asyncHandler(async (req, res) => {
+  const queue = await cmsService.getEditorialQueue(req.user._id);
+  res.status(StatusCodes.OK).json(queue);
+});
+
 const bulkDeletePages = asyncHandler(async (req, res) => {
   const { ids } = req.body;
   const result = await cmsService.bulkDelete(Page, ids, 'Page');
@@ -479,5 +486,6 @@ module.exports = {
   deleteGallery,
   bulkDeleteGalleries,
   bulkUpdateGalleryStatus,
-  createUploadSignature
+  createUploadSignature,
+  getEditorialQueue
 };

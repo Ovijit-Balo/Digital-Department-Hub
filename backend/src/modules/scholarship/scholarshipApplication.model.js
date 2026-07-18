@@ -8,6 +8,20 @@ const documentSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// One entry per workflow transition, capturing who moved the application, in
+// what role, to which status, and why. Appended to on every review action.
+const reviewHistorySchema = new mongoose.Schema(
+  {
+    fromStatus: { type: String },
+    toStatus: { type: String, required: true },
+    actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    actorRole: { type: String },
+    note: { type: String, trim: true, maxlength: 1000 },
+    at: { type: Date, default: Date.now }
+  },
+  { _id: false }
+);
+
 const scholarshipApplicationSchema = new mongoose.Schema(
   {
     notice: {
@@ -53,7 +67,7 @@ const scholarshipApplicationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['submitted', 'under_review', 'shortlisted', 'approved', 'rejected'],
+      enum: ['submitted', 'documents_verified', 'under_review', 'shortlisted', 'approved', 'rejected'],
       default: 'submitted'
     },
     reviewedBy: {
@@ -65,6 +79,12 @@ const scholarshipApplicationSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 1000
+    },
+    // Ordered audit trail of every workflow transition (screening, shortlist,
+    // final decision). Powers step-by-step visibility for staff and applicants.
+    reviewHistory: {
+      type: [reviewHistorySchema],
+      default: []
     },
     awardedCategoryCode: {
       type: String,

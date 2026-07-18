@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { bookingApi, eventApi, notificationApi, scholarshipApi } from '../../api/modules';
+import { bookingApi, eventApi, notificationApi, scholarshipApi, timelineApi } from '../../api/modules';
 import { useAuth } from '../../context/AuthContext';
 import useLanguage from '../../hooks/useLanguage';
 import { getApiErrorMessage } from '../../utils/http';
@@ -66,6 +66,31 @@ const T = {
   cardBookableVenuesSub: { en: 'Venues currently open for booking requests', bn: 'বর্তমানে বুকিং অনুরোধের জন্য খোলা ভেন্যু' },
   cardUnreadNotifications: { en: 'Unread Notifications', bn: 'অপঠিত বিজ্ঞপ্তি' },
   cardUnreadNotificationsSub: { en: 'Alerts waiting for you below', bn: 'নিচে আপনার জন্য অপেক্ষমাণ সতর্কতা' },
+  // Unified personal timeline (what's next).
+  timelineHeading: { en: 'What’s Next for You', bn: 'আপনার জন্য যা আসছে' },
+  timelineLead: {
+    en: 'Your upcoming deadlines, registered events, and recent decisions in one place.',
+    bn: 'আপনার আসন্ন শেষ তারিখ, নিবন্ধিত ইভেন্ট ও সাম্প্রতিক সিদ্ধান্ত এক জায়গায়।'
+  },
+  timelineEmpty: {
+    en: 'Nothing on your radar right now. New deadlines and updates will show up here.',
+    bn: 'এই মুহূর্তে কিছু নেই। নতুন শেষ তারিখ ও আপডেট এখানে দেখা যাবে।'
+  },
+  dueToday: { en: 'Due today', bn: 'আজ শেষ' },
+  dueTomorrow: { en: 'Due tomorrow', bn: 'আগামীকাল শেষ' },
+  dueInDays: { en: 'in {n} days', bn: '{n} দিনে' },
+  daysAgo: { en: '{n} days ago', bn: '{n} দিন আগে' },
+  today: { en: 'Today', bn: 'আজ' },
+  yesterday: { en: 'Yesterday', bn: 'গতকাল' },
+  actionApply: { en: 'Apply', bn: 'আবেদন করুন' },
+  actionRegister: { en: 'Register', bn: 'নিবন্ধন করুন' },
+  actionView: { en: 'View', bn: 'দেখুন' },
+  tlScholarshipDeadline: { en: 'Scholarship closes', bn: 'বৃত্তির আবেদন শেষ' },
+  tlScholarshipDecision: { en: 'Application update', bn: 'আবেদন আপডেট' },
+  tlEventUpcoming: { en: 'Your event', bn: 'আপনার ইভেন্ট' },
+  tlEventRegDeadline: { en: 'Registration closes', bn: 'নিবন্ধন শেষ' },
+  tlBookingDecision: { en: 'Booking update', bn: 'বুকিং আপডেট' },
+  tlBookingUpcoming: { en: 'Your booking', bn: 'আপনার বুকিং' },
   msgLoadFailed: { en: 'Failed to load student dashboard.', bn: 'শিক্ষার্থী ড্যাশবোর্ড লোড করতে ব্যর্থ।' },
   msgRefreshNotifFailed: { en: 'Failed to refresh notifications.', bn: 'বিজ্ঞপ্তি রিফ্রেশ করতে ব্যর্থ।' },
   msgMarkReadFailed: { en: 'Failed to mark notification as read.', bn: 'বিজ্ঞপ্তি পঠিত চিহ্নিত করতে ব্যর্থ।' },
@@ -89,7 +114,8 @@ function StudentDashboardPage() {
     openNotices: [],
     upcomingEvents: [],
     myRecentApplications: [],
-    recentNotifications: []
+    recentNotifications: [],
+    timeline: []
   });
   const [notificationBusy, setNotificationBusy] = useState(false);
 
@@ -152,14 +178,21 @@ function StudentDashboardPage() {
     setError('');
 
     try {
-      const [noticesResponse, myApplicationsResponse, eventsResponse, venuesResponse, inbox] =
-        await Promise.all([
-          scholarshipApi.listNotices({ status: 'open', page: 1, limit: 4 }),
-          scholarshipApi.listMyApplications({ page: 1, limit: 6 }),
-          eventApi.listEvents({ status: 'published', page: 1, limit: 4 }),
-          bookingApi.listVenues({ isActive: true, page: 1, limit: 4 }),
-          loadNotifications()
-        ]);
+      const [
+        noticesResponse,
+        myApplicationsResponse,
+        eventsResponse,
+        venuesResponse,
+        inbox,
+        timelineResponse
+      ] = await Promise.all([
+        scholarshipApi.listNotices({ status: 'open', page: 1, limit: 4 }),
+        scholarshipApi.listMyApplications({ page: 1, limit: 6 }),
+        eventApi.listEvents({ status: 'published', page: 1, limit: 4 }),
+        bookingApi.listVenues({ isActive: true, page: 1, limit: 4 }),
+        loadNotifications(),
+        timelineApi.getMyTimeline()
+      ]);
 
       setSnapshot({
         metrics: {
@@ -172,7 +205,8 @@ function StudentDashboardPage() {
         openNotices: noticesResponse.data.items || [],
         upcomingEvents: eventsResponse.data.items || [],
         myRecentApplications: myApplicationsResponse.data.items || [],
-        recentNotifications: inbox.items
+        recentNotifications: inbox.items,
+        timeline: timelineResponse.data.items || []
       });
     } catch (apiError) {
       setError(getApiErrorMessage(apiError, t('msgLoadFailed')));
@@ -226,6 +260,34 @@ function StudentDashboardPage() {
 
   const firstName = (user?.fullName || '').trim().split(' ')[0];
 
+  // Human-friendly relative time for a timeline item, driven by the signed
+  // `days` the backend computed (positive = future, negative/0 = past).
+  const relativeLabel = (item) => {
+    const n = typeof item.days === 'number' ? item.days : null;
+    if (n === null) {
+      return toLocalDateTime(item.date);
+    }
+    if (n === 0) return t('today');
+    if (n === 1) return t('dueTomorrow');
+    if (n > 1) return t('dueInDays').replace('{n}', n);
+    if (n === -1) return t('yesterday');
+    return t('daysAgo').replace('{n}', Math.abs(n));
+  };
+
+  const TIMELINE_KIND_LABEL = {
+    scholarship_deadline: 'tlScholarshipDeadline',
+    scholarship_decision: 'tlScholarshipDecision',
+    event_upcoming: 'tlEventUpcoming',
+    event_registration_deadline: 'tlEventRegDeadline',
+    booking_decision: 'tlBookingDecision',
+    booking_upcoming: 'tlBookingUpcoming'
+  };
+
+  const TIMELINE_ACTION_LABEL = {
+    scholarship_deadline: 'actionApply',
+    event_registration_deadline: 'actionRegister'
+  };
+
   return (
     <section className="page-wrap dashboard-page">
       <header className="dashboard-header">
@@ -277,6 +339,51 @@ function StudentDashboardPage() {
           );
         })}
       </div>
+
+      <article className="surface-card timeline-card">
+        <div className="section-head">
+          <div>
+            <h3>{t('timelineHeading')}</h3>
+            <p className="meta">{t('timelineLead')}</p>
+          </div>
+        </div>
+
+        {!snapshot.timeline.length && <p>{t('timelineEmpty')}</p>}
+
+        <ol className="timeline">
+          {snapshot.timeline.map((item) => {
+            const actionKey = TIMELINE_ACTION_LABEL[item.kind];
+            return (
+              <li key={item.id} className={`timeline-item timeline-item--${item.urgency}`}>
+                <span className="timeline-item__marker" aria-hidden="true" />
+                <div className="timeline-item__body">
+                  <div className="timeline-item__top">
+                    <span className={`timeline-tag timeline-tag--${item.category}`}>
+                      {t(TIMELINE_KIND_LABEL[item.kind] || 'actionView')}
+                    </span>
+                    <span className="timeline-item__when">{relativeLabel(item)}</span>
+                  </div>
+                  <p className="timeline-item__title">{toLocalizedText(item.title, language)}</p>
+                  {item.location && <p className="meta">{item.location}</p>}
+                  {item.venue && <p className="meta">{item.venue}</p>}
+                  {item.status && (
+                    <p className="meta">
+                      {t('status')}: {item.status.replace(/_/g, ' ')}
+                    </p>
+                  )}
+                  {item.note && <p className="timeline-item__note">{item.note}</p>}
+                </div>
+                <Link
+                  to={item.link}
+                  className={`btn btn-sm ${item.actionable ? 'btn-primary' : 'btn-ghost'}`}
+                >
+                  {t(actionKey || 'actionView')}
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
+      </article>
 
       <article className="surface-card">
         <h3>{t('quickActions')}</h3>

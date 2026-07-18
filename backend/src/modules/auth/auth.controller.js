@@ -89,6 +89,70 @@ const updateUserRoles = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ user });
 });
 
+const createInvitation = asyncHandler(async (req, res) => {
+  const invitation = await authService.createInvitation({
+    actorId: req.user._id,
+    email: req.body.email,
+    roles: req.body.roles,
+    fullName: req.body.fullName || undefined,
+    department: req.body.department || undefined
+  });
+
+  res.locals.auditMeta = {
+    action: 'INVITE_USER',
+    entityType: 'Invitation',
+    entityId: invitation.id,
+    after: { email: invitation.email, roles: invitation.roles }
+  };
+
+  res.status(StatusCodes.CREATED).json({ invitation });
+});
+
+const listInvitations = asyncHandler(async (req, res) => {
+  const data = await authService.listInvitations(req.query);
+  res.status(StatusCodes.OK).json(data);
+});
+
+const revokeInvitation = asyncHandler(async (req, res) => {
+  const invitation = await authService.revokeInvitation({
+    invitationId: req.params.invitationId
+  });
+
+  res.locals.auditMeta = {
+    action: 'REVOKE_INVITATION',
+    entityType: 'Invitation',
+    entityId: invitation.id,
+    after: { status: invitation.status }
+  };
+
+  res.status(StatusCodes.OK).json({ invitation });
+});
+
+const acceptInvitation = asyncHandler(async (req, res) => {
+  const result = await authService.acceptInvitation(
+    {
+      token: req.body.token,
+      fullName: req.body.fullName,
+      password: req.body.password
+    },
+    { ip: req.ip, userAgent: req.get('user-agent') }
+  );
+
+  res.locals.auditMeta = {
+    action: 'ACCEPT_INVITATION',
+    entityType: 'User',
+    entityId: result.user.id,
+    after: { email: result.user.email, roles: result.user.roles }
+  };
+
+  res.status(StatusCodes.CREATED).json(result);
+});
+
+const getInvitation = asyncHandler(async (req, res) => {
+  const invitation = await authService.getInvitationByToken(req.query.token);
+  res.status(StatusCodes.OK).json({ invitation });
+});
+
 const refresh = asyncHandler(async (req, res) => {
   const { refreshToken } = req.body;
   const data = await authService.refreshAuth(refreshToken, {
@@ -125,5 +189,10 @@ module.exports = {
   listUsers,
   updateUserRoles,
   updateUserStatus,
-  refresh
+  refresh,
+  createInvitation,
+  listInvitations,
+  revokeInvitation,
+  acceptInvitation,
+  getInvitation
 };

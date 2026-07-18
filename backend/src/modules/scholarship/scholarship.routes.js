@@ -8,7 +8,11 @@ const { ROLES } = require('../../config/roles');
 
 const router = express.Router();
 
-const canManageScholarship = [ROLES.ADMIN, ROLES.MANAGER, ROLES.EDITOR];
+// Notice authoring and window management is administrative work: Admin and
+// Staff (manager) only. Teachers focus on academic review, not notice creation.
+const canManageScholarship = [ROLES.ADMIN, ROLES.MANAGER];
+// Anyone in the review pipeline may read applications: Staff verify documents,
+// Teacher-Reviewers evaluate, Admin oversees.
 const canReviewScholarship = [ROLES.ADMIN, ROLES.MANAGER, ROLES.REVIEWER];
 
 router.get(
@@ -92,7 +96,8 @@ router.patch(
 router.post(
   '/notices/:noticeId/applications',
   authenticate,
-  authorize(ROLES.STUDENT, ROLES.REVIEWER),
+  // Only students submit applications. Reviewers judge, they never apply.
+  authorize(ROLES.STUDENT),
   validate(scholarshipValidation.apply),
   scholarshipController.apply
 );

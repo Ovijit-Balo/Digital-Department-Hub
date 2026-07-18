@@ -10,6 +10,9 @@ const notificationRoutes = require('../modules/notification/notification.routes'
 const auditRoutes = require('../modules/audit/audit.routes');
 const searchRoutes = require('../modules/search/search.routes');
 const sitemapRoutes = require('../modules/sitemap/sitemap.routes');
+const timelineRoutes = require('../modules/timeline/timeline.routes');
+const reminderRoutes = require('../modules/reminders/reminder.routes');
+const workqueueRoutes = require('../modules/workqueue/workqueue.routes');
 
 module.exports = [
   { path: '/auth', router: authRoutes },
@@ -23,5 +26,8 @@ module.exports = [
   { path: '/search', router: searchRoutes },
   { path: '/analytics', router: analyticsRoutes },
   { path: '/admin', router: adminRoutes },
+  { path: '/timeline', router: timelineRoutes },
+  { path: '/reminders', router: reminderRoutes },
+  { path: '/workqueue', router: workqueueRoutes },
   { path: '', router: sitemapRoutes }
 ];

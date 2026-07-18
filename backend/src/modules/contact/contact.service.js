@@ -3,6 +3,7 @@ const ContactInquiry = require('./contactInquiry.model');
 const User = require('../auth/user.model');
 const { ROLES } = require('../../config/roles');
 const { dispatchNotification } = require('../notification/notification.service');
+const EmailService = require('../../services/emailService');
 const logger = require('../../config/logger');
 const ApiError = require('../../utils/ApiError');
 
@@ -65,7 +66,7 @@ const notifyAdminsOnInquiry = async (inquiry) => {
   const recipients = await User.find({
     isActive: true,
     roles: { $in: [ROLES.ADMIN, ROLES.MANAGER] }
-  }).select('_id');
+  }).select('_id email');
 
   await Promise.all(
     recipients.map(async (recipient) => {
@@ -85,13 +86,31 @@ const notifyAdminsOnInquiry = async (inquiry) => {
       } catch (error) {
         logger.warn(`Failed to dispatch contact inquiry notification: ${error.message}`);
       }
+
+      // Also alert by email so the desk is reachable without opening the app.
+      if (recipient.email) {
+        try {
+          await EmailService.sendContactAlert(inquiry, recipient.email);
+        } catch (error) {
+          logger.warn(`Failed to email contact alert to ${recipient.email}: ${error.message}`);
+        }
+      }
     })
   );
 };
 
+const acknowledgeSubmitter = async (inquiry) => {
+  try {
+    await EmailService.sendContactAcknowledgement(inquiry);
+  } catch (error) {
+    // Delivery failure must never fail the submission itself.
+    logger.warn(`Failed to send contact acknowledgement to ${inquiry.email}: ${error.message}`);
+  }
+};
+
 const submitInquiry = async (payload) => {
   const inquiry = await ContactInquiry.create(payload);
-  await notifyAdminsOnInquiry(inquiry);
+  await Promise.all([notifyAdminsOnInquiry(inquiry), acknowledgeSubmitter(inquiry)]);
   return inquiry;
 };
 

@@ -22,5 +22,23 @@ export const authApi = {
   },
   updateUserStatus(userId, payload) {
     return apiClient.patch(`/auth/users/${userId}/status`, payload);
+  },
+  // Admin: issue an invitation for an elevated account.
+  createInvitation(payload) {
+    return apiClient.post('/auth/invitations', payload);
+  },
+  listInvitations(params = {}) {
+    return apiClient.get('/auth/invitations', { params });
+  },
+  revokeInvitation(invitationId) {
+    return apiClient.delete(`/auth/invitations/${invitationId}`);
+  },
+  // Public: inspect an invitation token's state before showing the setup form.
+  lookupInvitation(token) {
+    return apiClient.get('/auth/invitations/lookup', { params: { token } });
+  },
+  // Public: redeem an invitation token to create the account.
+  acceptInvitation(payload) {
+    return apiClient.post('/auth/invitations/accept', payload);
   }
 };

@@ -5,6 +5,7 @@ import WorkspaceLayout from '../components/layout/WorkspaceLayout';
 import DeskLayout from '../components/layout/DeskLayout';
 import RoleGuard from '../components/layout/RoleGuard';
 import HomePage from '../pages/public/HomePage';
+import AboutPage from '../pages/public/AboutPage';
 import NewsPage from '../pages/public/NewsPage';
 import NewsDetailPage from '../pages/public/NewsDetailPage';
 import AnnouncementsPage from '../pages/public/AnnouncementsPage';
@@ -26,6 +27,7 @@ import LoginPage from '../pages/auth/LoginPage';
 import RegisterPage from '../pages/auth/RegisterPage';
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from '../pages/auth/ResetPasswordPage';
+import AcceptInvitePage from '../pages/auth/AcceptInvitePage';
 // Signed-in workspace pages (pages/workspace) are lazy-loaded so public
 // visitors never download them.
 const AdminLandingPage = lazy(() => import('../pages/workspace/AdminLandingPage'));
@@ -57,6 +59,7 @@ function AppRouter() {
       <Routes>
       <Route element={<PublicLayout />}>
         <Route path="/" element={<HomePage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/news" element={<NewsPage />} />
         <Route path="/news/:newsId" element={<NewsDetailPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />
@@ -91,6 +94,7 @@ function AppRouter() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
       <Route
         element={

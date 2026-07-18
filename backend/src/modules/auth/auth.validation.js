@@ -79,6 +79,46 @@ const updateUserStatus = {
   })
 };
 
+const createInvitation = {
+  body: Joi.object({
+    email: Joi.string().email().required(),
+    roles: Joi.array()
+      .items(Joi.string().valid(...ALL_ROLES))
+      .min(1)
+      .required(),
+    fullName: Joi.string().min(2).max(120).optional().allow(''),
+    department: Joi.string().max(120).optional().allow('')
+  })
+};
+
+const listInvitations = {
+  query: Joi.object({
+    status: Joi.string().valid('pending', 'accepted', 'revoked').optional(),
+    page: Joi.number().min(1).default(1),
+    limit: Joi.number().min(1).max(100).default(20)
+  })
+};
+
+const revokeInvitation = {
+  params: Joi.object({
+    invitationId: objectId.required()
+  })
+};
+
+const acceptInvitation = {
+  body: Joi.object({
+    token: Joi.string().required(),
+    fullName: Joi.string().min(2).max(120).required(),
+    password: Joi.string().min(8).max(128).required()
+  })
+};
+
+const getInvitation = {
+  query: Joi.object({
+    token: Joi.string().required()
+  })
+};
+
 module.exports = {
   register,
   login,
@@ -88,5 +128,10 @@ module.exports = {
   confirmPasswordReset,
   listUsers,
   updateUserRoles,
-  updateUserStatus
+  updateUserStatus,
+  createInvitation,
+  listInvitations,
+  revokeInvitation,
+  acceptInvitation,
+  getInvitation
 };

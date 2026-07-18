@@ -1,0 +1,219 @@
+/* ==========================================================================
+   About page (/about) — editorial content sections, contact card with map,
+   closing CTA. Reuses shared tokens (--primary, surface-card, btn).
+   ========================================================================== */
+
+.about-hero {
+  max-width: 780px;
+  margin: 0 auto 2.5rem;
+  text-align: center;
+}
+
+.about-hero__title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.7rem, 1.2rem + 2vw, 2.5rem);
+  margin: 0.5rem 0 1rem;
+}
+
+.about-hero__lead {
+  font-size: 1.08rem;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0;
+}
+
+.about-highlights {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.about-highlight {
+  min-width: 140px;
+  flex: 1 1 140px;
+  max-width: 200px;
+  padding: 1.1rem 1rem;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.about-highlight__value {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.about-highlight__label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.about-sections {
+  display: grid;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (min-width: 820px) {
+  .about-sections {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.about-section {
+  padding: 1.5rem 1.6rem;
+}
+
+.about-section__head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.9rem;
+}
+
+.about-section__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.7rem;
+  background: rgba(140, 21, 21, 0.08);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.about-section__title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.about-section__body {
+  margin: 0 0 0.85rem;
+  line-height: 1.72;
+  color: var(--text);
+}
+
+.about-section__body:last-child {
+  margin-bottom: 0;
+}
+
+/* ---- Contact & location -------------------------------------------------- */
+.about-contact {
+  padding: 1.5rem 1.6rem;
+  margin-bottom: 2rem;
+}
+
+.about-contact__grid {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 820px) {
+  .about-contact__grid {
+    grid-template-columns: 1fr 1.3fr;
+    align-items: start;
+  }
+}
+
+.about-contact__details {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.about-contact__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.about-contact__row dt {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.about-contact__row dd {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.about-contact__row a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.about-contact__map {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.about-contact__map iframe {
+  width: 100%;
+  height: 260px;
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+}
+
+.about-contact__map-link {
+  font-size: 0.88rem;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.about-contact__map-link:hover {
+  text-decoration: underline;
+}
+
+/* ---- Closing CTA --------------------------------------------------------- */
+.about-cta {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(120deg, var(--primary), #a83232);
+  color: #fff;
+}
+
+.about-cta__title {
+  color: #fff;
+  font-size: clamp(1.4rem, 1.1rem + 1.2vw, 1.9rem);
+  margin: 0 0 0.6rem;
+}
+
+.about-cta__lead {
+  color: rgba(255, 255, 255, 0.9);
+  max-width: 560px;
+  margin: 0 auto 1.4rem;
+  line-height: 1.65;
+}
+
+.about-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.about-cta .btn-ghost {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.about-cta .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}

@@ -643,7 +643,19 @@ function NewsPage() {
             {!!blogItems.length && (
               <div className="newsroom-widget-list">
                 {blogItems.map((item) => (
-                  <article key={item._id} className="newsroom-widget-item">
+                  <article
+                    key={item._id}
+                    className="newsroom-widget-item newsroom-widget-item--link"
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => navigate(`/blogs/${item.slug || item._id}`)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(`/blogs/${item.slug || item._id}`);
+                      }
+                    }}
+                  >
                     <h3>{toLocalizedText(item.title, language)}</h3>
                     <p>{toLocalizedText(item.excerpt, language)}</p>
                     <p className="meta">{ui('newsroom', 'slug', language)}: {item.slug}</p>
@@ -679,7 +691,19 @@ function NewsPage() {
                   );
 
                   return (
-                    <article key={gallery._id} className="newsroom-widget-item">
+                    <article
+                      key={gallery._id}
+                      className="newsroom-widget-item newsroom-widget-item--link"
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => navigate(`/gallery/${gallery.slug || gallery._id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          navigate(`/gallery/${gallery.slug || gallery._id}`);
+                        }
+                      }}
+                    >
                       {firstImage && (
                         <img
                           src={resolveMediaUrl(firstImage.thumbnailUrl || firstImage.mediaUrl)}

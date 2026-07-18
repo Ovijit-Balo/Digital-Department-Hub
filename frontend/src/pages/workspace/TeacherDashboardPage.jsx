@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { analyticsApi, cmsApi, eventApi } from '../../api/modules';
 import useLanguage from '../../hooks/useLanguage';
+import useRole from '../../hooks/useRole';
 import { getApiErrorMessage } from '../../utils/http';
-import { toLocalizedText } from '../../utils/localized';
+import { toLocalDateTime, toLocalizedText } from '../../utils/localized';
 
 const POPULAR_TYPES = [
   { key: 'news', label: { en: 'News', bn: 'সংবাদ' }, publicPath: (item) => `/news/${item.slug || item.entityId}` },
@@ -46,6 +47,7 @@ const T = {
   msgLoadFailed: { en: 'Failed to load teacher dashboard.', bn: 'শিক্ষক ড্যাশবোর্ড লোড করতে ব্যর্থ।' },
   // quick links
   openCms: { en: 'Open CMS Studio', bn: 'সিএমএস স্টুডিও খুলুন' },
+  reviewScholarships: { en: 'Review Scholarships', bn: 'বৃত্তি পর্যালোচনা' },
   previewAnnouncements: { en: 'Preview Announcements', bn: 'ঘোষণা প্রিভিউ' },
   previewBlogs: { en: 'Preview Blogs', bn: 'ব্লগ প্রিভিউ' },
   previewGallery: { en: 'Preview Gallery', bn: 'গ্যালারি প্রিভিউ' },
@@ -61,12 +63,27 @@ const T = {
   publishedAnnouncements: { en: 'Published Announcements', bn: 'প্রকাশিত ঘোষণা' },
   publishedAnnouncementsSub: { en: 'Announcements visible to students', bn: 'শিক্ষার্থীদের কাছে দৃশ্যমান ঘোষণা' },
   publishedEvents: { en: 'Published Events', bn: 'প্রকাশিত ইভেন্ট' },
-  publishedEventsSub: { en: 'Events currently open to the public', bn: 'বর্তমানে জনসাধারণের জন্য খোলা ইভেন্ট' }
+  publishedEventsSub: { en: 'Events currently open to the public', bn: 'বর্তমানে জনসাধারণের জন্য খোলা ইভেন্ট' },
+  // editorial action queue (author-scoped)
+  editorialQueue: { en: 'My Editorial Queue', bn: 'আমার সম্পাদকীয় সারি' },
+  myDrafts: { en: 'My Drafts', bn: 'আমার খসড়া' },
+  scheduledPublishes: { en: 'Scheduled to Publish', bn: 'প্রকাশের জন্য নির্ধারিত' },
+  noDrafts: { en: 'No drafts waiting. Everything you started is published.', bn: 'কোনো খসড়া অপেক্ষমাণ নেই। আপনি শুরু করা সবকিছু প্রকাশিত।' },
+  noScheduled: { en: 'Nothing scheduled ahead.', bn: 'সামনে কিছু নির্ধারিত নেই।' },
+  kindPage: { en: 'Page', bn: 'পাতা' },
+  kindNews: { en: 'News', bn: 'সংবাদ' },
+  kindBlog: { en: 'Blog', bn: 'ব্লগ' },
+  kindGallery: { en: 'Gallery', bn: 'গ্যালারি' },
+  editLabel: { en: 'Edit', bn: 'সম্পাদনা' },
+  goesLive: { en: 'Goes live', bn: 'প্রকাশিত হবে' }
 };
 
 function TeacherDashboardPage() {
   const { language } = useLanguage();
   const t = (key) => toLocalizedText(T[key], language);
+  // Teachers who also carry the reviewer role evaluate scholarship applications
+  // from the public scholarship workflow, so surface a direct link for them.
+  const canReviewScholarships = useRole('reviewer', 'admin');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [metrics, setMetrics] = useState({
@@ -78,6 +95,9 @@ function TeacherDashboardPage() {
     publishedEvents: 0
   });
 
+  // Editorial action queue (this author's own drafts + scheduled items).
+  const [editorial, setEditorial] = useState({ drafts: [], scheduled: [] });
+
   // Content Insights (view analytics) state.
   const [viewSummary, setViewSummary] = useState(null);
   const [popularType, setPopularType] = useState('news');
@@ -87,12 +107,15 @@ function TeacherDashboardPage() {
   const quickLinks = useMemo(
     () => [
       { to: '/admin/cms', label: t('openCms') },
+      ...(canReviewScholarships
+        ? [{ to: '/scholarship', label: t('reviewScholarships') }]
+        : []),
       { to: '/announcements', label: t('previewAnnouncements') },
       { to: '/blogs', label: t('previewBlogs') },
       { to: '/gallery', label: t('previewGallery') }
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [language]
+    [language, canReviewScholarships]
   );
 
   const cards = useMemo(
@@ -150,7 +173,8 @@ function TeacherDashboardPage() {
         draftGalleriesResponse,
         announcementsResponse,
         eventsResponse,
-        summaryResponse
+        summaryResponse,
+        editorialResponse
       ] = await Promise.all([
         cmsApi.listManagePages({ status: 'draft', page: 1, limit: 1 }),
         cmsApi.listManageNews({ status: 'draft', page: 1, limit: 1 }),
@@ -159,7 +183,9 @@ function TeacherDashboardPage() {
         cmsApi.listManageNews({ status: 'published', category: 'announcement', page: 1, limit: 1 }),
         eventApi.listEvents({ status: 'published', page: 1, limit: 1 }),
         // View analytics are optional decoration — never fail the dashboard over them.
-        analyticsApi.getSummary().catch(() => ({ data: null }))
+        analyticsApi.getSummary().catch(() => ({ data: null })),
+        // Author-scoped editorial queue; degrade gracefully if it errors.
+        cmsApi.getEditorialQueue().catch(() => ({ data: { drafts: [], scheduled: [] } }))
       ]);
 
       setMetrics({
@@ -171,6 +197,10 @@ function TeacherDashboardPage() {
         publishedEvents: eventsResponse.data.total || 0
       });
       setViewSummary(summaryResponse.data);
+      setEditorial({
+        drafts: editorialResponse.data.drafts || [],
+        scheduled: editorialResponse.data.scheduled || []
+      });
     } catch (apiError) {
       setError(getApiErrorMessage(apiError, t('msgLoadFailed')));
     } finally {
@@ -200,6 +230,11 @@ function TeacherDashboardPage() {
   useEffect(() => {
     loadPopular();
   }, [loadPopular]);
+
+  const editorialKindLabel = (kind) => {
+    const map = { page: 'kindPage', news: 'kindNews', blog: 'kindBlog', gallery: 'kindGallery' };
+    return map[kind] ? t(map[kind]) : kind;
+  };
 
   const activePopularType = POPULAR_TYPES.find((type) => type.key === popularType);
   const maxTypeViews = viewSummary
@@ -312,6 +347,63 @@ function TeacherDashboardPage() {
           )}
         </article>
       </div>
+
+      <article className="surface-card">
+        <h3>{t('editorialQueue')}</h3>
+        <div className="insight-grid">
+          <div>
+            <div className="section-head section-head-tight">
+              <h4>{t('myDrafts')}</h4>
+              <span className="meta">{editorial.drafts.length}</span>
+            </div>
+            {!editorial.drafts.length && <p>{t('noDrafts')}</p>}
+            {!!editorial.drafts.length && (
+              <ul className="deadline-list">
+                {editorial.drafts.map((doc) => (
+                  <li key={`${doc.kind}-${doc.id}`} className="deadline-item">
+                    <div className="deadline-item__info">
+                      <span className="deadline-item__title">
+                        {toLocalizedText(doc.title, language) || t('untitled')}
+                      </span>
+                      <span className="meta">{editorialKindLabel(doc.kind)}</span>
+                    </div>
+                    <Link to={doc.actionPath} className="btn btn-sm btn-ghost">
+                      {t('editLabel')}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div>
+            <div className="section-head section-head-tight">
+              <h4>{t('scheduledPublishes')}</h4>
+              <span className="meta">{editorial.scheduled.length}</span>
+            </div>
+            {!editorial.scheduled.length && <p>{t('noScheduled')}</p>}
+            {!!editorial.scheduled.length && (
+              <ul className="deadline-list">
+                {editorial.scheduled.map((doc) => (
+                  <li key={`${doc.kind}-${doc.id}`} className="deadline-item">
+                    <div className="deadline-item__info">
+                      <span className="deadline-item__title">
+                        {toLocalizedText(doc.title, language) || t('untitled')}
+                      </span>
+                      <span className="meta">
+                        {editorialKindLabel(doc.kind)} • {t('goesLive')} {toLocalDateTime(doc.scheduledAt)}
+                      </span>
+                    </div>
+                    <Link to={doc.actionPath} className="btn btn-sm btn-ghost">
+                      {t('editLabel')}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </article>
 
       <article className="surface-card">
         <h3>{t('quickActions')}</h3>

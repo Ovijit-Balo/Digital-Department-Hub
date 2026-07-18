@@ -190,6 +190,76 @@ class EmailService {
   }
 
   /**
+   * Send an account invitation email. The recipient uses the link to create
+   * their own account, pre-assigned to the invited role(s).
+   */
+  static async sendInvitationEmail(email, inviteToken, roles = []) {
+    // FRONTEND_URL may be a comma-separated CORS allowlist; use the first origin.
+    const frontendOrigin = String(env.FRONTEND_URL).split(',')[0].trim().replace(/\/$/, '');
+    const acceptUrl = `${frontendOrigin}/accept-invite?token=${inviteToken}`;
+    const roleText = roles.length ? roles.join(', ') : 'member';
+
+    // Dev convenience: surface the invite link in logs when there is no inbox.
+    if (env.NODE_ENV !== 'production') {
+      logger.info(`[EMAIL:dev] Invitation link: ${acceptUrl}`);
+    }
+
+    const subject = 'You have been invited to Digital Department Hub';
+    const { html, text } = buildMessage({
+      title: 'Account Invitation',
+      intro: `You have been invited to join the Digital Department Hub as: ${roleText}.`,
+      bodyHtml:
+        '<p style="margin:0 0 12px;">Use the button below to set up your account — you will choose your own name and password.</p>' +
+        `<p style="margin:0 0 12px;">This invitation will expire in <strong>72 hours</strong>.</p>` +
+        `<p style="margin:0;font-size:13px;color:#6b7280;">If the button does not work, copy and paste this URL into your browser:<br>${acceptUrl}</p>`,
+      cta: { label: 'Accept Invitation', url: acceptUrl },
+      footerNote: 'If you were not expecting this invitation, you can safely ignore this email.'
+    });
+
+    return this.sendEmail({ to: email, subject, html, text });
+  }
+
+  /**
+   * Acknowledge a contact inquiry to the person who submitted it, so they get
+   * confirmation their message was received (not just a silent in-app record).
+   */
+  static async sendContactAcknowledgement(inquiry) {
+    const subject = `We received your inquiry: ${inquiry.subject}`;
+    const { html, text } = buildMessage({
+      title: `Thanks for reaching out, ${inquiry.name}`,
+      intro: 'Your message has reached the department office. We will get back to you soon.',
+      bodyHtml:
+        `<p style="margin:0 0 6px;"><strong>Subject:</strong> ${inquiry.subject}</p>` +
+        `<p style="margin:0 0 12px;"><strong>Your message:</strong></p>` +
+        `<p style="margin:0;white-space:pre-line;color:#374151;">${inquiry.message}</p>`,
+      footerNote: 'This is an automated confirmation — there is no need to reply to this email.'
+    });
+
+    return this.sendEmail({ to: inquiry.email, subject, html, text });
+  }
+
+  /**
+   * Alert a staff member by email that a new contact inquiry arrived, mirroring
+   * the in-app notification so the desk is reachable even without the console.
+   */
+  static async sendContactAlert(inquiry, staffEmail) {
+    const subject = `New contact inquiry: ${inquiry.subject}`;
+    const { html, text } = buildMessage({
+      title: 'New Contact Inquiry',
+      intro: `${inquiry.name} (${inquiry.email}) submitted a new inquiry.`,
+      bodyHtml:
+        `<p style="margin:0 0 6px;"><strong>Subject:</strong> ${inquiry.subject}</p>` +
+        `<p style="margin:0;white-space:pre-line;color:#374151;">${inquiry.message}</p>`,
+      cta: {
+        label: 'Open Contact Desk',
+        url: `${String(env.FRONTEND_URL).split(',')[0].trim().replace(/\/$/, '')}/contact`
+      }
+    });
+
+    return this.sendEmail({ to: staffEmail, subject, html, text });
+  }
+
+  /**
    * Send bulk email to multiple recipients
    */
   static async sendBulkEmail(recipients, subject, html) {

@@ -135,6 +135,12 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
+  const acceptInvite = async (payload, options = {}) => {
+    const { data } = await apiClient.post('/auth/invitations/accept', payload);
+    persistAuth(data.token, data.user, data.refreshToken, options.rememberMe !== false);
+    return data.user;
+  };
+
   const logout = () => {
     clearAuth();
   };
@@ -251,6 +257,7 @@ export function AuthProvider({ children }) {
     decodedToken,
     login,
     register,
+    acceptInvite,
     logout,
     hasRole,
     refreshUser

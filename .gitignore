@@ -16,3 +16,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# Personal working notes / generated reports (not for the repo)
+issues.txt
+problem_and_prompts.txt
+INVITATION-FEATURE-REPORT.md

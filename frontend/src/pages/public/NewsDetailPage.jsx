@@ -17,6 +17,11 @@ const T = {
   published: { en: 'Published', bn: 'প্রকাশিত' }
 };
 
+// A MongoDB ObjectId is 24 hex chars. A slug also matches [a-z0-9-]+, so we must
+// check for the ObjectId shape first — otherwise an id is sent to the slug
+// endpoint and 404s before the id fallback ever runs.
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+
 function NewsDetailPage() {
   const { newsId } = useParams();
   const navigate = useNavigate();
@@ -31,19 +36,10 @@ function NewsDetailPage() {
     setError('');
 
     try {
-      let res;
-      // Try slug first, if it looks like a slug (contains letters/hyphens)
-      if (newsId && /^[a-z0-9-]+$/.test(newsId)) {
-        try {
-          res = await cmsApi.getNewsBySlug(newsId);
-          setItem(res.data.post || null);
-          return;
-        } catch {
-          // If slug lookup fails, try ID lookup
-        }
-      }
-      // Fallback to ID lookup
-      res = await cmsApi.getNewsById(newsId);
+      // Route by shape: a 24-char hex value is an ObjectId, anything else is a slug.
+      const res = OBJECT_ID_PATTERN.test(newsId)
+        ? await cmsApi.getNewsById(newsId)
+        : await cmsApi.getNewsBySlug(newsId);
       setItem(res.data.post || null);
     } catch (apiError) {
       setError(getApiErrorMessage(apiError, t('loadFailed')));

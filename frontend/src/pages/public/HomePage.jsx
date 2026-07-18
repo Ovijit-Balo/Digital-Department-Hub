@@ -477,7 +477,7 @@ function HomePage() {
             {ui('home', 'aboutTitle', language)}
           </h2>
           <p className="home-about-body">{ui('home', 'aboutBody', language)}</p>
-          <Link to="/pages" className="home-inline-link">
+          <Link to="/about" className="home-inline-link">
             {ui('home', 'aboutCta', language)} →
           </Link>
         </m.section>

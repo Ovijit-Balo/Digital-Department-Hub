@@ -18,6 +18,7 @@ import { toIsoDate, toLocalDateTime, toLocalizedText } from '../../utils/localiz
 
 const APPLICATION_STATUS_META = [
   { key: 'submitted', label: { en: 'Submitted', bn: 'জমা দেওয়া' }, className: 'status-bar--submitted' },
+  { key: 'documents_verified', label: { en: 'Documents verified', bn: 'নথি যাচাইকৃত' }, className: 'status-bar--review' },
   { key: 'under_review', label: { en: 'Under review', bn: 'পর্যালোচনাধীন' }, className: 'status-bar--review' },
   { key: 'shortlisted', label: { en: 'Shortlisted', bn: 'সংক্ষিপ্ত তালিকাভুক্ত' }, className: 'status-bar--shortlisted' },
   { key: 'approved', label: { en: 'Approved', bn: 'অনুমোদিত' }, className: 'status-bar--approved' },

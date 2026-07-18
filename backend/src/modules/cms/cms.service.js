@@ -580,6 +580,79 @@ const createUploadSignature = async (payload) => {
   );
 };
 
+// Content types the editorial queue spans. `hasSchedule` flags the models that
+// carry a scheduledAt field (gallery does not), so we only query upcoming
+// publishes where the field exists.
+const EDITORIAL_TYPES = [
+  { kind: 'page', Model: Page, path: '/admin/cms?section=pages', hasSchedule: true },
+  { kind: 'news', Model: NewsPost, path: '/admin/cms?section=news', hasSchedule: true },
+  { kind: 'blog', Model: BlogPost, path: '/admin/cms?section=blogs', hasSchedule: true },
+  { kind: 'gallery', Model: Gallery, path: '/admin/cms?section=gallery', hasSchedule: false }
+];
+
+const toEditorialItem = (kind, path, doc, extra = {}) => ({
+  kind,
+  id: String(doc._id),
+  title: doc.title || null,
+  slug: doc.slug || null,
+  status: doc.status,
+  scheduledAt: doc.scheduledAt || null,
+  updatedAt: doc.updatedAt || null,
+  actionPath: path,
+  ...extra
+});
+
+// Builds an editorial action queue for one author (the "editor"/teacher role):
+// their own drafts and their upcoming scheduled publishes across every content
+// type. Scoped to the author so the dashboard answers "what is waiting on me".
+const getEditorialQueue = async (authorId, { draftLimit = 10, scheduledLimit = 10 } = {}) => {
+  const ownerId = new mongoose.Types.ObjectId(authorId);
+  const now = new Date();
+
+  const draftQueries = EDITORIAL_TYPES.map(({ kind, Model, path }) =>
+    Model.find({ createdBy: ownerId, status: 'draft' })
+      .sort({ updatedAt: -1 })
+      .limit(draftLimit)
+      .select('title slug status scheduledAt updatedAt')
+      .lean()
+      .then((docs) => docs.map((doc) => toEditorialItem(kind, path, doc)))
+  );
+
+  const scheduledQueries = EDITORIAL_TYPES.filter((type) => type.hasSchedule).map(
+    ({ kind, Model, path }) =>
+      Model.find({
+        createdBy: ownerId,
+        status: 'published',
+        scheduledAt: { $gt: now }
+      })
+        .sort({ scheduledAt: 1 })
+        .limit(scheduledLimit)
+        .select('title slug status scheduledAt updatedAt')
+        .lean()
+        .then((docs) => docs.map((doc) => toEditorialItem(kind, path, doc)))
+  );
+
+  const [draftGroups, scheduledGroups] = await Promise.all([
+    Promise.all(draftQueries),
+    Promise.all(scheduledQueries)
+  ]);
+
+  const drafts = draftGroups.flat().sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  const scheduled = scheduledGroups
+    .flat()
+    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+
+  return {
+    drafts,
+    scheduled,
+    summary: {
+      draftCount: drafts.length,
+      scheduledCount: scheduled.length
+    },
+    generatedAt: new Date()
+  };
+};
+
 module.exports = {
   createPage,
   listPages,
@@ -609,5 +682,6 @@ module.exports = {
   deleteGallery,
   createUploadSignature,
   bulkDelete,
-  bulkUpdateStatus
+  bulkUpdateStatus,
+  getEditorialQueue
 };

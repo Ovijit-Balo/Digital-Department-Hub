@@ -82,6 +82,7 @@ const reviewApplication = asyncHandler(async (req, res) => {
   const application = await scholarshipService.reviewApplication({
     applicationId: req.params.applicationId,
     reviewerId: req.user._id,
+    reviewerRoles: req.user.roles,
     status: req.body.status,
     decisionNote: req.body.decisionNote,
     awardedCategoryCode: req.body.awardedCategoryCode,

@@ -48,7 +48,14 @@ const envSchema = Joi.object({
   SMTP_PASS: Joi.string().allow('').optional(),
   CLOUDINARY_CLOUD_NAME: Joi.string().allow('').optional(),
   CLOUDINARY_API_KEY: Joi.string().allow('').optional(),
-  CLOUDINARY_API_SECRET: Joi.string().allow('').optional()
+  CLOUDINARY_API_SECRET: Joi.string().allow('').optional(),
+  // Shared secret guarding the scheduled reminder sweep endpoint. When unset the
+  // endpoint is disabled (returns 503) so it can never run unauthenticated.
+  CRON_SECRET: Joi.string().allow('').optional(),
+  // In-process reminder scheduler (node-cron). Runs inside the always-on API
+  // server. Disabled during tests. Set REMINDER_CRON to a 5-field cron string.
+  ENABLE_REMINDER_CRON: Joi.boolean().default(process.env.NODE_ENV !== 'test'),
+  REMINDER_CRON: Joi.string().default('0 3 * * *')
 })
   .unknown()
   .required();
@@ -75,6 +82,7 @@ module.exports = {
   RATE_LIMIT_MAX: Number(value.RATE_LIMIT_MAX),
   RUN_WORKER_WITH_API: parseBoolean(value.RUN_WORKER_WITH_API),
   ENABLE_QUEUE: parseBoolean(value.ENABLE_QUEUE),
+  ENABLE_REMINDER_CRON: parseBoolean(value.ENABLE_REMINDER_CRON),
   SMTP_PORT: Number(value.SMTP_PORT),
   SMTP_SECURE: parseBoolean(value.SMTP_SECURE)
 };

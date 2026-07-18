@@ -12,6 +12,7 @@ const { dispatchNotification } = require('../../src/modules/notification/notific
 const User = require('../../src/modules/auth/user.model');
 const {
   notifyScholarshipSubmission,
+  notifyScholarshipDocumentsVerified,
   notifyScholarshipDecision,
   notifyEventRegistration,
   notifyBookingDecision
@@ -30,9 +31,9 @@ describe('Workflow notification triggers (FR-PA-049)', () => {
     User.find.mockReturnValue({ select: jest.fn().mockResolvedValue([]) });
   });
 
-  it('acknowledges the applicant and alerts reviewers on scholarship submission', async () => {
-    const reviewerId = oid();
-    User.find.mockReturnValue({ select: jest.fn().mockResolvedValue([{ _id: reviewerId }]) });
+  it('acknowledges the applicant and alerts document verifiers on scholarship submission', async () => {
+    const verifierId = oid();
+    User.find.mockReturnValue({ select: jest.fn().mockResolvedValue([{ _id: verifierId }]) });
 
     const application = { _id: oid(), student: oid(), status: 'submitted' };
     const notice = { _id: oid(), title: { en: 'Merit Award', bn: 'মেধা বৃত্তি' } };
@@ -49,10 +50,29 @@ describe('Workflow notification triggers (FR-PA-049)', () => {
     expect(applicantPayload.channel).toBe('in_app');
     expect(applicantPayload.subject).toContain('Merit Award');
 
-    const reviewerPayload = payloads.find(
-      (p) => p.recipient.toString() === reviewerId.toString()
+    const verifierPayload = payloads.find(
+      (p) => p.recipient.toString() === verifierId.toString()
     );
-    expect(reviewerPayload).toBeDefined();
+    expect(verifierPayload).toBeDefined();
+    expect(verifierPayload.message).toContain('document verification');
+  });
+
+  it('alerts reviewers when documents are verified and ready for academic review', async () => {
+    const reviewerId = oid();
+    User.find.mockReturnValue({ select: jest.fn().mockResolvedValue([{ _id: reviewerId }]) });
+
+    const application = {
+      _id: oid(),
+      status: 'documents_verified',
+      notice: { title: { en: 'Merit Award', bn: '' } }
+    };
+
+    await notifyScholarshipDocumentsVerified({ application });
+
+    const [payload] = lastPayloadsFor('scholarship-documents-verified');
+    expect(payload).toBeDefined();
+    expect(payload.recipient.toString()).toBe(reviewerId.toString());
+    expect(payload.subject).toContain('Ready for review');
   });
 
   it('notifies the applicant on a review decision', async () => {

@@ -34,7 +34,10 @@ const T = {
   creating: { en: 'Creating Account...', bn: 'অ্যাকাউন্ট তৈরি হচ্ছে...' },
   haveAccount: { en: 'Already have an account?', bn: 'ইতিমধ্যে অ্যাকাউন্ট আছে?' },
   signIn: { en: 'Sign In', bn: 'সাইন ইন' },
-  staffAccount: { en: 'Admin, Teacher, or Staff account?', bn: 'অ্যাডমিন, শিক্ষক বা স্টাফ অ্যাকাউন্ট?' },
+  staffAccount: {
+    en: 'Admin, Teacher, or Staff accounts are created by invitation from an administrator.',
+    bn: 'অ্যাডমিন, শিক্ষক বা স্টাফ অ্যাকাউন্ট প্রশাসকের আমন্ত্রণের মাধ্যমে তৈরি হয়।'
+  },
   openGuide: { en: 'Open Portal Guide', bn: 'পোর্টাল গাইড খুলুন' },
   fixFields: {
     en: 'Please fix the highlighted registration fields.',

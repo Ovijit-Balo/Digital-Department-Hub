@@ -1,6 +1,10 @@
 import apiClient from '../client';
 
 export const cmsApi = {
+  // Signed-in author's editorial action queue (own drafts + scheduled items).
+  getEditorialQueue() {
+    return apiClient.get('/cms/manage/editorial-queue');
+  },
   listPages(params = {}) {
     return apiClient.get('/cms/pages', { params });
   },

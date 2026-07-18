@@ -397,6 +397,44 @@ p {
   }
 }
 
+/* Scholarship review audit trail: one ordered entry per workflow transition. */
+.review-trail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  background: var(--surface-muted, rgba(0, 0, 0, 0.02));
+}
+
+.review-trail__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.review-trail__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--stroke);
+}
+
+.review-trail__status {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.review-trail__note {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .form-error {
   margin: 0.15rem 0 0;
   color: var(--danger);

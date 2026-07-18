@@ -7,17 +7,109 @@ const ApiError = require('../../utils/ApiError');
 const toCsv = require('../../utils/csv');
 const { renderTablePdf } = require('../../utils/pdf');
 
+const { ROLES } = require('../../config/roles');
+
 const APPLICATION_STATUSES = [
   'submitted',
+  'documents_verified',
   'under_review',
   'shortlisted',
   'approved',
   'rejected'
 ];
+
+// Multi-step review workflow that separates administrative work from academic
+// judgment, mirroring how the department actually operates:
+//
+//   Student submits -> Staff verifies documents -> Teacher-Reviewer evaluates
+//   (screen + shortlist) -> Admin approves/awards.
+//
+// Each entry lists the statuses reachable from a given status and, for each,
+// which roles may make that move.
+//   VERIFY_ROLES   Staff (manager) checks documents are complete. Admin too.
+//   REVIEW_ROLES   Teacher-Reviewer performs academic evaluation. Admin too.
+//   APPROVER_ROLES Only Admin gives the final award/rejection.
+const VERIFY_ROLES = [ROLES.ADMIN, ROLES.MANAGER];
+const REVIEW_ROLES = [ROLES.ADMIN, ROLES.REVIEWER];
+const APPROVER_ROLES = [ROLES.ADMIN];
+
+const WORKFLOW_TRANSITIONS = {
+  submitted: {
+    // Staff confirms the applicant's documents are complete before evaluation.
+    documents_verified: VERIFY_ROLES,
+    rejected: VERIFY_ROLES
+  },
+  documents_verified: {
+    // Academic evaluation begins once documents pass verification.
+    under_review: REVIEW_ROLES,
+    rejected: REVIEW_ROLES
+  },
+  under_review: {
+    shortlisted: REVIEW_ROLES,
+    rejected: REVIEW_ROLES
+  },
+  shortlisted: {
+    // Final decision is reserved for the admin.
+    approved: APPROVER_ROLES,
+    rejected: APPROVER_ROLES,
+    // Admin can send a shortlisted candidate back for re-evaluation.
+    under_review: APPROVER_ROLES
+  },
+  // Terminal states can be reopened by the admin to correct a mistake.
+  approved: {
+    under_review: APPROVER_ROLES
+  },
+  rejected: {
+    under_review: APPROVER_ROLES
+  }
+};
+
 const {
   notifyScholarshipSubmission,
-  notifyScholarshipDecision
+  notifyScholarshipDecision,
+  notifyScholarshipDocumentsVerified,
+  notifyScholarshipShortlisted
 } = require('../notification/notificationEvents');
+
+// Picks the most privileged role the actor holds that is relevant to review,
+// used purely to label history entries. Falls back to the first role.
+const resolveActorRole = (roles = []) => {
+  const list = Array.isArray(roles) ? roles : [roles].filter(Boolean);
+  if (list.includes(ROLES.ADMIN)) return ROLES.ADMIN;
+  if (list.includes(ROLES.REVIEWER)) return ROLES.REVIEWER;
+  if (list.includes(ROLES.MANAGER)) return ROLES.MANAGER;
+  return list[0] || null;
+};
+
+// Validates a requested status change against the workflow and the actor's
+// roles. Throws ApiError on an illegal transition or insufficient permission.
+const assertTransitionAllowed = ({ fromStatus, toStatus, actorRoles }) => {
+  const actorList = Array.isArray(actorRoles) ? actorRoles : [actorRoles].filter(Boolean);
+
+  if (fromStatus === toStatus) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `Application is already "${toStatus}"`
+    );
+  }
+
+  const allowedNext = WORKFLOW_TRANSITIONS[fromStatus];
+  if (!allowedNext || !allowedNext[toStatus]) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `Cannot move a "${fromStatus}" application to "${toStatus}"`
+    );
+  }
+
+  const permittedRoles = allowedNext[toStatus];
+  const hasPermittedRole = actorList.some((role) => permittedRoles.includes(role));
+  if (!hasPermittedRole) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      `Your role is not permitted to move an application to "${toStatus}"`
+    );
+  }
+};
 
 const buildPagination = ({ page, limit }) => {
   const parsedPage = Number(page || 1);
@@ -325,6 +417,7 @@ const listApplicantApplications = async ({ studentId, query }) => {
 const reviewApplication = async ({
   applicationId,
   reviewerId,
+  reviewerRoles = [],
   status,
   decisionNote,
   awardedCategoryCode,
@@ -338,6 +431,15 @@ const reviewApplication = async ({
   if (!application) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Scholarship application not found');
   }
+
+  const previousStatus = application.status;
+
+  // Enforce the multi-step workflow: legal transition + role permitted for it.
+  assertTransitionAllowed({
+    fromStatus: previousStatus,
+    toStatus: status,
+    actorRoles: reviewerRoles
+  });
 
   const normalizedAwardCategory = normalizeCategoryCode(
     awardedCategoryCode || application.selectedCategoryCode
@@ -393,13 +495,36 @@ const reviewApplication = async ({
     application.awardedAmount = undefined;
   }
 
+  const actorRole = resolveActorRole(reviewerRoles);
+  const now = new Date();
+
   application.status = status;
   application.decisionNote = decisionNote || '';
   application.reviewedBy = reviewerId;
-  application.reviewedAt = new Date();
+  application.reviewedAt = now;
+  application.reviewHistory.push({
+    fromStatus: previousStatus,
+    toStatus: status,
+    actor: reviewerId,
+    actorRole,
+    note: decisionNote || '',
+    at: now
+  });
   await application.save();
 
+  // Notification hooks per step. The applicant is always kept informed; each
+  // pipeline hand-off alerts the role that owns the next stage.
   await notifyScholarshipDecision({ application });
+
+  if (status === 'documents_verified') {
+    // Staff finished verification; alert Teacher-Reviewers for evaluation.
+    await notifyScholarshipDocumentsVerified({ application });
+  }
+
+  if (status === 'shortlisted') {
+    // Reviewer shortlisted a candidate; alert the Admin for the final award.
+    await notifyScholarshipShortlisted({ application });
+  }
 
   return application;
 };
@@ -611,7 +736,11 @@ const getApplicationStatusStats = async ({ noticeId } = {}) => {
     total += row.count;
   });
 
-  const pending = byStatus.submitted + byStatus.under_review + byStatus.shortlisted;
+  const pending =
+    byStatus.submitted +
+    byStatus.documents_verified +
+    byStatus.under_review +
+    byStatus.shortlisted;
 
   return { total, pending, byStatus };
 };
@@ -630,5 +759,9 @@ module.exports = {
   listUpdates,
   exportApplicationsCsv,
   exportApplicationsPdf,
-  getApplicationStatusStats
+  getApplicationStatusStats,
+  // exported for the workflow and unit tests
+  WORKFLOW_TRANSITIONS,
+  assertTransitionAllowed,
+  resolveActorRole
 };

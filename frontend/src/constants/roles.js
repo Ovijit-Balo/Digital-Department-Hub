@@ -10,10 +10,12 @@ export const ALL_ROLES = Object.freeze(Object.values(ROLES));
 export const ADMIN_PANEL_ROLES = Object.freeze([ROLES.ADMIN, ROLES.EDITOR, ROLES.MANAGER]);
 export const ACCESS_CONTROL_VIEW_ROLES = Object.freeze([ROLES.ADMIN, ROLES.MANAGER]);
 export const CMS_STUDIO_ROLES = Object.freeze([ROLES.ADMIN, ROLES.EDITOR]);
-export const TEACHER_DASHBOARD_ROLES = Object.freeze([ROLES.ADMIN, ROLES.EDITOR]);
+// Reviewer is a subset of Teacher (selected teachers who evaluate scholarship
+// applications), so it belongs to the Teacher portal, not the Student one.
+export const TEACHER_DASHBOARD_ROLES = Object.freeze([ROLES.ADMIN, ROLES.EDITOR, ROLES.REVIEWER]);
 export const STAFF_DASHBOARD_ROLES = Object.freeze([ROLES.ADMIN, ROLES.MANAGER]);
 export const NOTIFICATION_CENTER_ROLES = Object.freeze([ROLES.ADMIN, ROLES.MANAGER]);
-export const STUDENT_DASHBOARD_ROLES = Object.freeze([ROLES.STUDENT, ROLES.REVIEWER]);
+export const STUDENT_DASHBOARD_ROLES = Object.freeze([ROLES.STUDENT]);
 
 export const PORTALS = Object.freeze({
   ADMIN: 'admin',
@@ -35,7 +37,7 @@ export const PORTAL_DEFINITIONS = Object.freeze({
   [PORTALS.TEACHER]: {
     key: PORTALS.TEACHER,
     label: 'Teacher',
-    roles: [ROLES.EDITOR],
+    roles: [ROLES.EDITOR, ROLES.REVIEWER],
     loginPath: '/login/teacher',
     workspacePath: '/admin/teacher',
     workspaceLabel: 'Teacher Dashboard',
@@ -53,7 +55,7 @@ export const PORTAL_DEFINITIONS = Object.freeze({
   [PORTALS.STUDENT]: {
     key: PORTALS.STUDENT,
     label: 'Student',
-    roles: [ROLES.STUDENT, ROLES.REVIEWER],
+    roles: [ROLES.STUDENT],
     loginPath: '/login/student',
     workspacePath: '/student',
     workspaceLabel: 'Student Dashboard',
@@ -98,11 +100,11 @@ export function getPrimaryPortalForUser(user) {
     return PORTAL_DEFINITIONS[PORTALS.STAFF];
   }
 
-  if (userHasAnyRole(user, [ROLES.EDITOR])) {
+  if (userHasAnyRole(user, [ROLES.EDITOR, ROLES.REVIEWER])) {
     return PORTAL_DEFINITIONS[PORTALS.TEACHER];
   }
 
-  if (userHasAnyRole(user, [ROLES.STUDENT, ROLES.REVIEWER])) {
+  if (userHasAnyRole(user, [ROLES.STUDENT])) {
     return PORTAL_DEFINITIONS[PORTALS.STUDENT];
   }
 
@@ -118,11 +120,11 @@ export function getDefaultWorkspaceForUser(user) {
     return '/admin/staff';
   }
 
-  if (userHasAnyRole(user, [ROLES.EDITOR])) {
+  if (userHasAnyRole(user, [ROLES.EDITOR, ROLES.REVIEWER])) {
     return '/admin/teacher';
   }
 
-  if (userHasAnyRole(user, [ROLES.REVIEWER, ROLES.STUDENT])) {
+  if (userHasAnyRole(user, [ROLES.STUDENT])) {
     return '/student';
   }
 

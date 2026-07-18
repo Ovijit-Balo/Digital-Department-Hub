@@ -108,7 +108,9 @@ const apply = {
 const reviewApplication = {
   params: Joi.object({ applicationId: objectId.required() }),
   body: Joi.object({
-    status: Joi.string().valid('under_review', 'shortlisted', 'approved', 'rejected').required(),
+    status: Joi.string()
+      .valid('documents_verified', 'under_review', 'shortlisted', 'approved', 'rejected')
+      .required(),
     decisionNote: Joi.string().max(1000).allow('').optional(),
     awardedCategoryCode: Joi.string()
       .trim()
@@ -124,7 +126,7 @@ const reviewApplication = {
 const listApplications = {
   query: Joi.object({
     noticeId: objectId.optional(),
-    status: Joi.string().valid('submitted', 'under_review', 'shortlisted', 'approved', 'rejected').optional(),
+    status: Joi.string().valid('submitted', 'documents_verified', 'under_review', 'shortlisted', 'approved', 'rejected').optional(),
     page: Joi.number().min(1).default(1),
     limit: Joi.number().min(1).max(100).default(20)
   })
@@ -133,7 +135,7 @@ const listApplications = {
 const listMyApplications = {
   query: Joi.object({
     noticeId: objectId.optional(),
-    status: Joi.string().valid('submitted', 'under_review', 'shortlisted', 'approved', 'rejected').optional(),
+    status: Joi.string().valid('submitted', 'documents_verified', 'under_review', 'shortlisted', 'approved', 'rejected').optional(),
     page: Joi.number().min(1).default(1),
     limit: Joi.number().min(1).max(100).default(20)
   })

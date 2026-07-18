@@ -1,7 +1,7 @@
 /** Public site information architecture — used by header, footer, and home hub.
  *  Groups are visitor-intent based (what people come to do), not CMS-type based. */
 export const PUBLIC_NAV_ABOUT = {
-  to: '/pages',
+  to: '/about',
   label: { en: 'About', bn: 'পরিচিতি' }
 };
 

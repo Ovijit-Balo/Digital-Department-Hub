@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { bookingApi, contactApi, notificationApi, scholarshipApi } from '../../api/modules';
+import { bookingApi, contactApi, notificationApi, scholarshipApi, workqueueApi } from '../../api/modules';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
 import useLanguage from '../../hooks/useLanguage';
@@ -67,7 +67,27 @@ const T = {
   inquiryUpdated: { en: 'Inquiry updated', bn: 'জিজ্ঞাসা আপডেট হয়েছে' },
   actionFailedMsg: { en: 'Failed to complete the action.', bn: 'পদক্ষেপটি সম্পন্ন করা যায়নি।' },
   actionFailed: { en: 'Action failed', bn: 'পদক্ষেপ ব্যর্থ' },
-  msgLoadFailed: { en: 'Failed to load staff dashboard.', bn: 'স্টাফ ড্যাশবোর্ড লোড করতে ব্যর্থ।' }
+  msgLoadFailed: { en: 'Failed to load staff dashboard.', bn: 'স্টাফ ড্যাশবোর্ড লোড করতে ব্যর্থ।' },
+  // unified priority queue
+  priorityQueue: { en: 'Priority Action Queue', bn: 'অগ্রাধিকার কর্ম সারি' },
+  priorityQueueSub: {
+    en: 'Everything waiting on you, oldest and most overdue first.',
+    bn: 'আপনার সিদ্ধান্তের অপেক্ষায় থাকা সবকিছু, পুরনো ও সর্বাধিক বিলম্বিত আগে।'
+  },
+  queueEmpty: { en: 'You are all caught up. Nothing is waiting.', bn: 'সব কাজ সম্পন্ন। কিছুই অপেক্ষমাণ নেই।' },
+  overdueLabel: { en: 'overdue', bn: 'বিলম্বিত' },
+  warningLabel: { en: 'aging', bn: 'পুরনো হচ্ছে' },
+  item: { en: 'Item', bn: 'আইটেম' },
+  type: { en: 'Type', bn: 'ধরন' },
+  age: { en: 'Waiting', bn: 'অপেক্ষা' },
+  open: { en: 'Open', bn: 'খুলুন' },
+  kindBooking: { en: 'Booking', bn: 'বুকিং' },
+  kindInquiry: { en: 'Inquiry', bn: 'জিজ্ঞাসা' },
+  kindScholarship: { en: 'Scholarship', bn: 'বৃত্তি' },
+  ageDays: { en: 'd', bn: 'দি' },
+  ageHours: { en: 'h', bn: 'ঘ' },
+  overdueSummary: { en: 'overdue', bn: 'বিলম্বিত' },
+  agingSummary: { en: 'aging', bn: 'পুরনো' }
 };
 
 function StaffDashboardPage() {
@@ -86,6 +106,7 @@ function StaffDashboardPage() {
     pendingBookings: [],
     newInquiries: []
   });
+  const [queue, setQueue] = useState({ items: [], summary: { total: 0, overdue: 0, warning: 0 } });
 
   const cards = useMemo(
     () => [
@@ -123,14 +144,22 @@ function StaffDashboardPage() {
     setError('');
 
     try {
-      const [bookingsResponse, inquiriesResponse, scholarshipResponse, notificationsResponse] =
-        await Promise.all([
-          bookingApi.listBookings({ status: 'pending', page: 1, limit: 5 }),
-          contactApi.listInquiries({ status: 'new', page: 1, limit: 5 }),
-          scholarshipApi.listApplications({ status: 'submitted', page: 1, limit: 1 }),
-          notificationApi.listNotifications({ status: 'queued', page: 1, limit: 1 })
-        ]);
+      const [
+        bookingsResponse,
+        inquiriesResponse,
+        scholarshipResponse,
+        notificationsResponse,
+        queueResponse
+      ] = await Promise.all([
+        bookingApi.listBookings({ status: 'pending', page: 1, limit: 5 }),
+        contactApi.listInquiries({ status: 'new', page: 1, limit: 5 }),
+        scholarshipApi.listApplications({ status: 'submitted', page: 1, limit: 1 }),
+        notificationApi.listNotifications({ status: 'queued', page: 1, limit: 1 }),
+        // The unified queue is the centrepiece; degrade gracefully if it fails.
+        workqueueApi.getStaffQueue().catch(() => ({ data: { items: [], summary: { total: 0, overdue: 0, warning: 0 } } }))
+      ]);
 
+      setQueue(queueResponse.data || { items: [], summary: { total: 0, overdue: 0, warning: 0 } });
       setSnapshot({
         metrics: {
           pendingBookings: bookingsResponse.data.total || 0,
@@ -220,6 +249,17 @@ function StaffDashboardPage() {
     }
   };
 
+  const kindLabel = (kind) => {
+    if (kind === 'booking') return t('kindBooking');
+    if (kind === 'inquiry') return t('kindInquiry');
+    if (kind === 'scholarship') return t('kindScholarship');
+    return kind;
+  };
+
+  // Compact "waiting" label: days once past a day old, otherwise hours.
+  const ageLabel = (queueItem) =>
+    queueItem.ageDays >= 1 ? `${queueItem.ageDays}${t('ageDays')}` : `${queueItem.ageHours}${t('ageHours')}`;
+
   return (
     <section>
       <div className="section-head">
@@ -243,6 +283,78 @@ function StaffDashboardPage() {
           </Link>
         ))}
       </div>
+
+      <article className="surface-card">
+        <div className="section-head">
+          <div>
+            <h3>{t('priorityQueue')}</h3>
+            <p className="meta">{t('priorityQueueSub')}</p>
+          </div>
+          {(queue.summary.overdue > 0 || queue.summary.warning > 0) && (
+            <div className="inline-actions">
+              {queue.summary.overdue > 0 && (
+                <span className="status-badge status-rejected">
+                  {queue.summary.overdue} {t('overdueSummary')}
+                </span>
+              )}
+              {queue.summary.warning > 0 && (
+                <span className="status-badge status-pending">
+                  {queue.summary.warning} {t('agingSummary')}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {!queue.items.length && <p>{t('queueEmpty')}</p>}
+
+        {!!queue.items.length && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('type')}</th>
+                  <th>{t('item')}</th>
+                  <th>{t('requester')}</th>
+                  <th>{t('age')}</th>
+                  <th>{t('actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {queue.items.map((queueItem) => (
+                  <tr key={`${queueItem.kind}-${queueItem.id}`}>
+                    <td>
+                      <span className="status-badge">{kindLabel(queueItem.kind)}</span>
+                    </td>
+                    <td>{queueItem.title}</td>
+                    <td>{queueItem.requester}</td>
+                    <td>
+                      <span
+                        className={
+                          queueItem.severity === 'overdue'
+                            ? 'status-badge status-rejected'
+                            : queueItem.severity === 'warning'
+                              ? 'status-badge status-pending'
+                              : 'meta'
+                        }
+                      >
+                        {ageLabel(queueItem)}
+                        {queueItem.severity === 'overdue' ? ` · ${t('overdueLabel')}` : ''}
+                        {queueItem.severity === 'warning' ? ` · ${t('warningLabel')}` : ''}
+                      </span>
+                    </td>
+                    <td>
+                      <Link to={queueItem.actionPath} className="btn btn-ghost">
+                        {t('open')}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </article>
 
       <article className="surface-card">
         <h3>{t('quickActions')}</h3>

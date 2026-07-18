@@ -47,6 +47,7 @@ function ReviewPanel({ applications, onRefresh }) {
   const getStatusBadge = (status) => {
     const styles = {
       submitted: 'status-badge status-badge--pending',
+      documents_verified: 'status-badge status-badge--review',
       under_review: 'status-badge status-badge--review',
       shortlisted: 'status-badge status-badge--review',
       approved: 'status-badge status-badge--approved',
@@ -113,6 +114,7 @@ function ReviewPanel({ applications, onRefresh }) {
         applicationId={selectedApplication?._id}
         currentStatus={selectedApplication?.status}
         fallbackCategoryCode={selectedApplication?.selectedCategoryCode}
+        reviewHistory={selectedApplication?.reviewHistory}
         onConfirm={handleReviewConfirm}
       />
     </div>
