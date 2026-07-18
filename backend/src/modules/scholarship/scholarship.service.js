@@ -5,12 +5,13 @@ const ScholarshipApplication = require('./scholarshipApplication.model');
 const ScholarshipUpdate = require('./scholarshipUpdate.model');
 const ApiError = require('../../utils/ApiError');
 const toCsv = require('../../utils/csv');
-const { renderTablePdf } = require('../../utils/pdf');
+const { renderTablePdf, renderAwardLetterPdf } = require('../../utils/pdf');
 
 const { ROLES } = require('../../config/roles');
 
 const APPLICATION_STATUSES = [
   'submitted',
+  'needs_info',
   'documents_verified',
   'under_review',
   'shortlisted',
@@ -37,15 +38,27 @@ const WORKFLOW_TRANSITIONS = {
   submitted: {
     // Staff confirms the applicant's documents are complete before evaluation.
     documents_verified: VERIFY_ROLES,
+    // Staff can bounce a fixable application back to the applicant instead of
+    // rejecting it outright (e.g. a dead document link).
+    needs_info: VERIFY_ROLES,
+    rejected: VERIFY_ROLES
+  },
+  // Applicant was asked to fix something; only the student resubmits, which is
+  // handled as a dedicated applicant action (resubmitApplication), not a
+  // reviewer transition. Staff may still reject if the student never responds.
+  needs_info: {
     rejected: VERIFY_ROLES
   },
   documents_verified: {
     // Academic evaluation begins once documents pass verification.
     under_review: REVIEW_ROLES,
+    // A reviewer can also send it back if something is amiss.
+    needs_info: REVIEW_ROLES,
     rejected: REVIEW_ROLES
   },
   under_review: {
     shortlisted: REVIEW_ROLES,
+    needs_info: REVIEW_ROLES,
     rejected: REVIEW_ROLES
   },
   shortlisted: {
@@ -246,6 +259,14 @@ const updateNotice = async ({ noticeId, payload }) => {
     notice.categories = normalizeCategories(payload.categories);
   }
 
+  if (payload.documentsRequired !== undefined) {
+    notice.documentsRequired = payload.documentsRequired;
+  }
+
+  if (payload.minimumGpa !== undefined) {
+    notice.minimumGpa = payload.minimumGpa;
+  }
+
   if (payload.attachments) {
     notice.attachments = payload.attachments;
   }
@@ -294,30 +315,26 @@ const setRecipientPublication = async ({ noticeId, publish }) => {
   return notice;
 };
 
-const applyForScholarship = async ({ noticeId, userId, payload }) => {
-  const notice = await ScholarshipNotice.findById(noticeId);
-  if (!notice) {
-    throw new ApiError(StatusCodes.NOT_FOUND, 'Scholarship notice not found');
+// Shared eligibility/content checks for both first-time apply and resubmit.
+// Validates documents, GPA gate, and category selection against the notice,
+// and returns the normalized selected category code.
+const validateApplicationContent = (notice, payload) => {
+  if (notice.documentsRequired) {
+    const hasDocument = Array.isArray(payload.documents)
+      && payload.documents.some((doc) => doc && doc.name && doc.url);
+    if (!hasDocument) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        'This scholarship requires at least one supporting document'
+      );
+    }
   }
 
-  if (notice.status !== 'open') {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'This scholarship is not open for applications');
-  }
-
-  const now = new Date();
-  const { start, end } = resolveApplicationWindow(notice);
-
-  if (now < start) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Application window has not opened yet');
-  }
-
-  if (now > end) {
-    throw new ApiError(StatusCodes.BAD_REQUEST, 'Application window has closed');
-  }
-
-  const existing = await ScholarshipApplication.findOne({ notice: noticeId, student: userId });
-  if (existing) {
-    throw new ApiError(StatusCodes.CONFLICT, 'Application already submitted for this notice');
+  if (notice.minimumGpa && Number(payload.gpa) < notice.minimumGpa) {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      `This scholarship requires a minimum GPA of ${notice.minimumGpa}`
+    );
   }
 
   const normalizedSelectedCategory = normalizeCategoryCode(payload.selectedCategoryCode);
@@ -337,6 +354,44 @@ const applyForScholarship = async ({ noticeId, userId, payload }) => {
     }
   }
 
+  return normalizedSelectedCategory;
+};
+
+// Confirms the notice is currently accepting applications (open + within the
+// window). Shared by apply and resubmit so a student can only (re)submit while
+// the window is live.
+const assertNoticeAcceptingApplications = (notice) => {
+  if (notice.status !== 'open') {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'This scholarship is not open for applications');
+  }
+
+  const now = new Date();
+  const { start, end } = resolveApplicationWindow(notice);
+
+  if (now < start) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Application window has not opened yet');
+  }
+
+  if (now > end) {
+    throw new ApiError(StatusCodes.BAD_REQUEST, 'Application window has closed');
+  }
+};
+
+const applyForScholarship = async ({ noticeId, userId, payload }) => {
+  const notice = await ScholarshipNotice.findById(noticeId);
+  if (!notice) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Scholarship notice not found');
+  }
+
+  assertNoticeAcceptingApplications(notice);
+
+  const existing = await ScholarshipApplication.findOne({ notice: noticeId, student: userId });
+  if (existing) {
+    throw new ApiError(StatusCodes.CONFLICT, 'Application already submitted for this notice');
+  }
+
+  const normalizedSelectedCategory = validateApplicationContent(notice, payload);
+
   const application = await ScholarshipApplication.create({
     ...payload,
     selectedCategoryCode: normalizedSelectedCategory || undefined,
@@ -347,6 +402,101 @@ const applyForScholarship = async ({ noticeId, userId, payload }) => {
   await notifyScholarshipSubmission({ application, notice });
 
   return application;
+};
+
+// Statuses at which the applicant still controls the application and may edit
+// or withdraw it: it hasn't entered (or has been returned from) review.
+const APPLICANT_EDITABLE_STATUSES = ['submitted', 'needs_info'];
+
+// Loads a student's own application and guards ownership. Used by the
+// applicant-facing edit/withdraw/resubmit actions.
+const loadOwnedApplication = async ({ applicationId, studentId }) => {
+  const application = await ScholarshipApplication.findById(applicationId).populate(
+    'notice',
+    'categories title status applicationWindowStart applicationWindowEnd deadline documentsRequired minimumGpa'
+  );
+
+  if (!application) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Scholarship application not found');
+  }
+
+  if (application.student.toString() !== studentId.toString()) {
+    throw new ApiError(StatusCodes.FORBIDDEN, 'You can only manage your own applications');
+  }
+
+  return application;
+};
+
+// Applicant edits their own application while it is still in their hands
+// (submitted or returned as needs_info). A needs_info edit also resubmits it,
+// moving the application back to "submitted" for another verification pass.
+const updateOwnApplication = async ({ applicationId, studentId, payload }) => {
+  const application = await loadOwnedApplication({ applicationId, studentId });
+
+  if (!APPLICANT_EDITABLE_STATUSES.includes(application.status)) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      'This application is already under review and can no longer be edited'
+    );
+  }
+
+  assertNoticeAcceptingApplications(application.notice);
+
+  const normalizedSelectedCategory = validateApplicationContent(application.notice, {
+    documents: payload.documents !== undefined ? payload.documents : application.documents,
+    gpa: payload.gpa !== undefined ? payload.gpa : application.gpa,
+    selectedCategoryCode:
+      payload.selectedCategoryCode !== undefined
+        ? payload.selectedCategoryCode
+        : application.selectedCategoryCode
+  });
+
+  if (payload.statement !== undefined) application.statement = payload.statement;
+  if (payload.gpa !== undefined) application.gpa = payload.gpa;
+  if (payload.department !== undefined) application.department = payload.department;
+  if (payload.documents !== undefined) application.documents = payload.documents;
+  application.selectedCategoryCode = normalizedSelectedCategory || undefined;
+
+  const wasReturned = application.status === 'needs_info';
+  if (wasReturned) {
+    // Resubmission: return to the front of the pipeline and record the move.
+    application.reviewHistory.push({
+      fromStatus: 'needs_info',
+      toStatus: 'submitted',
+      actor: studentId,
+      actorRole: ROLES.STUDENT,
+      note: 'Applicant updated and resubmitted the application',
+      at: new Date()
+    });
+    application.status = 'submitted';
+  }
+
+  await application.save();
+
+  if (wasReturned) {
+    // Alert verifiers that a returned application is ready for another look.
+    await notifyScholarshipSubmission({ application, notice: application.notice });
+  }
+
+  return application;
+};
+
+// Applicant withdraws their own application while it is still in their hands.
+// The record is deleted so the unique (notice, student) index frees up and they
+// may apply again while the window is open.
+const withdrawOwnApplication = async ({ applicationId, studentId }) => {
+  const application = await loadOwnedApplication({ applicationId, studentId });
+
+  if (!APPLICANT_EDITABLE_STATUSES.includes(application.status)) {
+    throw new ApiError(
+      StatusCodes.CONFLICT,
+      'This application is already under review and can no longer be withdrawn'
+    );
+  }
+
+  await application.deleteOne();
+
+  return { id: applicationId };
 };
 
 const listApplications = async (query) => {
@@ -715,6 +865,86 @@ const exportApplicationsPdf = async ({ noticeId, status }) => {
   return { buffer, filename: `scholarship-applications-${noticeId}.pdf` };
 };
 
+// Resolves a localized ({ en, bn }) or plain-string field to a display string.
+const pickLocalizedText = (value, lang = 'en') => {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  return value[lang] || value.en || value.bn || '';
+};
+
+// Generates a downloadable award confirmation letter for an approved
+// application. The requesting student may only fetch their own; reviewers may
+// fetch any. Throws unless the application is actually approved.
+const generateAwardLetter = async ({ applicationId, requesterId, requesterRoles = [] }) => {
+  const application = await ScholarshipApplication.findById(applicationId)
+    .populate('notice', 'title scholarshipType categories')
+    .populate('student', 'fullName email department');
+
+  if (!application) {
+    throw new ApiError(StatusCodes.NOT_FOUND, 'Scholarship application not found');
+  }
+
+  const roleList = Array.isArray(requesterRoles)
+    ? requesterRoles
+    : [requesterRoles].filter(Boolean);
+  const isReviewer = roleList.some((role) =>
+    [ROLES.ADMIN, ROLES.MANAGER, ROLES.REVIEWER].includes(role)
+  );
+  const isOwner =
+    application.student && application.student._id.toString() === requesterId.toString();
+
+  if (!isOwner && !isReviewer) {
+    throw new ApiError(StatusCodes.FORBIDDEN, 'You cannot access this award letter');
+  }
+
+  if (application.status !== 'approved') {
+    throw new ApiError(
+      StatusCodes.BAD_REQUEST,
+      'An award letter is only available for approved applications'
+    );
+  }
+
+  const noticeTitle = pickLocalizedText(application.notice && application.notice.title);
+  const recipientName = application.student ? application.student.fullName : 'Applicant';
+
+  let categoryLabel = application.awardedCategoryCode || '';
+  if (application.awardedCategoryCode && application.notice && application.notice.categories) {
+    const category = application.notice.categories.find(
+      (item) => item.code === application.awardedCategoryCode
+    );
+    if (category) {
+      categoryLabel = `${pickLocalizedText(category.name)} (${category.code})`;
+    }
+  }
+
+  const details = [
+    { label: 'Scholarship', value: noticeTitle || '—' },
+    { label: 'Recipient', value: recipientName },
+    { label: 'Department', value: application.department || '—' }
+  ];
+  if (categoryLabel) {
+    details.push({ label: 'Category', value: categoryLabel });
+  }
+  if (application.awardedAmount !== undefined && application.awardedAmount !== null) {
+    details.push({ label: 'Award amount', value: String(application.awardedAmount) });
+  }
+  details.push({
+    label: 'Award date',
+    value: (application.reviewedAt || application.updatedAt || new Date())
+      .toISOString()
+      .slice(0, 10)
+  });
+
+  const buffer = await renderAwardLetterPdf({
+    recipientName,
+    noticeTitle,
+    details,
+    reference: application._id.toString()
+  });
+
+  return { buffer, filename: `scholarship-award-${applicationId}.pdf` };
+};
+
 const getApplicationStatusStats = async ({ noticeId } = {}) => {
   const match = {};
   if (noticeId) {
@@ -751,6 +981,8 @@ module.exports = {
   updateNotice,
   setRecipientPublication,
   applyForScholarship,
+  updateOwnApplication,
+  withdrawOwnApplication,
   listApplications,
   listApplicantApplications,
   reviewApplication,
@@ -759,6 +991,7 @@ module.exports = {
   listUpdates,
   exportApplicationsCsv,
   exportApplicationsPdf,
+  generateAwardLetter,
   getApplicationStatusStats,
   // exported for the workflow and unit tests
   WORKFLOW_TRANSITIONS,

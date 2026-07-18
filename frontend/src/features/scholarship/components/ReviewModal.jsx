@@ -11,6 +11,7 @@ const T = {
   title: { en: 'Review Application', bn: 'আবেদন পর্যালোচনা' },
   decision: { en: 'Decision *', bn: 'সিদ্ধান্ত *' },
   documents_verified: { en: 'Verify Documents', bn: 'নথি যাচাই করুন' },
+  needs_info: { en: 'Return to Applicant', bn: 'আবেদনকারীর কাছে ফেরত দিন' },
   underReview: { en: 'Move to Under Review', bn: 'পর্যালোচনাধীন করুন' },
   shortlisted: { en: 'Shortlist', bn: 'সংক্ষিপ্ত তালিকাভুক্ত করুন' },
   approved: { en: 'Approve (Award)', bn: 'অনুমোদন (পুরস্কার)' },
@@ -25,12 +26,19 @@ const T = {
   saveDecision: { en: 'Save Decision', bn: 'সিদ্ধান্ত সংরক্ষণ' },
   currentStep: { en: 'Current step', bn: 'বর্তমান ধাপ' },
   noActions: { en: 'No review actions are available to you at this stage.', bn: 'এই পর্যায়ে আপনার জন্য কোনো পর্যালোচনা পদক্ষেপ উপলব্ধ নেই।' },
-  history: { en: 'Review Trail', bn: 'পর্যালোচনার ধারা' }
+  history: { en: 'Review Trail', bn: 'পর্যালোচনার ধারা' },
+  documents: { en: 'Submitted Documents', bn: 'জমাকৃত নথিপত্র' },
+  noDocuments: { en: 'No documents were attached to this application.', bn: 'এই আবেদনে কোনো নথি সংযুক্ত করা হয়নি।' },
+  verifyReminder: {
+    en: 'Open each link and confirm it is valid before verifying documents.',
+    bn: 'নথি যাচাই করার আগে প্রতিটি লিঙ্ক খুলে বৈধতা নিশ্চিত করুন।'
+  }
 };
 
 // Human labels for a status value, reused for the "current step" line.
 const STATUS_LABELS = {
   submitted: { en: 'Submitted', bn: 'জমা দেওয়া হয়েছে' },
+  needs_info: { en: 'Returned for Info', bn: 'তথ্যের জন্য ফেরত' },
   documents_verified: { en: 'Documents Verified', bn: 'নথি যাচাইকৃত' },
   under_review: { en: 'Under Review', bn: 'পর্যালোচনাধীন' },
   shortlisted: { en: 'Shortlisted', bn: 'সংক্ষিপ্ত তালিকাভুক্ত' },
@@ -45,6 +53,7 @@ function ReviewModal({
   fallbackCategoryCode,
   initialStatus = 'under_review',
   categories = [],
+  documents = [],
   reviewHistory = [],
   onConfirm
 }) {
@@ -111,6 +120,26 @@ function ReviewModal({
           <p className="meta">
             {t('currentStep')}: {toLocalizedText(STATUS_LABELS[currentStatus] || {}, language) || currentStatus}
           </p>
+
+          <div className="review-documents">
+            <span className="meta">{t('documents')}</span>
+            {documents.length ? (
+              <>
+                <ul className="review-documents__list">
+                  {documents.map((doc, index) => (
+                    <li key={`${doc.url}-${index}`}>
+                      <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                        {doc.name || doc.url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+                <p className="meta review-documents__reminder">{t('verifyReminder')}</p>
+              </>
+            ) : (
+              <p className="meta">{t('noDocuments')}</p>
+            )}
+          </div>
 
           {!!reviewHistory.length && (
             <div className="review-trail">
