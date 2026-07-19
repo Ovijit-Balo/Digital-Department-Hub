@@ -39,19 +39,35 @@ try {
 // Configure CORS with a safe dev-mode fallback.
 // In production, set `FRONTEND_URL` to a comma-separated list of allowed origins.
 const isDev = env.NODE_ENV === 'development';
+
+// Normalize an origin so trivial differences don't cause false CORS rejections:
+// strip surrounding whitespace, drop any trailing slash, and lowercase the
+// scheme+host (origins are case-insensitive on host but not on path — origins
+// have no path, so lowercasing the whole thing is safe). This is the #1 cause
+// of "works locally, breaks in deployment": FRONTEND_URL set with a trailing
+// slash while the browser sends the Origin without one.
+const normalizeOrigin = (value) => (value || '').trim().replace(/\/+$/, '').toLowerCase();
+
 const allowedOrigins = env.FRONTEND_URL && env.FRONTEND_URL !== '*'
-  ? env.FRONTEND_URL.split(',').map((o) => o.trim())
+  ? env.FRONTEND_URL.split(',').map(normalizeOrigin).filter(Boolean)
   : [];
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      // Allow non-browser requests (curl, Postman) without an Origin header
+      // Allow non-browser requests (curl, Postman, health checks) without an Origin header.
       if (!origin) return cb(null, true);
       // In development you may set FRONTEND_URL='*' to allow any origin.
       if (isDev && env.FRONTEND_URL === '*') return cb(null, true);
-      if (allowedOrigins.includes(origin)) return cb(null, true);
-      return cb(new Error('Not allowed by CORS'));
+      if (allowedOrigins.includes(normalizeOrigin(origin))) return cb(null, true);
+      // Reject cleanly: returning `false` (instead of throwing) means the
+      // browser blocks the request via the missing Access-Control-Allow-Origin
+      // header, rather than surfacing a misleading 500 from the error handler.
+      // Log the rejected origin so it can be diagnosed from deployment logs.
+      logger.warn(
+        `CORS: rejected origin "${origin}". Allowed: [${allowedOrigins.join(', ') || 'none — set FRONTEND_URL'}]`
+      );
+      return cb(null, false);
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     allowedHeaders: ['Content-Type', 'Authorization'],
