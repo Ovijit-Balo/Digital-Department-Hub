@@ -10,6 +10,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import InlineAlert from '../../components/ui/InlineAlert';
 import Modal from '../../components/ui/Modal';
 import ReviewModal from '../../features/scholarship/components/ReviewModal';
+import { nextReviewSteps } from '../../features/scholarship/workflow';
 import { ui } from '../../i18n/publicUi';
 import { getApiErrorMessage } from '../../utils/http';
 import { toIsoDate, toLocalizedText } from '../../utils/localized';
@@ -21,6 +22,16 @@ const createEmptyCategory = () => ({
   amount: '',
   slots: 1
 });
+
+// Button label for each workflow step a reviewer can move an application to.
+// Keys match the status values in features/scholarship/workflow.js.
+const STEP_LABEL_KEYS = {
+  documents_verified: 'verifyDocs',
+  under_review: 'moveUnderReview',
+  shortlisted: 'shortlistBtn',
+  approved: 'approve',
+  rejected: 'reject'
+};
 
 // Human-friendly labels + badge classes for the computed application state.
 const STATE_META = {
@@ -166,6 +177,10 @@ const T = {
   reviewBtn: { en: 'Review', bn: 'পর্যালোচনা' },
   approve: { en: 'Approve', bn: 'অনুমোদন' },
   reject: { en: 'Reject', bn: 'প্রত্যাখ্যান' },
+  verifyDocs: { en: 'Verify Documents', bn: 'নথি যাচাই' },
+  moveUnderReview: { en: 'Move to Review', bn: 'পর্যালোচনায় নিন' },
+  shortlistBtn: { en: 'Shortlist', bn: 'সংক্ষিপ্ত তালিকাভুক্ত' },
+  noStepsAvailable: { en: 'No action at this stage', bn: 'এই পর্যায়ে কোনো পদক্ষেপ নেই' },
   reopenTitle: { en: 'Reopen application window', bn: 'আবেদন সময়সীমা পুনরায় খুলুন' },
   reopenLabel: { en: 'Reopen window', bn: 'উইন্ডো পুনরায় খুলুন' },
   noticeCol: { en: 'Notice', bn: 'বিজ্ঞপ্তি' },
@@ -2204,7 +2219,7 @@ function ScholarshipPage() {
           )}
 
           {canReview && (
-            <article className="surface-card">
+            <article className="surface-card workflow-grid__full">
               <div className="section-head section-head-tight">
                 <h3>{t('reviewQueue')}</h3>
                 <div className="inline-actions">
@@ -2240,29 +2255,34 @@ function ScholarshipPage() {
                           <td>{item.gpa}</td>
                           <td>{item.status}</td>
                           <td>
-                            <div className="inline-actions">
-                              <button
-                                type="button"
-                                className="btn btn-ghost"
-                                onClick={() => openReviewModal(item, 'under_review')}
-                              >
-                                {t('reviewBtn')}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost"
-                                onClick={() => openReviewModal(item, 'approved')}
-                              >
-                                {t('approve')}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-ghost"
-                                onClick={() => openReviewModal(item, 'rejected')}
-                              >
-                                {t('reject')}
-                              </button>
-                            </div>
+                            {/* Only offer the steps the workflow actually permits from
+                                this application's current status. Showing a fixed
+                                Review/Approve/Reject trio meant clicking Approve on a
+                                freshly submitted application silently opened the modal
+                                on "Verify Documents" instead — the button promised a
+                                transition the backend rejects. */}
+                            {(() => {
+                              const steps = nextReviewSteps(item.status, user?.roles || []);
+
+                              if (!steps.length) {
+                                return <span className="meta">{t('noStepsAvailable')}</span>;
+                              }
+
+                              return (
+                                <div className="inline-actions">
+                                  {steps.map((step) => (
+                                    <button
+                                      key={step}
+                                      type="button"
+                                      className="btn btn-ghost"
+                                      onClick={() => openReviewModal(item, step)}
+                                    >
+                                      {t(STEP_LABEL_KEYS[step] || 'reviewBtn')}
+                                    </button>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))}
