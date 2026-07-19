@@ -11,14 +11,21 @@ const APPROVER_ROLES = ['admin'];
 export const WORKFLOW_TRANSITIONS = {
   submitted: {
     documents_verified: VERIFY_ROLES,
+    // Bounce a fixable application back to the applicant instead of rejecting.
+    needs_info: VERIFY_ROLES,
+    rejected: VERIFY_ROLES
+  },
+  needs_info: {
     rejected: VERIFY_ROLES
   },
   documents_verified: {
     under_review: REVIEW_ROLES,
+    needs_info: REVIEW_ROLES,
     rejected: REVIEW_ROLES
   },
   under_review: {
     shortlisted: REVIEW_ROLES,
+    needs_info: REVIEW_ROLES,
     rejected: REVIEW_ROLES
   },
   shortlisted: {

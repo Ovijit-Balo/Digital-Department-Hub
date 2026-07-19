@@ -442,6 +442,103 @@ p {
   font-weight: 500;
 }
 
+/* Supporting-document editor inside the scholarship application modal. */
+.scholarship-documents {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  background: var(--surface-muted, rgba(0, 0, 0, 0.02));
+}
+
+.scholarship-documents__hint {
+  margin: 0.2rem 0 0;
+  max-width: 46ch;
+}
+
+/* Name + URL + remove button, collapsing to a stack on narrow screens. */
+.scholarship-documents__row {
+  grid-template-columns: 1fr 1.4fr auto;
+  align-items: end;
+}
+
+.scholarship-documents__remove {
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .scholarship-documents__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Read-only document link lists (applicant status card + review modal). */
+.scholarship-documents__list,
+.review-documents {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.scholarship-documents__links,
+.review-documents__list {
+  list-style: disc;
+  margin: 0.2rem 0 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.review-documents {
+  padding: 0.75rem;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  background: var(--surface-muted, rgba(0, 0, 0, 0.02));
+}
+
+.review-documents__reminder {
+  margin: 0.35rem 0 0;
+}
+
+.scholarship-documents__required {
+  color: var(--danger);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.scholarship-notice-card__docs-flag {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+/* Inline checkbox + label + hint, used for the per-notice documents toggle. */
+.checkbox-field {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.checkbox-field input[type='checkbox'] {
+  margin-top: 0.2rem;
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.checkbox-field > span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.checkbox-field__hint {
+  font-weight: 400;
+}
+
 @keyframes modalOverlayIn {
   from {
     opacity: 0;

@@ -16,6 +16,17 @@ export const scholarshipApi = {
   apply(noticeId, payload) {
     return apiClient.post(`/scholarships/notices/${noticeId}/applications`, payload);
   },
+  updateMyApplication(applicationId, payload) {
+    return apiClient.patch(`/scholarships/my-applications/${applicationId}`, payload);
+  },
+  withdrawMyApplication(applicationId) {
+    return apiClient.delete(`/scholarships/my-applications/${applicationId}`);
+  },
+  downloadAwardLetter(applicationId) {
+    return apiClient.get(`/scholarships/applications/${applicationId}/award-letter`, {
+      responseType: 'blob'
+    });
+  },
   listApplications(params = {}) {
     return apiClient.get('/scholarships/applications', { params });
   },
