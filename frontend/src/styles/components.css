@@ -265,15 +265,26 @@
   transform: rotate(180deg);
 }
 
+/* Animated open/close without a height cap. The usual `max-height: 2000px`
+   trick silently clips any section taller than the guessed value — the admin
+   scholarship panel outgrew it and lost its whole review queue. Animating a
+   grid row between 0fr and 1fr resolves to the content's real height, so the
+   section can be any length. */
 .collapsible-content {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease-out;
 }
 
 .collapsible-content.is-open {
-  max-height: 2000px;
-  transition: max-height 0.5s ease-in;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.5s ease-in;
+}
+
+.collapsible-clip {
+  /* A grid item's default min-height:auto would refuse to shrink to 0fr. */
+  min-height: 0;
+  overflow: hidden;
 }
 
 .collapsible-inner {
@@ -2357,6 +2368,13 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: 1rem;
+}
+
+/* Panels holding a wide table need the whole row: in a half-width column the
+   table overflows its card and the rightmost columns (status, action buttons)
+   sit behind a horizontal scrollbar where nobody finds them. */
+.workflow-grid-2 > .workflow-grid__full {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 720px) {
