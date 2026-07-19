@@ -808,6 +808,18 @@ body {
    ====================================================================== */
 
 /* ---- Flat dropdown triggers (drop the heavy gradient pills) ---- */
+
+/* The wrapper is a block around an inline-flex button, so it picked up a
+   line-box strut and sat taller than the sibling .nav-link anchors. Make it a
+   flex box so its height is exactly the trigger's. Desktop only — below 769px
+   the panel is in-flow and must keep stacking under the trigger. */
+@media (min-width: 769px) {
+  .public-nav .nav-dropdown {
+    display: flex;
+    align-items: center;
+  }
+}
+
 .public-nav .nav-dropdown__summary {
   position: relative;
   background: transparent;
@@ -815,18 +827,35 @@ body {
   box-shadow: none;
   font-weight: 500;
   color: var(--text);
-  padding: 0.5rem 1.35rem 0.5rem 0.75rem;
+  /* Match .nav-link's box exactly (0.45rem/0.7rem + inherited line-height), so
+     triggers and links share one baseline. Buttons don't inherit line-height,
+     which is what knocked the label off the row. Extra right padding is the
+     chevron's reserved lane. */
+  font-size: 0.9rem;
+  line-height: 1.6;
+  padding: 0.45rem 1.5rem 0.45rem 0.7rem;
+  gap: 0;
   transition:
     color 200ms var(--ease),
     background-color 200ms var(--ease);
+}
+
+/* Chevron is taken out of flow so the label starts at the same offset as a
+   .nav-link's text and the underline can stop short of it. */
+.public-nav .nav-dropdown__summary::after {
+  position: absolute;
+  right: 0.66rem;
+  top: 50%;
+  margin: 0;
+  transform: translateY(-58%) rotate(45deg);
 }
 
 /* Animated cardinal underline, matching .public-nav .nav-link */
 .public-nav .nav-dropdown__summary::before {
   content: '';
   position: absolute;
-  left: 0.75rem;
-  right: 1.35rem;
+  left: 0.6rem;
+  right: 1.4rem;
   bottom: 0.28rem;
   height: 2px;
   border-radius: 2px;
@@ -851,7 +880,7 @@ body {
 
 /* Chevron flips up when the panel is open */
 .public-nav .nav-dropdown--open > .nav-dropdown__summary::after {
-  transform: rotate(-135deg) translateY(1px);
+  transform: translateY(-42%) rotate(-135deg);
   opacity: 1;
 }
 

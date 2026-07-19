@@ -12,7 +12,12 @@ function CollapsibleSection({ title, defaultOpen = false, children }) {
         </span>
       </div>
       <div className={`collapsible-content${isOpen ? ' is-open' : ''}`}>
-        <div className="collapsible-inner">{children}</div>
+        {/* The clip wrapper is the animated grid row. Padding lives on the
+            inner element so the row can collapse to a true zero height —
+            padding on the row itself keeps it propped open a few pixels. */}
+        <div className="collapsible-clip">
+          <div className="collapsible-inner">{children}</div>
+        </div>
       </div>
     </div>
   );

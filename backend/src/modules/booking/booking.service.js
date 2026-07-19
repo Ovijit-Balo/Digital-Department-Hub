@@ -341,6 +341,17 @@ const reviewBooking = async ({ bookingId, approverId, status, decisionNote }) =>
       throw new ApiError(StatusCodes.NOT_FOUND, 'Booking request not found');
     }
 
+    // Separation of duties: admins and managers may request venues like anyone
+    // else, but a request must be decided by someone other than its requester —
+    // otherwise the approval workflow is a no-op for the people who hold both
+    // permissions. Another admin/manager has to action their request.
+    if (booking.requester.toString() === approverId.toString()) {
+      throw new ApiError(
+        StatusCodes.FORBIDDEN,
+        'You cannot decide your own booking request — another admin or manager must review it'
+      );
+    }
+
     if (booking.status !== 'pending') {
       throw new ApiError(StatusCodes.CONFLICT, 'Only pending bookings can be reviewed');
     }

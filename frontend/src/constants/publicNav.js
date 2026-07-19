@@ -9,7 +9,8 @@ export const PUBLIC_NAV_CONTENT = [
   { to: '/news', label: { en: 'News', bn: 'সংবাদ' } },
   { to: '/announcements', label: { en: 'Announcements', bn: 'ঘোষণা' } },
   { to: '/blogs', label: { en: 'Blog', bn: 'ব্লগ' } },
-  { to: '/gallery', label: { en: 'Gallery', bn: 'গ্যালারি' } }
+  { to: '/gallery', label: { en: 'Gallery', bn: 'গ্যালারি' } },
+  { to: '/pages', label: { en: 'Pages', bn: 'পৃষ্ঠা' } }
 ];
 
 export const PUBLIC_NAV_SERVICES = [

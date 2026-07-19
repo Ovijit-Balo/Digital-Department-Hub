@@ -446,6 +446,26 @@ const reviewApplication = async ({
   );
 
   if (status === 'approved') {
+    // Department policy: a student may hold only one scholarship award at a
+    // time. Applying to several notices stays allowed — an applicant cannot
+    // know in advance which they will win — so the cap is enforced here at the
+    // award step rather than at submission. Reviewers work one notice at a
+    // time and cannot see a student's awards elsewhere, so name the conflicting
+    // notice in the error or the block looks arbitrary.
+    const existingAward = await ScholarshipApplication.findOne({
+      student: application.student,
+      status: 'approved',
+      _id: { $ne: application._id }
+    }).populate('notice', 'title');
+
+    if (existingAward) {
+      const heldNotice = existingAward.notice?.title?.en || 'another scholarship';
+      throw new ApiError(
+        StatusCodes.CONFLICT,
+        `This student already holds an approved scholarship ("${heldNotice}"). A student may hold only one award — reopen or reject that one before awarding this.`
+      );
+    }
+
     if (application.notice.categories.length && !normalizedAwardCategory) {
       throw new ApiError(
         StatusCodes.BAD_REQUEST,

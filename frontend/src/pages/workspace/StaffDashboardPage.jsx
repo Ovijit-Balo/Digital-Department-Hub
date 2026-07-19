@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { bookingApi, contactApi, notificationApi, scholarshipApi, workqueueApi } from '../../api/modules';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import useLanguage from '../../hooks/useLanguage';
 import { getApiErrorMessage } from '../../utils/http';
@@ -30,6 +31,10 @@ const T = {
   unknown: { en: 'Unknown', bn: 'অজানা' },
   approve: { en: 'Approve', bn: 'অনুমোদন' },
   reject: { en: 'Reject', bn: 'প্রত্যাখ্যান' },
+  ownRequestNote: {
+    en: 'Your own request — another reviewer must decide',
+    bn: 'আপনার নিজের অনুরোধ — অন্য পর্যালোচককে সিদ্ধান্ত নিতে হবে'
+  },
   inquiryQueue: { en: 'New Inquiry Queue', bn: 'নতুন জিজ্ঞাসা সারি' },
   noInquiries: { en: 'No new inquiries at the moment.', bn: 'এই মুহূর্তে কোনো নতুন জিজ্ঞাসা নেই।' },
   sender: { en: 'Sender', bn: 'প্রেরক' },
@@ -94,6 +99,14 @@ function StaffDashboardPage() {
   const { language } = useLanguage();
   const t = (key) => toLocalizedText(T[key], language);
   const { success, error: toastError, info } = useToast();
+  const { user } = useAuth();
+
+  // The API rejects self-approval (separation of duties), so don't offer the
+  // decision buttons on a request this user raised themselves. Note the shapes
+  // differ: the signed-in user carries `id`, populated requesters carry `_id`.
+  const isOwnRequest = (booking) =>
+    Boolean(user?.id) && String(booking.requester?._id || '') === String(user.id);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [snapshot, setSnapshot] = useState({
@@ -402,22 +415,26 @@ function StaffDashboardPage() {
                       <span className={`status-badge status-${item.status}`}>{item.status}</span>
                     </td>
                     <td>
-                      <div className="inline-actions">
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => reviewBooking(item._id, 'approved')}
-                        >
-                          {t('approve')}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => reviewBooking(item._id, 'rejected')}
-                        >
-                          {t('reject')}
-                        </button>
-                      </div>
+                      {isOwnRequest(item) ? (
+                        <span className="meta">{t('ownRequestNote')}</span>
+                      ) : (
+                        <div className="inline-actions">
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => reviewBooking(item._id, 'approved')}
+                          >
+                            {t('approve')}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => reviewBooking(item._id, 'rejected')}
+                          >
+                            {t('reject')}
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
