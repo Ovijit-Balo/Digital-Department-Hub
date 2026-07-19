@@ -67,6 +67,8 @@ const T = {
   submitFeedback: { en: 'Submit Feedback', bn: 'মতামত জমা দিন' },
   editEvent: { en: 'Edit Event', bn: 'ইভেন্ট সম্পাদনা' },
   createEvent: { en: 'Create Event', bn: 'ইভেন্ট তৈরি' },
+  eventToEdit: { en: 'Event to edit', bn: 'সম্পাদনার ইভেন্ট' },
+  createNewEvent: { en: '— Create new event —', bn: '— নতুন ইভেন্ট তৈরি —' },
   title: { en: 'Title', bn: 'শিরোনাম' },
   description: { en: 'Description', bn: 'বিবরণ' },
   startTime: { en: 'Start Time', bn: 'শুরুর সময়' },
@@ -106,6 +108,15 @@ const T = {
   titleCancelFailed: { en: 'Cancellation failed', bn: 'বাতিল ব্যর্থ' },
   msgEventUpdated: { en: 'Event updated successfully.', bn: 'ইভেন্ট সফলভাবে আপডেট হয়েছে।' },
   titleEventUpdated: { en: 'Event updated', bn: 'ইভেন্ট আপডেট হয়েছে' },
+  deleteEvent: { en: 'Delete Event', bn: 'ইভেন্ট মুছুন' },
+  deleteEventTitle: { en: 'Delete Event', bn: 'ইভেন্ট মুছুন' },
+  msgEventDeleted: { en: 'Event deleted.', bn: 'ইভেন্ট মুছে ফেলা হয়েছে।' },
+  titleEventDeleted: { en: 'Event deleted', bn: 'ইভেন্ট মুছে ফেলা হয়েছে' },
+  msgEventDeleteFailed: {
+    en: 'Could not delete the event. Please try again.',
+    bn: 'ইভেন্ট মুছে ফেলা যায়নি। আবার চেষ্টা করুন।'
+  },
+  titleEventDeleteFailed: { en: 'Delete failed', bn: 'মুছে ফেলা ব্যর্থ' },
   msgEventPublished: { en: 'Event published successfully.', bn: 'ইভেন্ট সফলভাবে প্রকাশিত হয়েছে।' },
   titleEventCreated: { en: 'Event created', bn: 'ইভেন্ট তৈরি হয়েছে' },
   msgEventSaveFailed: { en: 'Failed to create/update event.', bn: 'ইভেন্ট তৈরি/আপডেট করতে ব্যর্থ।' },
@@ -136,6 +147,8 @@ function EventsPage() {
   const [myRegistrations, setMyRegistrations] = useState([]);
   const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [deleteEventTarget, setDeleteEventTarget] = useState(null);
+  const [deleteEventBusy, setDeleteEventBusy] = useState(false);
   const [calendarItems, setCalendarItems] = useState([]);
   function getDefaultCalendarRange() {
     const start = new Date();
@@ -436,6 +449,42 @@ function EventsPage() {
       const nextMessage = getApiErrorMessage(apiError, t('msgEventSaveFailed'));
       setMessage(nextMessage);
       toastError(nextMessage, { title: t('titleEventSaveFailed') });
+    }
+  };
+
+  const confirmDeleteEvent = async () => {
+    if (!deleteEventTarget) {
+      return;
+    }
+
+    setDeleteEventBusy(true);
+
+    try {
+      await eventApi.deleteEvent(deleteEventTarget._id);
+      setMessage(t('msgEventDeleted'));
+      success(t('msgEventDeleted'), { title: t('titleEventDeleted') });
+      if (selectedEventId === deleteEventTarget._id) {
+        setSelectedEventId('');
+        setCreateEventForm({
+          title: '',
+          description: '',
+          location: '',
+          startTime: '',
+          endTime: '',
+          registrationDeadline: '',
+          capacity: 120,
+          status: 'published'
+        });
+      }
+      setDeleteEventTarget(null);
+      await Promise.all([loadEvents(), loadCalendar()]);
+    } catch (apiError) {
+      const nextMessage = getApiErrorMessage(apiError, t('msgEventDeleteFailed'));
+      setMessage(nextMessage);
+      toastError(nextMessage, { title: t('titleEventDeleteFailed') });
+      setDeleteEventTarget(null);
+    } finally {
+      setDeleteEventBusy(false);
     }
   };
 
@@ -851,6 +900,37 @@ function EventsPage() {
               <h3>{selectedEventId ? t('editEvent') : t('createEvent')}</h3>
               <form className="form-grid" onSubmit={submitEvent}>
                 <label>
+                  {t('eventToEdit')}
+                  <select
+                    value={selectedEventId}
+                    onChange={(event) => {
+                      const nextId = event.target.value;
+                      setSelectedEventId(nextId);
+                      // Clearing the selection returns the form to "create" mode
+                      // with a blank slate.
+                      if (!nextId) {
+                        setCreateEventForm({
+                          title: '',
+                          description: '',
+                          location: '',
+                          startTime: '',
+                          endTime: '',
+                          registrationDeadline: '',
+                          capacity: 120,
+                          status: 'published'
+                        });
+                      }
+                    }}
+                  >
+                    <option value="">{t('createNewEvent')}</option>
+                    {events.map((item) => (
+                      <option key={item._id} value={item._id}>
+                        {item.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
                   {t('title')}
                   <input
                     value={createEventForm.title}
@@ -941,25 +1021,34 @@ function EventsPage() {
                     {selectedEventId ? t('updateEvent') : t('publishEvent')}
                   </button>
                   {selectedEventId && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => {
-                        setSelectedEventId('');
-                        setCreateEventForm({
-                          title: '',
-                          description: '',
-                          location: '',
-                          startTime: '',
-                          endTime: '',
-                          registrationDeadline: '',
-                          capacity: 120,
-                          status: 'published'
-                        });
-                      }}
-                    >
-                      {t('cancel')}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => {
+                          setSelectedEventId('');
+                          setCreateEventForm({
+                            title: '',
+                            description: '',
+                            location: '',
+                            startTime: '',
+                            endTime: '',
+                            registrationDeadline: '',
+                            capacity: 120,
+                            status: 'published'
+                          });
+                        }}
+                      >
+                        {t('cancel')}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => setDeleteEventTarget(selectedEvent)}
+                      >
+                        {t('deleteEvent')}
+                      </button>
+                    </>
                   )}
                 </div>
               </form>
@@ -1055,6 +1144,27 @@ function EventsPage() {
         confirmLabel={t('cancelRegLabel')}
         tone="danger"
         busy={cancelBusy}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(deleteEventTarget)}
+        onClose={() => setDeleteEventTarget(null)}
+        onConfirm={confirmDeleteEvent}
+        title={t('deleteEventTitle')}
+        message={toLocalizedText(
+          {
+            en: `Delete "${
+              deleteEventTarget?.title || 'this event'
+            }"? This cannot be undone. All registrations will be removed and attendees will lose their passes.`,
+            bn: `"${
+              deleteEventTarget?.title || 'এই ইভেন্ট'
+            }" মুছে ফেলবেন? এটি ফিরিয়ে আনা যাবে না। সমস্ত নিবন্ধন সরানো হবে এবং অংশগ্রহণকারীরা তাদের পাস হারাবেন।`
+          },
+          language
+        )}
+        confirmLabel={t('deleteEvent')}
+        tone="danger"
+        busy={deleteEventBusy}
       />
     </section>
   );

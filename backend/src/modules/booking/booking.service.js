@@ -2,8 +2,15 @@ const { StatusCodes } = require('http-status-codes');
 const mongoose = require('mongoose');
 const Venue = require('./venue.model');
 const VenueBooking = require('./venueBooking.model');
+const Event = require('../event/event.model');
 const ApiError = require('../../utils/ApiError');
+const { canManageResource } = require('../../utils/resourceAccess');
+const { ROLES } = require('../../config/roles');
 const { notifyBookingDecision } = require('../notification/notificationEvents');
+
+// Bookings may be managed (edited/deleted) by their requester or by any
+// admin/manager. Editors have no role in the booking workflow.
+const BOOKING_MANAGER_ROLES = [ROLES.ADMIN, ROLES.MANAGER];
 
 const buildPagination = ({ page, limit }) => {
   const parsedPage = Number(page || 1);
@@ -208,6 +215,114 @@ const cancelMyBooking = async ({ bookingId, requesterId }) => {
   return booking;
 };
 
+// Edit a booking's details. The requester or any admin/manager may edit. When
+// the booking has a linked published event, matching fields are propagated so
+// the two records stay consistent. Cancelled/rejected bookings are frozen.
+const updateBooking = async ({ bookingId, payload, user }) => {
+  return runInTransaction(async (session) => {
+    const booking = await VenueBooking.findById(bookingId).session(session);
+
+    if (!booking) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Booking request not found');
+    }
+
+    if (!canManageResource(user, booking.requester, BOOKING_MANAGER_ROLES)) {
+      throw new ApiError(
+        StatusCodes.FORBIDDEN,
+        'You can only modify your own booking requests unless you are an admin or manager'
+      );
+    }
+
+    if (['cancelled', 'rejected'].includes(booking.status)) {
+      throw new ApiError(StatusCodes.CONFLICT, 'Cancelled or rejected bookings cannot be edited');
+    }
+
+    const fields = ['title', 'purpose', 'bookingType', 'classCode', 'attendeeCount'];
+    fields.forEach((field) => {
+      if (payload[field] !== undefined) {
+        booking[field] = payload[field];
+      }
+    });
+    if (payload.venue !== undefined) booking.venue = payload.venue;
+    if (payload.startTime !== undefined) booking.startTime = payload.startTime;
+    if (payload.endTime !== undefined) booking.endTime = payload.endTime;
+
+    // An approved booking still holds its slot, so any time/venue change must be
+    // re-checked against other approved bookings before it is saved.
+    if (
+      booking.status === 'approved' &&
+      (payload.startTime !== undefined || payload.endTime !== undefined || payload.venue !== undefined)
+    ) {
+      const conflicts = await detectConflicts({
+        venueId: booking.venue,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        excludeBookingId: booking._id,
+        statuses: ['approved'],
+        session
+      });
+
+      if (conflicts.length) {
+        throw new ApiError(StatusCodes.CONFLICT, 'Updated time conflicts with an existing approved booking', {
+          conflictBookingId: conflicts[0]._id
+        });
+      }
+    }
+
+    await booking.save({ session });
+
+    // Keep a linked event in sync with the booking's shared fields.
+    if (booking.eventId) {
+      const event = await Event.findById(booking.eventId).session(session);
+      if (event && event.status !== 'cancelled') {
+        event.title = booking.title;
+        event.description = booking.purpose;
+        event.startTime = booking.startTime;
+        event.endTime = booking.endTime;
+        event.capacity = booking.attendeeCount;
+        if (event.registrationDeadline > booking.startTime) {
+          event.registrationDeadline = booking.startTime;
+        }
+        await event.save({ session });
+      }
+    }
+
+    return booking;
+  });
+};
+
+// Delete a booking. The requester or any admin/manager may delete. A linked
+// published event is cancelled (not deleted) so existing registrations retain
+// a record of what happened.
+const deleteBooking = async ({ bookingId, user }) => {
+  return runInTransaction(async (session) => {
+    const booking = await VenueBooking.findById(bookingId).session(session);
+
+    if (!booking) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Booking request not found');
+    }
+
+    if (!canManageResource(user, booking.requester, BOOKING_MANAGER_ROLES)) {
+      throw new ApiError(
+        StatusCodes.FORBIDDEN,
+        'You can only delete your own booking requests unless you are an admin or manager'
+      );
+    }
+
+    if (booking.eventId) {
+      const event = await Event.findById(booking.eventId).session(session);
+      if (event && event.status !== 'cancelled') {
+        event.status = 'cancelled';
+        event.sourceBooking = null;
+        await event.save({ session });
+      }
+    }
+
+    await booking.deleteOne({ session });
+    return booking;
+  });
+};
+
 const listBookings = async (query) => {
   const filter = {};
 
@@ -386,6 +501,41 @@ const reviewBooking = async ({ bookingId, approverId, status, decisionNote }) =>
     booking.approver = approverId;
     booking.decisionAt = new Date();
     booking.decisionNote = decisionNote || '';
+
+    // Approving an "event"-type booking publishes a matching public Event so it
+    // shows up on the Events tab for registration. Other booking types (class,
+    // lab, other) are private room reservations and never surface as events.
+    if (status === 'approved' && booking.bookingType === 'event') {
+      const venue = await Venue.findById(booking.venue).select('name location').session(session);
+
+      const [event] = await Event.create(
+        [
+          {
+            title: booking.title,
+            description: booking.purpose,
+            location: venue ? `${venue.name}${venue.location ? ` — ${venue.location}` : ''}` : booking.title,
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            // Bookings carry no separate registration deadline; default it to the
+            // event start so registration stays open until the event begins.
+            registrationDeadline: booking.startTime,
+            // Seat count comes from the requested attendee count.
+            capacity: booking.attendeeCount,
+            status: 'published',
+            // The approver owns the event so someone with event-management
+            // rights can edit it; the original requester is kept separately.
+            createdBy: approverId,
+            requestedBy: booking.requester,
+            sourceBooking: booking._id
+          }
+        ],
+        { session }
+      );
+
+      // Link back so cancelling/deleting either side can cascade to the other.
+      booking.eventId = event._id;
+    }
+
     await booking.save({ session });
 
     return booking;
@@ -403,6 +553,8 @@ module.exports = {
   listVenues,
   requestBooking,
   cancelMyBooking,
+  updateBooking,
+  deleteBooking,
   listBookings,
   listMyBookings,
   listCalendar,

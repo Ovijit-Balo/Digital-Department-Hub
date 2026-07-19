@@ -119,7 +119,7 @@ const listRegistrations = asyncHandler(async (req, res) => {
 });
 
 const updateEvent = asyncHandler(async (req, res) => {
-  const event = await eventService.updateEvent(req.params.eventId, req.body, req.user._id);
+  const event = await eventService.updateEvent(req.params.eventId, req.body, req.user);
 
   res.locals.auditMeta = {
     action: 'UPDATE_EVENT',
@@ -129,6 +129,19 @@ const updateEvent = asyncHandler(async (req, res) => {
   };
 
   res.status(StatusCodes.OK).json({ event });
+});
+
+const deleteEvent = asyncHandler(async (req, res) => {
+  const event = await eventService.deleteEvent(req.params.eventId, req.user);
+
+  res.locals.auditMeta = {
+    action: 'DELETE_EVENT',
+    entityType: 'Event',
+    entityId: event._id.toString(),
+    before: event
+  };
+
+  res.status(StatusCodes.OK).json({ success: true });
 });
 
 module.exports = {
@@ -143,5 +156,6 @@ module.exports = {
   listRegistrations,
   listMyRegistrations,
   cancelRegistration,
-  updateEvent
+  updateEvent,
+  deleteEvent
 };

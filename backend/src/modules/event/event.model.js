@@ -49,6 +49,20 @@ const eventSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true
+    },
+    // Set when this event was auto-created from an approved venue booking.
+    // Links the two records so cancelling/deleting one can cascade to the other.
+    sourceBooking: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'VenueBooking',
+      default: null
+    },
+    // The user who originally requested the source booking (may differ from
+    // createdBy, which is the approver for auto-created events).
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
     }
   },
   {

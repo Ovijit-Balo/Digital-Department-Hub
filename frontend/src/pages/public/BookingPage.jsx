@@ -59,6 +59,16 @@ const T = {
   endTime: { en: 'End Time', bn: 'শেষ সময়' },
   attendeeCount: { en: 'Attendee Count', bn: 'অংশগ্রহণকারীর সংখ্যা' },
   submitBooking: { en: 'Submit Booking Request', bn: 'বুকিং অনুরোধ জমা দিন' },
+  updateBooking: { en: 'Update Booking', bn: 'বুকিং আপডেট' },
+  editBooking: { en: 'Edit Booking', bn: 'বুকিং সম্পাদনা' },
+  delete: { en: 'Delete', bn: 'মুছুন' },
+  deleteBookingTitle: { en: 'Delete Booking', bn: 'বুকিং মুছুন' },
+  msgBookingUpdated: { en: 'Booking updated.', bn: 'বুকিং আপডেট হয়েছে।' },
+  msgBookingDeleted: { en: 'Booking deleted.', bn: 'বুকিং মুছে ফেলা হয়েছে।' },
+  msgDeleteFailed: {
+    en: 'Could not delete the booking. Please try again.',
+    bn: 'বুকিং মুছে ফেলা যায়নি। আবার চেষ্টা করুন।'
+  },
   checkConflict: { en: 'Check Conflict Window', bn: 'দ্বন্দ্ব যাচাই করুন' },
   status: { en: 'Status', bn: 'অবস্থা' },
   start: { en: 'Start', bn: 'শুরু' },
@@ -148,6 +158,20 @@ function BookingPage() {
   const canApprove = useRole('admin', 'manager');
   const canCheckConflicts = useRole('admin', 'manager', 'editor');
 
+  // Mirrors the backend rule (canManageResource): a booking can be edited or
+  // deleted by its requester or by any admin/manager. Cancelled and rejected
+  // bookings are frozen, so no controls are offered for them.
+  const canManageBooking = (item) => {
+    if (['cancelled', 'rejected'].includes(item.status)) {
+      return false;
+    }
+    if (canApprove) {
+      return true;
+    }
+    const requesterId = item.requester?._id || item.requester;
+    return Boolean(user?.id) && requesterId === user.id;
+  };
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -171,6 +195,7 @@ function BookingPage() {
   });
 
   const [bookingForm, setBookingForm] = useState({
+    id: '',
     venue: '',
     title: '',
     purpose: '',
@@ -180,6 +205,8 @@ function BookingPage() {
     endTime: '',
     attendeeCount: 30
   });
+  const [deleteBookingTarget, setDeleteBookingTarget] = useState(null);
+  const [deleteBookingBusy, setDeleteBookingBusy] = useState(false);
 
   const [venueForm, setVenueForm] = useState({
     id: '',
@@ -320,29 +347,97 @@ function BookingPage() {
       return;
     }
 
-    try {
-      await bookingApi.requestBooking({
-        ...bookingForm,
-        bookingType: bookingForm.bookingType,
-        classCode: bookingForm.bookingType === 'class' ? bookingForm.classCode : undefined,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-        attendeeCount: Number(bookingForm.attendeeCount)
-      });
+    const payload = {
+      venue: bookingForm.venue,
+      title: bookingForm.title,
+      purpose: bookingForm.purpose,
+      bookingType: bookingForm.bookingType,
+      classCode: bookingForm.bookingType === 'class' ? bookingForm.classCode : undefined,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      attendeeCount: Number(bookingForm.attendeeCount)
+    };
 
-      setMessage(t('msgBookingSubmitted'));
-      setBookingForm((prev) => ({
-        ...prev,
-        title: '',
-        purpose: '',
-        classCode: '',
-        startTime: '',
-        endTime: '',
-        attendeeCount: 30
-      }));
+    try {
+      if (bookingForm.id) {
+        await bookingApi.updateBooking(bookingForm.id, payload);
+        setMessage(t('msgBookingUpdated'));
+      } else {
+        await bookingApi.requestBooking(payload);
+        setMessage(t('msgBookingSubmitted'));
+      }
+      resetBookingForm();
       await Promise.all([loadBookings(), loadMyBookings(), loadCalendar()]);
     } catch (apiError) {
       setMessage(getApiErrorMessage(apiError, t('msgBookingFailed')));
+    }
+  };
+
+  const resetBookingForm = () => {
+    setBookingForm((prev) => ({
+      ...prev,
+      id: '',
+      title: '',
+      purpose: '',
+      bookingType: 'event',
+      classCode: '',
+      startTime: '',
+      endTime: '',
+      attendeeCount: 30
+    }));
+    setFormErrors({});
+  };
+
+  // Load a booking into the request form for editing. datetime-local inputs need
+  // a local "YYYY-MM-DDTHH:mm" value, so convert from the stored ISO string.
+  const editBooking = (item) => {
+    const toLocalInput = (iso) => {
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+      const offsetMs = date.getTimezoneOffset() * 60000;
+      return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+    };
+
+    setBookingForm({
+      id: item._id,
+      venue: item.venue?._id || item.venue || '',
+      title: item.title || '',
+      purpose: item.purpose || '',
+      bookingType: item.bookingType || 'event',
+      classCode: item.classCode || '',
+      startTime: toLocalInput(item.startTime),
+      endTime: toLocalInput(item.endTime),
+      attendeeCount: item.attendeeCount || 30
+    });
+    setFormErrors({});
+    setMessage('');
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const confirmDeleteBooking = async () => {
+    if (!deleteBookingTarget) {
+      return;
+    }
+
+    setDeleteBookingBusy(true);
+
+    try {
+      await bookingApi.deleteBooking(deleteBookingTarget._id);
+      setMessage(t('msgBookingDeleted'));
+      if (bookingForm.id === deleteBookingTarget._id) {
+        resetBookingForm();
+      }
+      setDeleteBookingTarget(null);
+      await Promise.all([loadBookings(), loadMyBookings(), loadCalendar()]);
+    } catch (apiError) {
+      setMessage(getApiErrorMessage(apiError, t('msgDeleteFailed')));
+      setDeleteBookingTarget(null);
+    } finally {
+      setDeleteBookingBusy(false);
     }
   };
 
@@ -692,7 +787,7 @@ function BookingPage() {
       {isAuthenticated && (
         <div className="workflow-grid booking-section">
           <article className="surface-card">
-            <h3>{t('requestBooking')}</h3>
+            <h3>{bookingForm.id ? t('editBooking') : t('requestBooking')}</h3>
             <form className="form-grid" onSubmit={submitBooking}>
               <label>
                 {t('venue')}
@@ -835,8 +930,14 @@ function BookingPage() {
               </label>
 
               <button type="submit" className="btn btn-primary">
-                {t('submitBooking')}
+                {bookingForm.id ? t('updateBooking') : t('submitBooking')}
               </button>
+
+              {bookingForm.id && (
+                <button type="button" className="btn btn-ghost" onClick={resetBookingForm}>
+                  {t('cancelEdit')}
+                </button>
+              )}
 
               {canCheckConflicts && (
                 <button type="button" className="btn btn-ghost" onClick={runConflictCheck}>
@@ -904,17 +1005,50 @@ function BookingPage() {
                         </td>
                         <td>{item.decisionNote || '-'}</td>
                         <td>
-                          {item.status === 'pending' ? (
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => setCancelTarget(item)}
-                            >
-                              {t('cancel')}
-                            </button>
-                          ) : (
-                            '-'
-                          )}
+                          {(() => {
+                            const showCancel = item.status === 'pending';
+                            const showEdit = canManageBooking(item);
+                            // Delete removes the record entirely (and cancels any
+                            // linked event); keep it out of the student self-service
+                            // view and reserve it for admins/managers.
+                            const showDelete = canApprove && canManageBooking(item);
+
+                            if (!showCancel && !showEdit && !showDelete) {
+                              return '-';
+                            }
+
+                            return (
+                              <div className="inline-actions">
+                                {showCancel && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-sm"
+                                    onClick={() => setCancelTarget(item)}
+                                  >
+                                    {t('cancel')}
+                                  </button>
+                                )}
+                                {showEdit && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-sm"
+                                    onClick={() => editBooking(item)}
+                                  >
+                                    {t('edit')}
+                                  </button>
+                                )}
+                                {showDelete && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-sm"
+                                    onClick={() => setDeleteBookingTarget(item)}
+                                  >
+                                    {t('delete')}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))}
@@ -1091,6 +1225,20 @@ function BookingPage() {
                             >
                               {t('reject')}
                             </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => editBooking(item)}
+                            >
+                              {t('edit')}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={() => setDeleteBookingTarget(item)}
+                            >
+                              {t('delete')}
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1164,6 +1312,27 @@ function BookingPage() {
         confirmLabel={t('cancelRequestLabel')}
         tone="danger"
         busy={cancelBusy}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(deleteBookingTarget)}
+        onClose={() => setDeleteBookingTarget(null)}
+        onConfirm={confirmDeleteBooking}
+        title={t('deleteBookingTitle')}
+        message={toLocalizedText(
+          {
+            en: `Delete the booking for ${
+              deleteBookingTarget?.venue?.name || 'this venue'
+            }? This cannot be undone, and any linked event will be cancelled.`,
+            bn: `${
+              deleteBookingTarget?.venue?.name || 'এই ভেন্যু'
+            }-এর বুকিং মুছে ফেলবেন? এটি ফিরিয়ে আনা যাবে না, এবং সংযুক্ত যেকোনো ইভেন্ট বাতিল হয়ে যাবে।`
+          },
+          language
+        )}
+        confirmLabel={t('delete')}
+        tone="danger"
+        busy={deleteBookingBusy}
       />
     </section>
   );

@@ -65,6 +65,13 @@ const venueBookingSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 1200
+    },
+    // Set when approving this booking auto-created a public Event (bookingType
+    // 'event'). Links the two so cancelling one can cascade to the other.
+    eventId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Event',
+      default: null
     }
   },
   {

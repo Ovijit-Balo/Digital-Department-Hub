@@ -57,6 +57,24 @@ router.patch(
   bookingController.cancelMyBooking
 );
 
+// Edit / delete a booking. Reachable by any requester role; ownership (creator
+// or admin/manager) is enforced in the service via canManageResource.
+router.patch(
+  '/requests/:bookingId',
+  authenticate,
+  authorize(ROLES.STUDENT, ROLES.ADMIN, ROLES.EDITOR, ROLES.MANAGER, ROLES.REVIEWER),
+  validate(bookingValidation.updateBooking),
+  bookingController.updateBooking
+);
+
+router.delete(
+  '/requests/:bookingId',
+  authenticate,
+  authorize(ROLES.STUDENT, ROLES.ADMIN, ROLES.EDITOR, ROLES.MANAGER, ROLES.REVIEWER),
+  validate(bookingValidation.deleteBooking),
+  bookingController.deleteBooking
+);
+
 router.patch(
   '/requests/:bookingId/decision',
   authenticate,

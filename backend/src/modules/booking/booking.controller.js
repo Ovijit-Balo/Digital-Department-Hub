@@ -65,6 +65,39 @@ const cancelMyBooking = asyncHandler(async (req, res) => {
   res.status(StatusCodes.OK).json({ booking });
 });
 
+const updateBooking = asyncHandler(async (req, res) => {
+  const booking = await bookingService.updateBooking({
+    bookingId: req.params.bookingId,
+    payload: req.body,
+    user: req.user
+  });
+
+  res.locals.auditMeta = {
+    action: 'UPDATE_VENUE_BOOKING',
+    entityType: 'VenueBooking',
+    entityId: booking._id.toString(),
+    after: booking
+  };
+
+  res.status(StatusCodes.OK).json({ booking });
+});
+
+const deleteBooking = asyncHandler(async (req, res) => {
+  const booking = await bookingService.deleteBooking({
+    bookingId: req.params.bookingId,
+    user: req.user
+  });
+
+  res.locals.auditMeta = {
+    action: 'DELETE_VENUE_BOOKING',
+    entityType: 'VenueBooking',
+    entityId: booking._id.toString(),
+    before: booking
+  };
+
+  res.status(StatusCodes.OK).json({ success: true });
+});
+
 const listBookings = asyncHandler(async (req, res) => {
   const data = await bookingService.listBookings(req.query);
   res.status(StatusCodes.OK).json(data);
@@ -121,6 +154,8 @@ module.exports = {
   listVenues,
   requestBooking,
   cancelMyBooking,
+  updateBooking,
+  deleteBooking,
   listBookings,
   listMyBookings,
   listCalendar,

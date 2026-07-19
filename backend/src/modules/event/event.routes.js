@@ -43,6 +43,14 @@ router.patch(
   eventController.updateEvent
 );
 
+router.delete(
+  '/:eventId',
+  authenticate,
+  authorize(ROLES.ADMIN, ROLES.MANAGER, ROLES.EDITOR),
+  validate(eventValidation.deleteEvent),
+  eventController.deleteEvent
+);
+
 // A user's own registrations (QR passes) across events. Must be declared
 // before the parameterised routes below.
 router.get(

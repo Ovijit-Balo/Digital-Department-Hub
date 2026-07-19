@@ -25,6 +25,12 @@ export const bookingApi = {
   cancelMyBooking(bookingId) {
     return apiClient.patch(`/bookings/my-requests/${bookingId}/cancel`);
   },
+  updateBooking(bookingId, payload) {
+    return apiClient.patch(`/bookings/requests/${bookingId}`, payload);
+  },
+  deleteBooking(bookingId) {
+    return apiClient.delete(`/bookings/requests/${bookingId}`);
+  },
   reviewBooking(bookingId, payload) {
     return apiClient.patch(`/bookings/requests/${bookingId}/decision`, payload);
   },

@@ -63,6 +63,10 @@ const listManageCalendar = {
   })
 };
 
+const deleteEvent = {
+  params: Joi.object({ eventId: objectId.required() })
+};
+
 const registerForEvent = {
   params: Joi.object({ eventId: objectId.required() })
 };
@@ -117,5 +121,6 @@ module.exports = {
   listRegistrations,
   listMyRegistrations,
   cancelRegistration,
-  updateEvent
+  updateEvent,
+  deleteEvent
 };

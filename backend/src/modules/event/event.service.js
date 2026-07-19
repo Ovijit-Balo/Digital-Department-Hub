@@ -5,7 +5,12 @@ const QRCode = require('qrcode');
 const Event = require('./event.model');
 const EventRegistration = require('./eventRegistration.model');
 const ApiError = require('../../utils/ApiError');
+const { canManageResource } = require('../../utils/resourceAccess');
+const { ROLES } = require('../../config/roles');
 const { notifyEventRegistration } = require('../notification/notificationEvents');
+
+// Events may be managed by their creator or by any admin/manager/editor.
+const EVENT_MANAGER_ROLES = [ROLES.ADMIN, ROLES.MANAGER, ROLES.EDITOR];
 
 const runInTransaction = async (operation) => {
   const session = await mongoose.startSession();
@@ -333,11 +338,18 @@ const listRegistrations = async ({ eventId, query }) => {
   };
 };
 
-const updateEvent = async (eventId, payload) => {
+const updateEvent = async (eventId, payload, user) => {
   const event = await Event.findById(eventId);
 
   if (!event) {
     throw new ApiError(StatusCodes.NOT_FOUND, 'Event not found');
+  }
+
+  if (!canManageResource(user, event.createdBy, EVENT_MANAGER_ROLES)) {
+    throw new ApiError(
+      StatusCodes.FORBIDDEN,
+      'You can only modify events you created unless you are an admin, manager, or editor'
+    );
   }
 
   // Apply updates
@@ -354,6 +366,41 @@ const updateEvent = async (eventId, payload) => {
   return event;
 };
 
+// Deleting an event cascades to its source booking when one is linked: the
+// booking is marked cancelled so the two records never drift apart. The reverse
+// direction (cancelling a booking) is handled in the booking service.
+const deleteEvent = async (eventId, user) => {
+  return runInTransaction(async (session) => {
+    const event = await Event.findById(eventId).session(session);
+
+    if (!event) {
+      throw new ApiError(StatusCodes.NOT_FOUND, 'Event not found');
+    }
+
+    if (!canManageResource(user, event.createdBy, EVENT_MANAGER_ROLES)) {
+      throw new ApiError(
+        StatusCodes.FORBIDDEN,
+        'You can only delete events you created unless you are an admin, manager, or editor'
+      );
+    }
+
+    if (event.sourceBooking) {
+      // Lazy require avoids a circular dependency between the event and booking
+      // services (booking already requires the event model, not this service).
+      const VenueBooking = require('../booking/venueBooking.model');
+      const booking = await VenueBooking.findById(event.sourceBooking).session(session);
+      if (booking && booking.status === 'approved') {
+        booking.status = 'cancelled';
+        booking.eventId = undefined;
+        await booking.save({ session });
+      }
+    }
+
+    await event.deleteOne({ session });
+    return event;
+  });
+};
+
 module.exports = {
   createEvent,
   listEvents,
@@ -364,5 +411,6 @@ module.exports = {
   listRegistrations,
   listMyRegistrations,
   cancelRegistration,
-  updateEvent
+  updateEvent,
+  deleteEvent
 };

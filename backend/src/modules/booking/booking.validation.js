@@ -54,6 +54,24 @@ const cancelMyBooking = {
   params: Joi.object({ bookingId: objectId.required() })
 };
 
+const updateBooking = {
+  params: Joi.object({ bookingId: objectId.required() }),
+  body: Joi.object({
+    venue: objectId.optional(),
+    title: Joi.string().trim().min(3).max(200).optional(),
+    purpose: Joi.string().trim().min(20).max(3000).optional(),
+    bookingType: Joi.string().valid('class', 'event', 'lab', 'other').optional(),
+    classCode: Joi.string().trim().max(40).allow('').optional(),
+    startTime: Joi.date().iso().optional(),
+    endTime: Joi.date().iso().optional(),
+    attendeeCount: Joi.number().integer().min(1).optional()
+  }).min(1)
+};
+
+const deleteBooking = {
+  params: Joi.object({ bookingId: objectId.required() })
+};
+
 const decision = {
   params: Joi.object({ bookingId: objectId.required() }),
   body: Joi.object({
@@ -111,6 +129,8 @@ module.exports = {
   listVenues,
   requestBooking,
   cancelMyBooking,
+  updateBooking,
+  deleteBooking,
   decision,
   listBookings,
   listMyBookings,
